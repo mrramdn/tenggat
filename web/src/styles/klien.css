@@ -8,6 +8,8 @@
   padding: var(--s-1); list-style: none;
   background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-pop);
 }
+/* opens upwards when there is more room above (useLetakDaftar) */
+.picker__list.is-atas { top: auto; bottom: calc(100% + var(--s-1)); }
 .picker__opt {
   display: flex; align-items: center; gap: var(--s-2);
   height: var(--control-sm); padding: 0 var(--s-2); border-radius: var(--r-control);

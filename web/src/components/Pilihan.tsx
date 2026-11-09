@@ -3,6 +3,7 @@
 // keys open it; arrows move, Enter or Space choose, Escape or Tab close; Home and End jump; a letter jumps to the
 // next option that starts with it.
 import { useId, useRef, useState, type ReactNode } from 'react'
+import { useLetakDaftar } from '../hooks/useLetakDaftar'
 import { Icon } from './Icon'
 import '../styles/klien.css'
 
@@ -31,7 +32,9 @@ interface Props<T extends string> {
 export function Pilihan<T extends string>({ id, label, nilai, opsi, onPilih, disabled, className, invalid, describedBy }: Props<T>) {
   const listId = useId()
   const btnRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
   const [buka, setBuka] = useState(false)
+  useLetakDaftar(buka, listRef)
   const [aktif, setAktif] = useState(0)
   const dipilih = Math.max(0, opsi.findIndex((o) => o.nilai === nilai))
   const sorot = Math.min(aktif, opsi.length - 1)
@@ -107,7 +110,7 @@ export function Pilihan<T extends string>({ id, label, nilai, opsi, onPilih, dis
         <span className="control__teks">{opsi[dipilih]?.label ?? ''}</span>
       </button>
       {buka ? (
-        <ul className="picker__list is-lepas" id={listId} role="listbox" aria-label={label}>
+        <ul ref={listRef} className="picker__list is-lepas" id={listId} role="listbox" aria-label={label}>
           {opsi.map((o, i) => (
             <li
               key={o.nilai}

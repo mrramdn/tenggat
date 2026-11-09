@@ -35,14 +35,14 @@ function FieldError({ id, pesan }: { id: string; pesan?: string }) {
   )
 }
 
-function Kerangka({ judul, onClose, children, onSubmit, lebar = false }: { judul: string; onClose: () => void; children: ReactNode; onSubmit: () => void; lebar?: boolean }) {
+function Kerangka({ judul, onClose, children, onSubmit, lebar = false, ketikLangsung = false }: { judul: string; onClose: () => void; children: ReactNode; onSubmit: () => void; lebar?: boolean; ketikLangsung?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useModal(ref, onClose)
   const id = useId()
   return (
     <>
       <div className="scrim" style={{ zIndex: 32 }} onClick={onClose} aria-hidden="true" />
-      <div ref={ref} className={lebar ? 'dialog tg-dialog is-wide' : 'dialog tg-dialog'} style={{ zIndex: 33 }} role="dialog" aria-modal="true" aria-labelledby={id}>
+      <div ref={ref} className={lebar ? 'dialog tg-dialog is-wide' : 'dialog tg-dialog'} style={{ zIndex: 33 }} data-ketik-langsung={ketikLangsung ? '' : undefined} role="dialog" aria-modal="true" aria-labelledby={id}>
         <form
           noValidate
           onSubmit={(e) => {
@@ -164,7 +164,7 @@ export function TugasDialog({ klienId, tugas, contoh, onClose, onSaved }: TugasD
 
   const ulangValid = n >= 1 && n <= 365
   return (
-    <Kerangka judul={tugas ? 'Ubah tugas' : 'Tambah tugas'} onClose={onClose} onSubmit={kirim} lebar>
+    <Kerangka judul={tugas ? 'Ubah tugas' : 'Tambah tugas'} onClose={onClose} onSubmit={kirim} lebar ketikLangsung={!tugas}>
       <GalatUmum pesan={galatUmum} />
       <div className="field">
         <label className="field__label" htmlFor={id('judul')}>
@@ -311,7 +311,7 @@ export function TugasDialog({ klienId, tugas, contoh, onClose, onSaved }: TugasD
         />
         <FieldError id={id('catatan-e')} pesan={galat.catatan} />
       </div>
-      <Kaki onClose={onClose} sedang={simpan.isPending} label="Simpan" labelSedang="Menyimpan" bisa={!simpan.isPending} />
+      <Kaki onClose={onClose} sedang={simpan.isPending} label="Simpan" labelSedang="Menyimpan" bisa={judul.trim() !== '' && !simpan.isPending} />
     </Kerangka>
   )
 }

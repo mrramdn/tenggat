@@ -9,6 +9,10 @@ export const adaModal = () => tumpukan.length > 0
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+const isianTeks = (n: HTMLElement) =>
+  n instanceof HTMLTextAreaElement ||
+  (n instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'file', 'color', 'range'].includes(n.type))
+
 /**
  * Modal behaviour for a dialog element: moves focus inside on open (to the
  * element marked data-autofocus, else the first focusable one), keeps Tab
@@ -25,7 +29,15 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
     tumpukan.push(token)
     const opener = document.activeElement as HTMLElement | null
     const first = el.querySelector<HTMLElement>('[data-autofocus]') ?? el.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? el).focus()
+    // On a touch screen a focused text field opens the keyboard over half the dialog. Focus the dialog itself
+    // instead, unless the dialog is a form to fill in right away (data-ketik-langsung, e.g. a new asset).
+    const sentuh = window.matchMedia?.('(pointer: coarse)').matches ?? false
+    if (sentuh && first && isianTeks(first) && !el.hasAttribute('data-ketik-langsung')) {
+      if (!el.hasAttribute('tabindex')) el.tabIndex = -1
+      el.focus()
+    } else {
+      ;(first ?? el).focus()
+    }
 
     function onKey(e: KeyboardEvent) {
       if (!el || tumpukan[tumpukan.length - 1] !== token) return

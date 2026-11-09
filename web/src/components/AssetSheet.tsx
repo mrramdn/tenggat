@@ -401,7 +401,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   return (
     <>
       <div className="scrim" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-labelledby={id('judul')} tabIndex={-1}>
+      <div ref={ref} className="sheet" data-ketik-langsung={item ? undefined : ''} role="dialog" aria-modal="true" aria-labelledby={id('judul')} tabIndex={-1}>
         <form
           noValidate
           onSubmit={(e) => {

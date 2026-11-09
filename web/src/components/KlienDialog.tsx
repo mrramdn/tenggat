@@ -47,7 +47,7 @@ export function KlienDialog({ klien, onClose, onSaved }: Props) {
   return (
     <>
       <div className="scrim" style={{ zIndex: 32 }} onClick={onClose} aria-hidden="true" />
-      <div ref={ref} className="dialog klien-dialog" style={{ zIndex: 33 }} role="dialog" aria-modal="true" aria-labelledby={id('j')}>
+      <div ref={ref} className="dialog klien-dialog" style={{ zIndex: 33 }} data-ketik-langsung={klien ? undefined : ''} role="dialog" aria-modal="true" aria-labelledby={id('j')}>
         <form
           noValidate
           onSubmit={(e) => {

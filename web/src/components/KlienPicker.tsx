@@ -3,6 +3,7 @@
 // A new name is sent with the asset and the API creates the client on save.
 import { useId, useMemo, useRef, useState } from 'react'
 import type { Klien } from '../lib/api'
+import { useLetakDaftar } from '../hooks/useLetakDaftar'
 import { Icon } from './Icon'
 import '../styles/klien.css'
 
@@ -30,6 +31,7 @@ export function KlienPicker({ id, klien, value, onChange, invalid, describedBy }
   const inputRef = useRef<HTMLInputElement>(null)
   const [teks, setTeks] = useState(value.nama)
   const [buka, setBuka] = useState(false)
+  const listRef = useRef<HTMLUListElement>(null)
   const [aktif, setAktif] = useState(0)
   // Filter only after the user types; on open every client is listed.
   const [mengetik, setMengetik] = useState(false)
@@ -73,6 +75,7 @@ export function KlienPicker({ id, klien, value, onChange, invalid, describedBy }
   }
 
   const sorot = Math.min(aktif, opsi.length - 1)
+  useLetakDaftar(buka, listRef, opsi.length)
   const optId = (i: number) => `${listId}-o${i}`
   const terpilih = (o: Opsi) =>
     o.kind === 'tanpa' ? !value.id && !value.nama : o.kind === 'klien' ? o.klien.id === value.id : false
@@ -126,7 +129,7 @@ export function KlienPicker({ id, klien, value, onChange, invalid, describedBy }
         }}
       />
       {buka ? (
-        <ul className="picker__list" id={listId} role="listbox" aria-label="Klien">
+        <ul ref={listRef} className="picker__list" id={listId} role="listbox" aria-label="Klien">
           {opsi.map((o, i) => (
             <li
               key={o.kind === 'klien' ? o.klien.id : o.kind}
