@@ -40,10 +40,10 @@ import (
 var bootstrapJSON []byte
 
 var (
-	ErrInvalidDomain = errors.New("nama domain tidak valid; tulis domain seperti tokoku.id")
+	ErrInvalidDomain = errors.New("nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id")
 	ErrNoRDAP        = errors.New("registri domain ini belum menyediakan RDAP")
 	ErrNotFound      = errors.New("domain tidak ditemukan di registri")
-	ErrNoExpiration  = errors.New("registri tidak mencantumkan tanggal kedaluwarsa domain ini")
+	ErrNoExpiration  = errors.New("registri tidak mencantumkan tanggal berakhir domain ini")
 	ErrUnreachable   = errors.New("registri tidak dapat dihubungi")
 	ErrBadResponse   = errors.New("jawaban registri tidak dapat dibaca")
 )

@@ -355,7 +355,7 @@ func (s *Server) digestText(ctx context.Context, userID string, now time.Time) (
 			written++
 		}
 	}
-	section("Lewat tanggal:", overdue)
+	section("Lewat:", overdue)
 	section("Jatuh tempo 7 hari ke depan:", soon)
 	if total > written {
 		b.WriteString("\n…dan " + strconv.Itoa(total-written) + " lainnya.")

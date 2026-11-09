@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	ErrInvalidHost   = errors.New("host tidak valid; tulis nama domain seperti tokoku.id")
+	ErrInvalidHost   = errors.New("alamat situs tidak valid. Tulis nama domain, misalnya tokokuemawar.id")
 	ErrBlockedHost   = errors.New("host ini mengarah ke alamat jaringan lokal atau privat dan tidak dapat diperiksa")
 	ErrNotFound      = errors.New("host tidak ditemukan di DNS")
 	ErrUnreachable   = errors.New("server tidak dapat dihubungi di port 443")

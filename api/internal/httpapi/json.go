@@ -118,9 +118,9 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 		d, err := time.Parse(time.DateOnly, strings.TrimSpace(req.Kedaluwarsa))
 		switch {
 		case err != nil:
-			fields["kedaluwarsa"] = "Isi tanggal kedaluwarsa dengan format TTTT-BB-HH."
+			fields["kedaluwarsa"] = "Isi tanggal berakhir dengan format TTTT-BB-HH."
 		case d.Year() < 2000 || d.Year() > 2100:
-			fields["kedaluwarsa"] = "Tanggal kedaluwarsa di luar rentang yang masuk akal."
+			fields["kedaluwarsa"] = "Tanggal berakhir di luar rentang yang masuk akal."
 		default:
 			in.Kedaluwarsa = d
 		}
@@ -202,7 +202,7 @@ func writeError(w http.ResponseWriter, status int, message string, fields map[st
 }
 
 func writeNotFound(w http.ResponseWriter) {
-	writeError(w, http.StatusNotFound, "Item tidak ditemukan.", nil)
+	writeError(w, http.StatusNotFound, "Aset tidak ditemukan.", nil)
 }
 
 // decodeJSON reads a single JSON object of at most 16 KB with no unknown
@@ -215,7 +215,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 		err = errors.New("lebih dari satu objek JSON")
 	}
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Isi permintaan bukan JSON yang valid untuk endpoint ini.", nil)
+		writeError(w, http.StatusBadRequest, "Isi permintaan harus berupa JSON yang valid.", nil)
 		return false
 	}
 	return true

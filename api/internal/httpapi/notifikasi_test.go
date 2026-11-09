@@ -274,7 +274,7 @@ func TestDailyDigest(t *testing.T) {
 	if n := s.sendDigests(context.Background(), at8); n != 1 {
 		t.Fatalf("08.00: %d sent, want 1", n)
 	}
-	want := "Tenggat, ringkasan 9 Nov 2026\n\nLewat tanggal:\n- Domain lama (Studio Rana): lewat 3 hari, 6 Nov 2026" +
+	want := "Tenggat, ringkasan 9 Nov 2026\n\nLewat:\n- Domain lama (Studio Rana): lewat 3 hari, 6 Nov 2026" +
 		"\n\nJatuh tempo 7 hari ke depan:\n- Token API: hari ini\n- Tugas Backup (Studio Rana): besok, 10 Nov 2026" +
 		"\n- VPS: 7 hari lagi, 16 Nov 2026\n\nBuka Tenggat: https://tenggat.example/app"
 	if got := tr.sent()[0]; got != mustJSON(map[string]string{"text": want}) {

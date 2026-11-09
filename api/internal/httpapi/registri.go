@@ -81,11 +81,11 @@ func registryMessage(err error, domain string) string {
 	case errors.As(err, &noRDAP):
 		return "Registri ." + noRDAP.TLD + " belum menyediakan RDAP. Isi tanggalnya sendiri."
 	case errors.Is(err, rdap.ErrInvalidDomain):
-		return "Nama domain tidak valid. Tulis domain seperti tokoku.id."
+		return "Nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id."
 	case errors.Is(err, rdap.ErrNotFound):
 		return "Domain " + domain + " tidak ditemukan di registri. Periksa ejaannya, atau isi tanggalnya sendiri."
 	case errors.Is(err, rdap.ErrNoExpiration):
-		return "Registri tidak mencantumkan tanggal kedaluwarsa " + domain + ". Isi tanggalnya sendiri."
+		return "Registri tidak mencantumkan tanggal berakhir " + domain + ". Isi tanggalnya sendiri."
 	case errors.Is(err, rdap.ErrUnreachable):
 		return "Registri ." + rdap.TLD(domain) + " tidak dapat dihubungi saat ini. Coba lagi sebentar lagi, atau isi tanggalnya sendiri."
 	default:

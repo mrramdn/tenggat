@@ -87,14 +87,28 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 	nama := strings.TrimSpace(req.Nama)
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	fields := map[string]string{}
-	if n := utf8.RuneCountInString(nama); n < 2 || n > 80 {
-		fields["nama"] = "Nama harus 2 sampai 80 karakter."
+	// An empty field asks for the value; a limit is named only when the value breaks it.
+	switch n := utf8.RuneCountInString(nama); {
+	case n == 0:
+		fields["nama"] = "Isi nama Anda."
+	case n < 2:
+		fields["nama"] = "Nama minimal 2 karakter."
+	case n > 80:
+		fields["nama"] = "Nama maksimal 80 karakter."
 	}
-	if !validEmail(email) {
-		fields["email"] = "Tulis alamat email yang valid, misalnya nama@contoh.id."
+	switch {
+	case email == "":
+		fields["email"] = "Isi email Anda."
+	case !validEmail(email):
+		fields["email"] = "Tulis email yang valid, misalnya nama@contoh.id."
 	}
-	if n := utf8.RuneCountInString(req.KataSandi); n < 8 || n > 128 {
-		fields["kata_sandi"] = "Kata sandi minimal 8 dan maksimal 128 karakter."
+	switch n := utf8.RuneCountInString(req.KataSandi); {
+	case n == 0:
+		fields["kata_sandi"] = "Isi kata sandi Anda."
+	case n < 8:
+		fields["kata_sandi"] = "Kata sandi minimal 8 karakter."
+	case n > 128:
+		fields["kata_sandi"] = "Kata sandi maksimal 128 karakter."
 	}
 	if len(fields) > 0 {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
@@ -128,8 +142,11 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	fields := map[string]string{}
-	if email == "" {
+	switch {
+	case email == "":
 		fields["email"] = "Isi email Anda."
+	case !validEmail(email):
+		fields["email"] = "Tulis email yang valid, misalnya nama@contoh.id."
 	}
 	if req.KataSandi == "" {
 		fields["kata_sandi"] = "Isi kata sandi Anda."

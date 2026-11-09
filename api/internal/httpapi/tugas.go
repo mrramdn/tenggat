@@ -102,7 +102,7 @@ func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID str
 		in.UlangJumlah = *req.UlangJumlah
 	}
 	if in.UlangJumlah < 1 || in.UlangJumlah > 365 {
-		fields["ulang_jumlah"] = "Ulangi setiap 1 sampai 365."
+		fields["ulang_jumlah"] = "Isi angka 1 sampai 365."
 	}
 	if in.UlangSatuan == "" {
 		in.UlangSatuan = "bulan"
@@ -318,7 +318,7 @@ func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.P
 func decodeOptionalJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16<<10))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Isi permintaan bukan JSON yang valid untuk endpoint ini.", nil)
+		writeError(w, http.StatusBadRequest, "Isi permintaan harus berupa JSON yang valid.", nil)
 		return false
 	}
 	if len(bytes.TrimSpace(body)) == 0 {
@@ -331,7 +331,7 @@ func decodeOptionalJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 		err = errors.New("lebih dari satu objek JSON")
 	}
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Isi permintaan bukan JSON yang valid untuk endpoint ini.", nil)
+		writeError(w, http.StatusBadRequest, "Isi permintaan harus berupa JSON yang valid.", nil)
 		return false
 	}
 	return true
