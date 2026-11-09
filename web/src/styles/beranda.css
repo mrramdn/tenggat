@@ -88,7 +88,7 @@
 .separuh__hari.is-lewat { color: var(--st-lewat); }
 .separuh__dl {
   display: grid; grid-template-columns: var(--b-label-w) minmax(0, 1fr); row-gap: var(--s-1);
-  margin-top: auto; padding-top: var(--s-3); border-top: var(--bw) solid var(--line);
+  padding-top: var(--s-3); border-top: var(--bw) solid var(--line);
   font-size: var(--fs-13); line-height: var(--lh-20);
 }
 .separuh__dl dt { color: var(--muted); }
@@ -108,7 +108,7 @@
   max-width: 880px; font-size: var(--b-untuk); line-height: 1.3; letter-spacing: var(--track-title); font-weight: var(--fw-regular);
   color: var(--ink); text-wrap: pretty;
 }
-.b-untuk__lanjut { color: var(--quiet); }
+.b-untuk__lanjut { color: var(--muted); }
 
 /* ---------- the app in pieces ---------- */
 .b-bagian {
