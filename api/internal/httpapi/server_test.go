@@ -33,6 +33,7 @@ type memStore struct {
 	sessions map[string]memSession     // by token hash
 	next     int
 	pingErr  error
+	klien    map[string]store.Klien // by id; see klien_test.go
 }
 
 func newMemStore() *memStore {
@@ -57,7 +58,7 @@ func (m *memStore) List(_ context.Context, userID string, f store.Filter, now ti
 		if f.Status != "" && expiry.For(expiry.DaysLeft(it.Kedaluwarsa, now)) != f.Status {
 			continue
 		}
-		if f.Klien != "" && it.Klien != f.Klien {
+		if (f.Klien != "" && !strings.EqualFold(it.Klien, f.Klien)) || (f.KlienID != "" && deref(it.KlienID) != f.KlienID) {
 			continue
 		}
 		out = append(out, it)
@@ -219,7 +220,7 @@ func (m *memStore) DeleteUser(_ context.Context, userID string) error {
 func (m *memStore) DeleteExpiredSessions(context.Context, time.Time) (int64, error) { return 0, nil }
 
 func fromInput(id, userID string, in store.Input) store.Item {
-	return store.Item{ID: id, PenggunaID: userID, Nama: in.Nama, Jenis: in.Jenis, Klien: in.Klien, Host: in.Host,
+	return store.Item{ID: id, PenggunaID: userID, Nama: in.Nama, Jenis: in.Jenis, Klien: in.Klien, KlienID: in.KlienID, Host: in.Host,
 		Kedaluwarsa: in.Kedaluwarsa, Sumber: in.Sumber, Biaya: in.Biaya, Catatan: in.Catatan,
 		InfoTLS: in.InfoTLS, TerakhirDicek: in.Dicek, InfoRegistri: in.Registri}
 }

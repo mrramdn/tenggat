@@ -17,10 +17,10 @@ type RegistryInfo struct {
 
 // SaveRegistryCheck stores a successful registry lookup of a domain item.
 func (s *Store) SaveRegistryCheck(ctx context.Context, id string, date time.Time, info RegistryInfo, at time.Time) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET
 		kedaluwarsa = $2, info_registri = $3, terakhir_dicek = $4, galat_cek = NULL, diubah = now()
 		WHERE id = $1 AND sumber = 'registri'
-		RETURNING `+columns, id, date, info, at))
+		`+returning, id, date, info, at))
 }
 
 // SetCalendarToken stores the hash of a user's calendar link token, replacing

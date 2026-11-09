@@ -32,7 +32,8 @@ type Item struct {
 	PenggunaID    string
 	Nama          string
 	Jenis         string
-	Klien         string
+	Klien         string  // the client's name, "" when the asset has no client
+	KlienID       *string // nil when the asset has no client
 	Host          *string
 	Kedaluwarsa   time.Time // a calendar date at midnight UTC
 	Sumber        string
@@ -50,7 +51,8 @@ type Item struct {
 type Input struct {
 	Nama        string
 	Jenis       string
-	Klien       string
+	Klien       string  // the name the client sent; the handler resolves it to KlienID
+	KlienID     *string // what is stored; nil means no client
 	Host        *string
 	Kedaluwarsa time.Time
 	Sumber      string
@@ -63,11 +65,12 @@ type Input struct {
 
 // Filter narrows a listing. Empty fields mean no filter.
 type Filter struct {
-	Status expiry.Status
-	Klien  string
+	Status  expiry.Status
+	Klien   string // a client's name, matched without regard to case
+	KlienID string
 }
 
-// Summary counts items per status and lists the known clients.
+// Summary counts items per status and lists the names of the user's clients.
 type Summary struct {
 	Lewat  int      `json:"lewat"`
 	Kritis int      `json:"kritis"`
@@ -103,12 +106,21 @@ func (s *Store) Close() { s.pool.Close() }
 // Ping checks that the database answers.
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
-const columns = `id, pengguna_id, nama, jenis, klien, host, kedaluwarsa, sumber, biaya, catatan,
-	info_tls, terakhir_dicek, galat_cek, dibuat, diubah, info_registri`
+// columns are read from item AS i joined with its client AS k (see fromItem and
+// returning), so every query hands back the client's current name.
+const columns = `i.id, i.pengguna_id, i.nama, i.jenis, COALESCE(k.nama, ''), i.klien_id, i.host, i.kedaluwarsa,
+	i.sumber, i.biaya, i.catatan, i.info_tls, i.terakhir_dicek, i.galat_cek, i.dibuat, i.diubah,
+	i.info_registri`
+
+const fromItem = `item AS i LEFT JOIN klien AS k ON k.id = i.klien_id`
+
+// returning ends a statement written as "WITH i AS (INSERT/UPDATE ... RETURNING *"
+// by selecting the written row with its client's name.
+const returning = `RETURNING *) SELECT ` + columns + ` FROM i LEFT JOIN klien AS k ON k.id = i.klien_id`
 
 func scanItem(row pgx.Row) (Item, error) {
 	var it Item
-	err := row.Scan(&it.ID, &it.PenggunaID, &it.Nama, &it.Jenis, &it.Klien, &it.Host, &it.Kedaluwarsa, &it.Sumber,
+	err := row.Scan(&it.ID, &it.PenggunaID, &it.Nama, &it.Jenis, &it.Klien, &it.KlienID, &it.Host, &it.Kedaluwarsa, &it.Sumber,
 		&it.Biaya, &it.Catatan, &it.InfoTLS, &it.TerakhirDicek, &it.GalatCek, &it.Dibuat, &it.Diubah,
 		&it.InfoRegistri)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -136,16 +148,20 @@ func statusRange(st expiry.Status, today time.Time) (from, to *time.Time) {
 // List returns one user's items ordered by the nearest expiry date.
 func (s *Store) List(ctx context.Context, userID string, f Filter, now time.Time) ([]Item, error) {
 	from, to := statusRange(f.Status, expiry.DateOf(now))
-	var klien *string
+	var klien, klienID *string
 	if f.Klien != "" {
 		klien = &f.Klien
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM item
-		WHERE pengguna_id = $4
-		  AND ($1::date IS NULL OR kedaluwarsa >= $1)
-		  AND ($2::date IS NULL OR kedaluwarsa <= $2)
-		  AND ($3::text IS NULL OR klien = $3)
-		ORDER BY kedaluwarsa, nama`, from, to, klien, userID)
+	if f.KlienID != "" {
+		klienID = &f.KlienID
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM `+fromItem+`
+		WHERE i.pengguna_id = $4
+		  AND ($1::date IS NULL OR i.kedaluwarsa >= $1)
+		  AND ($2::date IS NULL OR i.kedaluwarsa <= $2)
+		  AND ($3::text IS NULL OR lower(k.nama) = lower($3))
+		  AND ($5::uuid IS NULL OR i.klien_id = $5)
+		ORDER BY i.kedaluwarsa, i.nama`, from, to, klien, userID, klienID)
 	if err != nil {
 		return nil, err
 	}
@@ -163,31 +179,31 @@ func (s *Store) List(ctx context.Context, userID string, f Filter, now time.Time
 
 // Get returns one of a user's items. Another user's item is reported as not found.
 func (s *Store) Get(ctx context.Context, userID, id string) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `SELECT `+columns+` FROM item WHERE id = $1 AND pengguna_id = $2`, id, userID))
+	return scanItem(s.pool.QueryRow(ctx, `SELECT `+columns+` FROM `+fromItem+` WHERE i.id = $1 AND i.pengguna_id = $2`, id, userID))
 }
 
 // Create inserts an item for a user and returns it as stored.
 func (s *Store) Create(ctx context.Context, userID string, in Input) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `INSERT INTO item
-		(pengguna_id, nama, jenis, klien, host, kedaluwarsa, sumber, biaya, catatan, info_tls, terakhir_dicek,
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (INSERT INTO item
+		(pengguna_id, nama, jenis, klien_id, host, kedaluwarsa, sumber, biaya, catatan, info_tls, terakhir_dicek,
 		 info_registri)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING `+columns,
-		userID, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek,
+		`+returning,
+		userID, in.Nama, in.Jenis, in.KlienID, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek,
 		in.Registri))
 }
 
 // Update replaces the editable fields of one of a user's items.
 func (s *Store) Update(ctx context.Context, userID, id string, in Input) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET
-		nama = $2, jenis = $3, klien = $4, host = $5, kedaluwarsa = $6, sumber = $7, biaya = $8,
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET
+		nama = $2, jenis = $3, klien_id = $4, host = $5, kedaluwarsa = $6, sumber = $7, biaya = $8,
 		catatan = $9, info_tls = $10, info_registri = $13,
 		terakhir_dicek = COALESCE($11, terakhir_dicek),
 		galat_cek = CASE WHEN $11::timestamptz IS NULL AND $7 <> 'manual' THEN galat_cek END,
 		diubah = now()
 		WHERE id = $1 AND pengguna_id = $12
-		RETURNING `+columns,
-		id, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek, userID,
+		`+returning,
+		id, in.Nama, in.Jenis, in.KlienID, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek, userID,
 		in.Registri))
 }
 
@@ -205,24 +221,24 @@ func (s *Store) Delete(ctx context.Context, userID, id string) error {
 
 // SaveCheck stores a successful certificate check.
 func (s *Store) SaveCheck(ctx context.Context, id string, date time.Time, info TLSInfo, at time.Time) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET
 		kedaluwarsa = $2, info_tls = $3, terakhir_dicek = $4, galat_cek = NULL, diubah = now()
 		WHERE id = $1 AND jenis = 'sertifikat'
-		RETURNING `+columns, id, date, info, at))
+		`+returning, id, date, info, at))
 }
 
 // SaveCheckError records a failed certificate or registry check and keeps the last known date.
 func (s *Store) SaveCheckError(ctx context.Context, id, message string, at time.Time) (Item, error) {
-	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET terakhir_dicek = $2, galat_cek = $3
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET terakhir_dicek = $2, galat_cek = $3
 		WHERE id = $1 AND (jenis = 'sertifikat' OR sumber = 'registri')
-		RETURNING `+columns, id, at, message))
+		`+returning, id, at, message))
 }
 
 // DueForCheck lists certificates and registry domains not checked since the given time.
 func (s *Store) DueForCheck(ctx context.Context, before time.Time) ([]Item, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM item
-		WHERE (jenis = 'sertifikat' OR sumber = 'registri') AND (terakhir_dicek IS NULL OR terakhir_dicek < $1)
-		ORDER BY terakhir_dicek NULLS FIRST`, before)
+	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM `+fromItem+`
+		WHERE (i.jenis = 'sertifikat' OR i.sumber = 'registri') AND (i.terakhir_dicek IS NULL OR i.terakhir_dicek < $1)
+		ORDER BY i.terakhir_dicek NULLS FIRST`, before)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +254,7 @@ func (s *Store) DueForCheck(ctx context.Context, before time.Time) ([]Item, erro
 	return items, rows.Err()
 }
 
-// Summary counts a user's items per status for today and lists the clients in use.
+// Summary counts a user's items per status for today and lists the user's clients.
 func (s *Store) Summary(ctx context.Context, userID string, now time.Time) (Summary, error) {
 	var sum Summary
 	today := expiry.DateOf(now)
@@ -252,7 +268,7 @@ func (s *Store) Summary(ctx context.Context, userID string, now time.Time) (Summ
 	if err != nil {
 		return sum, fmt.Errorf("count: %w", err)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT DISTINCT klien FROM item WHERE pengguna_id = $1 AND klien <> '' ORDER BY klien`, userID)
+	rows, err := s.pool.Query(ctx, `SELECT nama FROM klien WHERE pengguna_id = $1 ORDER BY lower(nama), nama`, userID)
 	if err != nil {
 		return sum, err
 	}

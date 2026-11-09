@@ -23,6 +23,7 @@ type itemJSON struct {
 	Nama          string         `json:"nama"`
 	Jenis         string         `json:"jenis"`
 	Klien         string         `json:"klien"`
+	KlienID       *string        `json:"klien_id"`
 	Host          *string        `json:"host"`
 	Kedaluwarsa   string         `json:"kedaluwarsa"`
 	SisaHari      int            `json:"sisa_hari"`
@@ -43,7 +44,7 @@ type itemJSON struct {
 func toJSON(it store.Item, now time.Time) itemJSON {
 	days := expiry.DaysLeft(it.Kedaluwarsa, now)
 	return itemJSON{
-		ID: it.ID, Nama: it.Nama, Jenis: it.Jenis, Klien: it.Klien, Host: it.Host,
+		ID: it.ID, Nama: it.Nama, Jenis: it.Jenis, Klien: it.Klien, KlienID: it.KlienID, Host: it.Host,
 		Kedaluwarsa: it.Kedaluwarsa.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days),
 		Sumber: it.Sumber, Biaya: it.Biaya, Catatan: it.Catatan, TLS: it.InfoTLS, Registri: it.InfoRegistri,
 		TerakhirDicek: it.TerakhirDicek, GalatCek: it.GalatCek, Dibuat: it.Dibuat, Diubah: it.Diubah,
@@ -52,13 +53,14 @@ func toJSON(it store.Item, now time.Time) itemJSON {
 
 // itemRequest is the body of POST /api/item and PUT /api/item/{id}.
 type itemRequest struct {
-	Nama        string `json:"nama"`
-	Jenis       string `json:"jenis"`
-	Klien       string `json:"klien"`
-	Host        string `json:"host"`
-	Kedaluwarsa string `json:"kedaluwarsa"`
-	Biaya       *int64 `json:"biaya"`
-	Catatan     string `json:"catatan"`
+	Nama        string  `json:"nama"`
+	Jenis       string  `json:"jenis"`
+	Klien       string  `json:"klien"`    // a client's name; ignored when klien_id is set
+	KlienID     *string `json:"klien_id"` // one of the user's clients
+	Host        string  `json:"host"`
+	Kedaluwarsa string  `json:"kedaluwarsa"`
+	Biaya       *int64  `json:"biaya"`
+	Catatan     string  `json:"catatan"`
 }
 
 var jenisValid = map[string]bool{"sertifikat": true, "domain": true, "token": true, "langganan": true, "lainnya": true}

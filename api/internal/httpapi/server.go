@@ -37,6 +37,7 @@ type Store interface {
 
 	RegistryStore
 	CalendarStore
+	KlienStore
 }
 
 // Checker reads a host's certificate.
@@ -93,6 +94,10 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/domain", s.limit(s.user(s.previewDomain)))
 	mux.HandleFunc("GET /api/item.csv", s.user(s.exportCSV))
 	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
+	mux.HandleFunc("GET /api/klien", s.user(s.listKlien))
+	mux.HandleFunc("POST /api/klien", s.limit(s.user(s.createKlien)))
+	mux.HandleFunc("PUT /api/klien/{id}", s.limit(s.user(s.updateKlien)))
+	mux.HandleFunc("DELETE /api/klien/{id}", s.limit(s.user(s.deleteKlien)))
 	mux.HandleFunc("GET /api/kalender.ics", s.user(s.calendar))
 	mux.HandleFunc("POST /api/kalender/tautan", s.limit(s.user(s.createCalendarLink)))
 	mux.HandleFunc("DELETE /api/kalender/tautan", s.limit(s.user(s.deleteCalendarLink)))
@@ -124,13 +129,18 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
-	f := store.Filter{Status: expiry.Status(r.URL.Query().Get("status")), Klien: r.URL.Query().Get("klien")}
+	q := r.URL.Query()
+	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id")}
 	if f.Status != "" && !f.Status.Valid() {
 		writeError(w, http.StatusUnprocessableEntity, "Status tidak dikenal.",
 			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
 		return
 	}
-	s.cachedRead(w, r, u.ID, "daftar:"+string(f.Status)+":"+f.Klien, func(now time.Time) (any, error) {
+	if f.KlienID != "" && !uuidPattern.MatchString(f.KlienID) {
+		writeError(w, http.StatusUnprocessableEntity, "Klien tidak dikenal.", map[string]string{"klien_id": "Klien tidak ditemukan."})
+		return
+	}
+	s.cachedRead(w, r, u.ID, "daftar:"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
 		items, err := s.Store.List(r.Context(), u.ID, f, now)
 		if err != nil {
 			return nil, err
@@ -174,9 +184,8 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request, u store.Peng
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, fields := s.prepare(r.Context(), req)
-	if fields != nil {
-		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
+	in, ok := s.prepareItem(w, r, u.ID, req)
+	if !ok {
 		return
 	}
 	it, err := s.Store.Create(r.Context(), u.ID, in)
@@ -206,9 +215,8 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Peng
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, fields := s.prepare(r.Context(), req)
-	if fields != nil {
-		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
+	in, ok := s.prepareItem(w, r, u.ID, req)
+	if !ok {
 		return
 	}
 	it, err := s.Store.Update(r.Context(), u.ID, id, in)
