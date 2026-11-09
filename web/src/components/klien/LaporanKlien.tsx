@@ -52,6 +52,11 @@ export function teksWhatsApp(l: Laporan, url: string | null): string {
 }
 
 export function LaporanKlien({ klienId }: { klienId: string }) {
+  // A fresh editor per client, so one client's unsaved summary never shows under another.
+  return <Isi key={klienId} klienId={klienId} />
+}
+
+function Isi({ klienId }: { klienId: string }) {
   const uid = useId()
   const qc = useQueryClient()
   const kini = bulanIni()
@@ -256,7 +261,7 @@ export function LaporanKlien({ klienId }: { klienId: string }) {
       </div>
 
       <div className="lk__isi">
-        <div className="lk__pratinjau" aria-busy={q.isFetching} aria-live="polite">
+        <div className="lk__pratinjau" aria-busy={q.isFetching}>
           {q.isError && !l ? (
             <div className="lk__galat" role="alert">
               <b>Laporan tidak dapat dimuat.</b>
