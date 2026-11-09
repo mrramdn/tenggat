@@ -28,7 +28,7 @@ type KlienRingkas struct {
 	Klien
 	JumlahAset  int
 	Terdekat    *time.Time // the earliest expiry date among its assets, nil without assets
-	Biaya30Hari int64      // the summed cost of assets that expire from today to 30 days ahead
+	Biaya30Hari int64      // the summed cost of assets due within 30 days, overdue ones included
 }
 
 const klienColumns = `id, pengguna_id, nama, catatan, dibuat`
@@ -47,12 +47,12 @@ func scanKlien(row pgx.Row) (Klien, error) {
 }
 
 // ListKlien returns a user's clients sorted by name, each with its asset count,
-// nearest expiry date and the cost due in the next 30 days. "Today" is the
-// date in Jakarta, as in Summary.
+// nearest expiry date and the cost due within 30 days, overdue assets included like the
+// dashboard's renewal sentence. "Today" is the date in Jakarta, as in Summary.
 func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]KlienRingkas, error) {
 	rows, err := s.pool.Query(ctx, `SELECT k.id, k.pengguna_id, k.nama, k.catatan, k.dibuat,
 		count(i.id), min(i.kedaluwarsa),
-		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa BETWEEN $2::date AND $2::date + 30), 0)
+		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa <= $2::date + 30), 0)
 		FROM klien AS k LEFT JOIN item AS i ON i.klien_id = k.id
 		WHERE k.pengguna_id = $1
 		GROUP BY k.id

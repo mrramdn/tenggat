@@ -42,7 +42,7 @@ func (m *memStore) ListKlien(_ context.Context, userID string, now time.Time) ([
 				d := it.Kedaluwarsa
 				r.Terdekat = &d
 			}
-			if days := expiry.DaysLeft(it.Kedaluwarsa, now); days >= 0 && days <= 30 && it.Biaya != nil {
+			if expiry.DaysLeft(it.Kedaluwarsa, now) <= 30 && it.Biaya != nil {
 				r.Biaya30Hari += *it.Biaya
 			}
 		}
@@ -145,8 +145,10 @@ func TestKlienCreateListRenameDelete(t *testing.T) {
 	}
 	do(t, h, "POST", "/api/klien", `{"nama":"Apotek Sehat"}`, c)
 
-	// Two assets for Studio Rana: one due in 9 days with a cost, one next year.
+	// Three assets for Studio Rana: one overdue and one due in 9 days, both with a cost
+	// (the 30-day cost counts overdue assets too, like the dashboard), and one next year.
 	for _, body := range []string{
+		`{"nama":"Lisensi font","jenis":"lainnya","kedaluwarsa":"2026-11-01","biaya":450000,"klien_id":"` + k.ID + `"}`,
 		`{"nama":"studiorana.co.id","jenis":"domain","kedaluwarsa":"2026-11-18","biaya":250000,"klien_id":"` + k.ID + `"}`,
 		`{"nama":"Hosting","jenis":"langganan","kedaluwarsa":"2027-06-01","biaya":900000,"klien_id":"` + k.ID + `"}`,
 	} {
@@ -159,19 +161,19 @@ func TestKlienCreateListRenameDelete(t *testing.T) {
 	if len(list) != 2 || list[0].Nama != "Apotek Sehat" || list[1].Nama != "Studio Rana" {
 		t.Fatalf("list %+v", list)
 	}
-	if got := list[1]; got.JumlahAset != 2 || got.Terdekat == nil || *got.Terdekat != "2026-11-18" || got.Biaya30Hari != 250000 {
+	if got := list[1]; got.JumlahAset != 3 || got.Terdekat == nil || *got.Terdekat != "2026-11-01" || got.Biaya30Hari != 700000 {
 		t.Errorf("figures %+v", got)
 	}
 
 	rec = do(t, h, "PUT", "/api/klien/"+k.ID, `{"nama":"Studio Rana Kreatif","catatan":""}`, c)
-	if rec.Code != http.StatusOK || decode[klienJSON](t, rec).JumlahAset != 2 {
+	if rec.Code != http.StatusOK || decode[klienJSON](t, rec).JumlahAset != 3 {
 		t.Fatalf("rename: %d %s", rec.Code, rec.Body)
 	}
 	items := decode[struct{ Item []itemJSON }](t, do(t, h, "GET", "/api/item?klien_id="+k.ID, "", c)).Item
-	if len(items) != 2 || items[0].Klien != "Studio Rana Kreatif" || deref(items[0].KlienID) != k.ID {
+	if len(items) != 3 || items[0].Klien != "Studio Rana Kreatif" || deref(items[0].KlienID) != k.ID {
 		t.Errorf("items after rename %+v", items)
 	}
-	if n := len(decode[struct{ Item []itemJSON }](t, do(t, h, "GET", "/api/item?klien=studio%20rana%20kreatif", "", c)).Item); n != 2 {
+	if n := len(decode[struct{ Item []itemJSON }](t, do(t, h, "GET", "/api/item?klien=studio%20rana%20kreatif", "", c)).Item); n != 3 {
 		t.Errorf("filter by name finds %d items", n)
 	}
 
@@ -191,7 +193,7 @@ func TestKlienCreateListRenameDelete(t *testing.T) {
 		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
 	}
 	items = decode[struct{ Item []itemJSON }](t, do(t, h, "GET", "/api/item", "", c)).Item
-	if len(items) != 2 || items[0].Klien != "" || items[0].KlienID != nil || items[1].KlienID != nil {
+	if len(items) != 3 || items[0].Klien != "" || items[0].KlienID != nil || items[1].KlienID != nil || items[2].KlienID != nil {
 		t.Errorf("items after delete %+v", items)
 	}
 	if list := decode[klienList](t, do(t, h, "GET", "/api/klien", "", c)).Klien; len(list) != 1 {
