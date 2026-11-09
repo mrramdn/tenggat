@@ -127,7 +127,7 @@ export function saatSesiBerakhir(fn: (() => void) | null) {
   sesiBerakhir = fn
 }
 
-async function kirim(path: string, init?: RequestInit): Promise<Response> {
+export async function kirim(path: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(path, {
       ...init,
@@ -140,7 +140,7 @@ async function kirim(path: string, init?: RequestInit): Promise<Response> {
 
 /** Turns a failed response into an ApiError. auth: the request is part of signing in or out, so a 401 is an
  *  answer, not an expired session. */
-async function gagal(res: Response, auth: boolean): Promise<never> {
+export async function gagal(res: Response, auth: boolean): Promise<never> {
   const body = await res.json().catch(() => ({}))
   if (res.status === 401 && !auth) sesiBerakhir?.()
   const retry = Number(res.headers.get('Retry-After'))
@@ -152,7 +152,7 @@ async function gagal(res: Response, auth: boolean): Promise<never> {
   )
 }
 
-async function request<T>(path: string, init?: RequestInit, auth = false): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit, auth = false): Promise<T> {
   const res = await kirim(path, init)
   if (res.status === 204) return undefined as T
   if (!res.ok) return gagal(res, auth)
@@ -161,7 +161,7 @@ async function request<T>(path: string, init?: RequestInit, auth = false): Promi
 
 /** Saves a file from a GET answer. Through fetch rather than a plain link, so an expired session goes back to the
  *  sign-in screen instead of saving the error as the file. The name comes from Content-Disposition when present. */
-async function unduh(path: string, nama: string): Promise<void> {
+export async function unduh(path: string, nama: string): Promise<void> {
   const res = await kirim(path)
   if (!res.ok) return gagal(res, false)
   const dariServer = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1]
