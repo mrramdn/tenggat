@@ -26,13 +26,27 @@ const (
 
 var b64 = base64.RawStdEncoding
 
+// hashSlots caps how many Argon2id computations run at once. Each one holds 19 MiB,
+// so a burst of sign-ins waits in line instead of pushing the container past its
+// memory limit.
+var hashSlots = make(chan struct{}, 2)
+
+// deriveKey is argon2.IDKey; tests replace it to watch the slots.
+var deriveKey = argon2.IDKey
+
+func idKey(password, salt []byte, t, m uint32, p uint8, n uint32) []byte {
+	hashSlots <- struct{}{}
+	defer func() { <-hashSlots }()
+	return deriveKey(password, salt, t, m, p, n)
+}
+
 // HashPassword returns a PHC-style string: $argon2id$v=19$m=19456,t=2,p=1$<salt>$<key>.
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(password), salt, iterations, memoryKiB, parallelism, keyLen)
+	key := idKey([]byte(password), salt, iterations, memoryKiB, parallelism, keyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, memoryKiB, iterations, parallelism, b64.EncodeToString(salt), b64.EncodeToString(key)), nil
 }
@@ -58,7 +72,7 @@ func CheckPassword(encoded, password string) bool {
 	if err1 != nil || err2 != nil || len(want) == 0 {
 		return false
 	}
-	got := argon2.IDKey([]byte(password), salt, t, m, p, uint32(len(want)))
+	got := idKey([]byte(password), salt, t, m, p, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 

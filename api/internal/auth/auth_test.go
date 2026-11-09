@@ -2,6 +2,8 @@ package auth
 
 import (
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -41,5 +43,41 @@ func TestTokens(t *testing.T) {
 	tok2, _, _ := NewToken()
 	if tok == tok2 {
 		t.Error("tokens repeat")
+	}
+}
+
+func TestHashingRunsAtMostTwoAtOnce(t *testing.T) {
+	encoded, err := HashPassword("kata sandi panjang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var running, most atomic.Int32
+	real := deriveKey
+	deriveKey = func(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) []byte {
+		now := running.Add(1)
+		for {
+			old := most.Load()
+			if now <= old || most.CompareAndSwap(old, now) {
+				break
+			}
+		}
+		defer running.Add(-1)
+		return real(password, salt, time, memory, threads, keyLen)
+	}
+	t.Cleanup(func() { deriveKey = real })
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if !CheckPassword(encoded, "kata sandi panjang") {
+				t.Error("CheckPassword = false for the right password")
+			}
+		}()
+	}
+	wg.Wait()
+	if got := most.Load(); got > int32(cap(hashSlots)) {
+		t.Errorf("%d hashes ran at once, want at most %d", got, cap(hashSlots))
 	}
 }
