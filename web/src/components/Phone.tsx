@@ -1,11 +1,12 @@
 // Phone layout: top bar, headline, status bar and chips, grouped list, tab bar.
-import { api, type Item, type Status } from '../lib/api'
+import type { Item, Status } from '../lib/api'
 import { biaya30, daftarKlien, judul, saringAwal, saringItem, tanpaSaring } from '../lib/derive'
 import { hariIniIso, kelasStatus, labelJenisPendek, labelStatus, lalu, rupiahBiasa, tanggalPanjang, tanggalPendek, urutanStatus } from '../lib/format'
 import { AkunTab } from './Akun'
 import type { Muat } from './Desktop'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
+import { TautanKalender } from './TautanKalender'
 import type { Aksi, LayarProps } from './types'
 import { Days, Pill } from './ui'
 
@@ -73,9 +74,9 @@ export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps
       <header className="ph__head">
         <div className="wordmark">tenggat</div>
         <div className="acts">
-          <a className="btn btn--secondary is-lg btn--icon" href={api.kalenderUrl} download="tenggat.ics" aria-label="Unduh kalender (.ics)">
+          <TautanKalender className="btn btn--secondary is-lg btn--icon" aria-label="Unduh kalender (.ics)">
             <Icon name="download" />
-          </a>
+          </TautanKalender>
           <button type="button" className="btn btn--primary is-lg" onClick={() => aksi.tambah()}>
             <Icon name="plus" />
             Tambah aset
@@ -223,10 +224,10 @@ export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps
             ))}
           </select>
         </label>
-        <a className="tab" href={api.kalenderUrl} download="tenggat.ics">
+        <TautanKalender className="tab">
           <Icon name="calendar" />
           Kalender
-        </a>
+        </TautanKalender>
         <AkunTab akun={akun} />
       </nav>
     </div>

@@ -1,6 +1,6 @@
 // Desktop dashboard: sidebar, header, hero with overview, filters and the list.
 import { useCallback, useState } from 'react'
-import { api, type Item, type Jenis, type Sumber } from '../lib/api'
+import type { Item, Jenis, Sumber } from '../lib/api'
 import {
   adaSaring,
   daftarKlien,
@@ -25,6 +25,7 @@ import {
 import { AkunSidebar } from './Akun'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
+import { TautanKalender } from './TautanKalender'
 import { RowMenu } from './RowMenu'
 import { Timeline } from './Timeline'
 import type { Aksi, LayarProps } from './types'
@@ -86,10 +87,10 @@ function Sidebar({ items, saring, setSaring, muat, akun }: LayarProps & { muat: 
           Klien
           <span className="count num">{siap ? klien.length : ''}</span>
         </button>
-        <a className="nav__item" href={api.kalenderUrl} download="tenggat.ics" title="Unduh kalender (.ics)">
+        <TautanKalender className="nav__item" title="Unduh kalender (.ics)">
           <Icon name="calendar" />
           Kalender
-        </a>
+        </TautanKalender>
       </nav>
       <nav className="nav" aria-label="Klien" hidden={muat === 'galat'}>
         <div className="nav__label">Klien</div>
@@ -484,10 +485,10 @@ export function Desktop(props: LayarProps & { muat: Muat }) {
           </div>
           {kosong ? null : (
             <div className="topbar__end">
-              <a className="btn btn--secondary" href={api.kalenderUrl} download="tenggat.ics">
+              <TautanKalender className="btn btn--secondary">
                 <Icon name="download" />
                 Unduh kalender (.ics)
-              </a>
+              </TautanKalender>
               <button type="button" className="btn btn--primary" onClick={() => aksi.tambah()} aria-keyshortcuts="N">
                 <Icon name="plus" />
                 Tambah aset

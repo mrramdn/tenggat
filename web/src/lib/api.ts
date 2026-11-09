@@ -106,30 +106,36 @@ export function saatSesiBerakhir(fn: (() => void) | null) {
   sesiBerakhir = fn
 }
 
-/** auth: the request is part of signing in or out, so a 401 is an answer, not an expired session. */
-async function request<T>(path: string, init?: RequestInit, auth = false): Promise<T> {
-  let res: Response
+async function kirim(path: string, init?: RequestInit): Promise<Response> {
   try {
-    res = await fetch(path, {
+    return await fetch(path, {
       ...init,
       headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     })
   } catch {
     throw new ApiError(0, 'Tidak dapat terhubung ke server. Periksa koneksi Anda.')
   }
-  if (res.status === 204) return undefined as T
+}
+
+/** Turns a failed response into an ApiError. auth: the request is part of signing in or out, so a 401 is an
+ *  answer, not an expired session. */
+async function gagal(res: Response, auth: boolean): Promise<never> {
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    if (res.status === 401 && !auth) sesiBerakhir?.()
-    const retry = Number(res.headers.get('Retry-After'))
-    throw new ApiError(
-      res.status,
-      body.galat ?? 'Terjadi kesalahan.',
-      body.field ?? {},
-      Number.isFinite(retry) && retry > 0 ? retry : null,
-    )
-  }
-  return body as T
+  if (res.status === 401 && !auth) sesiBerakhir?.()
+  const retry = Number(res.headers.get('Retry-After'))
+  throw new ApiError(
+    res.status,
+    body.galat ?? 'Terjadi kesalahan.',
+    body.field ?? {},
+    Number.isFinite(retry) && retry > 0 ? retry : null,
+  )
+}
+
+async function request<T>(path: string, init?: RequestInit, auth = false): Promise<T> {
+  const res = await kirim(path, init)
+  if (res.status === 204) return undefined as T
+  if (!res.ok) return gagal(res, auth)
+  return (await res.json().catch(() => ({}))) as T
 }
 
 export const api = {
@@ -150,6 +156,18 @@ export const api = {
   pratinjau: (host: string) =>
     request<PratinjauSertifikat>(`/api/sertifikat?host=${encodeURIComponent(host)}`),
   kalenderUrl: '/api/kalender.ics',
+  /** Saves the calendar as tenggat.ics. Through fetch rather than a plain link, so an expired session goes back to
+   *  the sign-in screen instead of saving the error as the file. */
+  async unduhKalender(): Promise<void> {
+    const res = await kirim('/api/kalender.ics')
+    if (!res.ok) return gagal(res, false)
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'tenggat.ics'
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  },
 }
 
 // Accounts. The session lives in the HttpOnly cookie tenggat_sesi, which the
