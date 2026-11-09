@@ -129,10 +129,6 @@ function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarPro
         ) : null}
       </nav>
       <div className="side__foot">
-        <div className="privacy">
-          <Icon name="shield" />
-          <span>Tenggat hanya menyimpan nama dan tanggal. Jangan simpan nilai token atau kata sandi.</span>
-        </div>
         <AkunSidebar akun={akun} />
       </div>
     </aside>
@@ -487,6 +483,7 @@ function Skeleton() {
 
 export function Desktop(props: LayarProps & { muat: Muat }) {
   const { items, klien, saring, aksi, muat } = props
+  const klienTerbuka = klien.find((k) => k.id === saring.klien)
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   return (
@@ -510,7 +507,12 @@ export function Desktop(props: LayarProps & { muat: Muat }) {
                 <Icon name="calendar" />
                 Kalender
               </BukaKalender>
-              <button type="button" className="btn btn--primary" onClick={() => aksi.tambah()} aria-keyshortcuts="N">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => aksi.tambah(klienTerbuka ? { klien: klienTerbuka } : undefined)}
+                aria-keyshortcuts="N"
+              >
                 <Icon name="plus" />
                 Tambah aset
               </button>

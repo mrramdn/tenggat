@@ -505,12 +505,12 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                   <FieldError id={id('host-e')} pesan={galat.host} />
                 </div>
                 {cadangan ? (
-                  fieldTanggal('Anda tetap dapat mengisi tanggal secara manual. Aset ini disimpan sebagai Lainnya dan tidak dicek ulang otomatis.')
+                  fieldTanggal('Isi tanggal berakhirnya sendiri. Aset ini disimpan dengan jenis Lainnya dan tidak dicek ulang otomatis.')
                 ) : domainManual ? (
                   fieldTanggal(
                     tanggalSendiri && !gagalBaca
                       ? 'Tanggal ini tidak dicek ulang otomatis. Untuk kembali ke registri, pilih Ambil dari registri.'
-                      : 'Anda tetap dapat mengisi tanggal secara manual. Domain ini tidak dicek ulang otomatis.',
+                      : 'Isi tanggal berakhirnya sendiri. Domain ini tidak dicek ulang otomatis.',
                   )
                 ) : (
                   <div aria-live="polite">
@@ -609,7 +609,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
 
             <div className="note">
               <Icon name="shield" />
-              <span>Tenggat hanya menyimpan nama dan tanggal. Jangan simpan nilai token atau kata sandi.</span>
+              <span>Tulis nama dan tanggalnya saja, bukan nilai token atau kata sandi.</span>
             </div>
           </div>
           <div className="sheet__foot">

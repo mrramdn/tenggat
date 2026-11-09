@@ -63,6 +63,7 @@ const GRUP: { judul: string; status: Status[] }[] = [
 const TAMBAH_KLIEN = '+tambah'
 
 export function Phone({ items, klien, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat }) {
+  const klienTerbuka = klien.find((k) => k.id === saring.klien)
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   // Only the filters the phone shows apply here.
@@ -80,7 +81,11 @@ export function Phone({ items, klien, saring, setSaring, aksi, muat, akun }: Lay
         <div className="wordmark">tenggat</div>
         <div className="acts">
           <EksporCsv className="btn btn--secondary is-lg btn--icon" ikonSaja />
-          <button type="button" className="btn btn--primary is-lg" onClick={() => aksi.tambah()}>
+          <button
+            type="button"
+            className="btn btn--primary is-lg"
+            onClick={() => aksi.tambah(klienTerbuka ? { klien: klienTerbuka } : undefined)}
+          >
             <Icon name="plus" />
             Tambah aset
           </button>

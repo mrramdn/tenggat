@@ -23,8 +23,6 @@
 .nav__item.is-note { color: var(--muted); cursor: default; }
 .nav__item.is-note:hover { background: transparent; }
 .side__foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--s-3); }
-.privacy { display: flex; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-card); background: var(--surface-3); font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted); }
-.privacy svg.i { color: var(--ink-2); margin-top: var(--s-0); }
 
 .main { margin: var(--s-2) var(--s-2) var(--s-2) 0; background: var(--surface); border-radius: var(--r-panel); box-shadow: var(--shadow-panel); overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .topbar { display: flex; align-items: center; gap: var(--s-3); height: var(--s-9); padding: 0 var(--s-7); border-bottom: var(--bw) solid var(--line); flex: none; }
@@ -177,10 +175,6 @@
 .empty__lede { margin-top: var(--s-4); font-size: var(--fs-16); color: var(--muted); line-height: var(--lh-24); max-width: var(--measure-text); text-wrap: pretty; }
 .empty__form { margin-top: var(--s-6); display: flex; flex-direction: column; gap: var(--s-2); max-width: var(--measure-form); }
 .empty__alt { margin-top: var(--s-3); display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-13); color: var(--muted); flex-wrap: wrap; }
-.how { margin-top: var(--s-8); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: var(--bw) solid var(--line); }
-.how__item { padding: var(--s-4) var(--s-4) 0 0; display: flex; flex-direction: column; gap: var(--s-1); }
-.how__item b { font-size: var(--fs-14); font-weight: var(--fw-medium); }
-.how__item span { font-size: var(--fs-13); color: var(--muted); line-height: var(--lh-20); }
 .ghost-tl { border: var(--bw) solid var(--line); border-radius: var(--r-card); padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); }
 .ghost-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
 .ghost-stat { border: var(--bw) solid var(--line); border-radius: var(--r-control); padding: var(--s-3); display: flex; justify-content: space-between; align-items: center; }

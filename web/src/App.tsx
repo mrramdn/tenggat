@@ -272,7 +272,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           onBatal={() => setHapus(null)}
           onYa={() => hapusM.mutate(hapus)}
         >
-          <b>{hapus.nama}</b> akan dihapus dari daftar dan dari kalender. Tindakan ini tidak dapat dibatalkan.
+          <b>{hapus.nama}</b> hilang dari daftar dan dari kalender. Aset yang dihapus tidak bisa dikembalikan.
         </ConfirmDialog>
       ) : null}
       {dialogKlien !== undefined ? (
@@ -312,7 +312,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           onBatal={() => setHapusAkun(false)}
           onYa={() => hapusAkunM.mutate()}
         >
-          Akun dan semua aset Anda akan dihapus permanen. Tindakan ini tidak dapat dibatalkan. Anda masuk sebagai{' '}
+          Akun, klien, dan semua aset Anda akan dihapus dan tidak bisa dikembalikan. Anda masuk sebagai{' '}
           <b>{pengguna.email}</b>.
         </ConfirmDialog>
       ) : null}

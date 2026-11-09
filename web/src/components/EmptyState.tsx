@@ -1,4 +1,4 @@
-// First run: no assets yet. Typing a host starts "Ambil dari server" in the sheet.
+// First run: no assets yet. Typing a domain opens the sheet and reads its date from the registry.
 import { useState } from 'react'
 import { hariIniIso, tanggalPanjang } from '../lib/format'
 import { Icon } from './Icon'
@@ -13,22 +13,22 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
     <div>
       <div className="eyebrow">{tanggalPanjang(hariIniIso())}</div>
       <h1 className="display">
-        Belum ada aset. <span className="quiet">Mulai dari satu situs.</span>
+        Belum ada aset.
       </h1>
       <p className="empty__lede">
-        Ketik host situs web Anda. Tenggat membaca tanggal berakhir sertifikatnya langsung dari server dan memeriksanya
-        ulang setiap 6 jam.
+        Ketik nama domain situs Anda. Tenggat membaca tanggal berakhir domainnya dari registri dan mengeceknya ulang
+        setiap 6 jam. Sertifikat TLS dibaca dengan cara yang sama dari servernya.
       </p>
       <form
         className="empty__form"
         onSubmit={(e) => {
           e.preventDefault()
           const h = host.trim()
-          aksi.tambah({ jenis: 'sertifikat', host: h, ambil: h !== '' })
+          aksi.tambah({ jenis: 'domain', host: h, ambil: h !== '' })
         }}
       >
         <label className="field__label" htmlFor="first-host">
-          Host situs web
+          Domain situs web
         </label>
         <div className="field-row">
           <label className="input-icon">
@@ -47,32 +47,18 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
             />
           </label>
           <button type="submit" className="btn btn--primary">
-            <Icon name="server" />
-            Ambil dari server
+            <Icon name="database" />
+            Ambil dari registri
           </button>
         </div>
         <div className="empty__alt">
-          Untuk domain, token API, atau langganan, isi tanggalnya sendiri.
-          <button type="button" className="btn btn--ghost is-sm" onClick={() => aksi.tambah({ jenis: 'domain' })}>
+          Untuk sertifikat TLS, token API, atau langganan, pilih jenisnya di formulir.
+          <button type="button" className="btn btn--ghost is-sm" onClick={() => aksi.tambah({ jenis: 'sertifikat' })}>
             <Icon name="plus" />
-            Tambah manual
+            Tambah aset lain
           </button>
         </div>
       </form>
-      <div className="how">
-        <div className="how__item">
-          <b>Satu daftar</b>
-          <span>Domain, sertifikat TLS, token API, dan langganan semua klien di satu tempat.</span>
-        </div>
-        <div className="how__item">
-          <b>Pengingat di ponsel</b>
-          <span>Unduh kalender (.ics), tenggat muncul di aplikasi kalender Anda.</span>
-        </div>
-        <div className="how__item">
-          <b>Hanya nama dan tanggal</b>
-          <span>Jangan simpan nilai token atau kata sandi.</span>
-        </div>
-      </div>
     </div>
   )
 

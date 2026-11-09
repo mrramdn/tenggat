@@ -49,8 +49,6 @@
 .ph-start .display { font-size: var(--fs-32); }
 .ph-start .empty__lede { font-size: var(--fs-14); line-height: var(--lh-20); }
 .ph-start .field-row { flex-direction: column; }
-.ph-start .how { grid-template-columns: minmax(0, 1fr); margin-top: var(--s-6); }
-.ph-start .how__item { padding: var(--s-3) 0; border-bottom: var(--bw) solid var(--line); }
 
 @media (max-width: 1023px) {
   /* every control on the phone is 44px with 16px text */
