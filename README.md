@@ -4,6 +4,9 @@ Masa berlaku domain, sertifikat TLS, token API, dan langganan dalam satu daftar.
 host: Tenggat membaca tanggal berakhir sertifikat langsung dari server, mengeceknya ulang tiap 6 jam, dan mengingatkan
 sebelum ada yang kedaluwarsa.
 
+Coba versi online di https://tenggat.mrramdn.com, atau jalankan di komputer Anda sendiri (lihat
+[Menjalankan](#menjalankan)).
+
 ![Dasbor Tenggat: ringkasan status, linimasa 90 hari, dan daftar aset](docs/dasbor.png)
 
 ## Latar belakang
