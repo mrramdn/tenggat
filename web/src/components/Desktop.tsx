@@ -275,12 +275,14 @@ export function Desktop(props: ShellProps) {
       </div>
     )
   } else if (rute.nama === 'klien') {
-    crumbs = (
+    crumbs = k ? (
       <>
         <span>Klien</span>
         <span>/</span>
-        <b>{k?.nama ?? ''}</b>
+        <b>{k.nama}</b>
       </>
+    ) : (
+      <b>Klien</b>
     )
     if (k && rute.tab === 'aset' && items.some((it) => it.klien_id === k.id)) ujung = <Cari saring={saring} setSaring={setSaring} />
     isi =
