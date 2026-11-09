@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,7 +68,9 @@ func run(log *slog.Logger) error {
 		}
 		api.LimitPerMinute = n
 	}
+	api.AppURL = strings.TrimRight(os.Getenv("APP_URL"), "/")
 	go api.RunRechecks(ctx, interval)
+	go api.RunDigests(ctx, 5*time.Minute)
 
 	srv := &http.Server{
 		Addr:              ":" + port,

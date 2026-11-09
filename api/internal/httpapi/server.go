@@ -41,6 +41,7 @@ type Store interface {
 	TugasStore
 	AktivitasStore
 	LaporanStore
+	NotifikasiStore
 }
 
 // Checker reads a host's certificate.
@@ -73,6 +74,13 @@ type Server struct {
 
 	// Registry reads domain expiry dates over RDAP; nil turns registry lookups off.
 	Registry Registry
+
+	// Webhook posts notifications; nil means a client with an 8 second timeout
+	// that never follows redirects. Tests replace it.
+	Webhook *http.Client
+	// AppURL is the site's address without a trailing slash, for links in
+	// notifications; empty leaves the links out.
+	AppURL string
 }
 
 // Routes returns the API handler with request logging, panic recovery and the
@@ -119,6 +127,10 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/klien/{id}/laporan/tautan", s.limit(s.user(s.deleteReportLink)))
 	mux.HandleFunc("GET /api/laporan/{token}", s.limitTo("laporan", reportPerMinute, s.publicReport))
 	mux.HandleFunc("GET /api/publik/cek", s.limitTo("publik", publicCheckPerMinute, s.publicCheck))
+	mux.HandleFunc("GET /api/notifikasi", s.user(s.getNotifikasi))
+	mux.HandleFunc("PUT /api/notifikasi", s.limit(s.user(s.putNotifikasi)))
+	mux.HandleFunc("DELETE /api/notifikasi", s.limit(s.user(s.deleteNotifikasi)))
+	mux.HandleFunc("POST /api/notifikasi/uji", s.limitTo("webhook", webhookTestLimit, s.user(s.testNotifikasi)))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
