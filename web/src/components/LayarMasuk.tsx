@@ -1,9 +1,9 @@
-// Sign-in screen: one form for "Masuk" and "Buat akun", with a slice of the product
-// beside it on wide screens. Shown whenever there is no valid session.
+// Sign-in and sign-up pages (/masuk and /daftar): one form for both modes, with a slice of the product beside it on
+// wide screens. The wordmark goes back to the front page.
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ApiError, auth, type Pengguna } from '../lib/api'
-import { pergi } from '../lib/rute'
+import { pergi, Tautan } from '../lib/rute'
 import { Icon } from './Icon'
 import { MasukPratinjau } from './MasukPratinjau'
 import { pesanGalat } from './Toasts'
@@ -17,7 +17,7 @@ const ISIAN: Record<Mode, Isian[]> = {
 }
 
 interface Props {
-  /** masuk on /masuk, daftar on /daftar; switching changes the address. */
+  /** masuk on /masuk, daftar on /daftar; switching changes the address and keeps ?lanjut. */
   mode: Mode
   /** A note shown above the form, e.g. after the session expired. */
   pemberitahuan: string | null
@@ -66,11 +66,6 @@ export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
   const tunggu = useTunggu()
   const formRef = useRef<HTMLFormElement>(null)
 
-  // Focus the first field when the screen appears and after switching mode.
-  useEffect(() => {
-    formRef.current?.querySelector<HTMLInputElement>('input')?.focus()
-  }, [mode])
-
   const fokus = (f: Isian) => window.requestAnimationFrame(() => document.getElementById(id(f))?.focus())
 
   const kirim = useMutation({
@@ -103,21 +98,23 @@ export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
     },
   })
 
-  // The form state is reset when the address switches between /masuk and /daftar (back button included).
+  // Focus the first field when the page appears and after switching mode; a switch keeps the email but not the
+  // password or the errors of the other form.
+  const modeAwal = useRef(mode)
   useEffect(() => {
-    setGalat({})
-    setGalatUmum(null)
-    setSandi('')
-    kirim.reset()
+    if (modeAwal.current !== mode) {
+      modeAwal.current = mode
+      setGalat({})
+      setGalatUmum(null)
+      setSandi('')
+      kirim.reset()
+    }
+    formRef.current?.querySelector<HTMLInputElement>('input')?.focus()
   }, [mode])
 
+  // Switching forms replaces the address, so Back does not bounce between /masuk and /daftar; ?lanjut stays.
   function gantiMode(m: Mode) {
-    if (m === mode) return
-    pergi(`/${m}${window.location.search}`, { ganti: true })
-    setGalat({})
-    setGalatUmum(null)
-    setSandi('')
-    kirim.reset()
+    if (m !== mode) pergi(`/${m}${window.location.search}`, { ganti: true })
   }
 
   function ubah(f: Isian, v: string) {
@@ -162,7 +159,9 @@ export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
     <div className="auth">
       <div className="auth__side">
         <header className="auth__top">
-          <div className="wordmark">tenggat</div>
+          <Tautan className="wordmark auth__merek" ke="/" aria-label="Tenggat, beranda">
+            tenggat
+          </Tautan>
         </header>
         <main className="auth__main">
           <h1 className="auth__title" id={id('judul')}>
@@ -221,9 +220,18 @@ export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
 
           <p className="auth__switch">
             {daftar ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
-            <button type="button" className="auth__link" disabled={sibuk} onClick={() => gantiMode(daftar ? 'masuk' : 'daftar')}>
+            <a
+              className="auth__link"
+              href={`/${daftar ? 'masuk' : 'daftar'}${window.location.search}`}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                e.preventDefault()
+                gantiMode(daftar ? 'masuk' : 'daftar')
+              }}
+              aria-disabled={sibuk || undefined}
+            >
               {daftar ? 'Masuk' : 'Buat akun'}
-            </button>
+            </a>
           </p>
         </main>
         <footer className="auth__foot">

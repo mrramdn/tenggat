@@ -61,7 +61,7 @@ export function MasukPratinjau() {
     <div className="pv" aria-hidden="true" inert>
       <div className="pv__top">
         <span className="pv__crumbs">
-          <b>Aset</b>
+          <b>Ringkasan</b>
           <span>/</span>
           <span>Semua klien</span>
         </span>
