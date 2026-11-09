@@ -52,10 +52,9 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
           </button>
         </div>
         <div className="empty__alt">
-          Untuk sertifikat TLS, token API, atau langganan, pilih jenisnya di formulir.
           <button type="button" className="btn btn--ghost is-sm" onClick={() => aksi.tambah({ jenis: 'sertifikat' })}>
             <Icon name="plus" />
-            Tambah aset lain
+            Tambah sertifikat TLS, token API, atau langganan
           </button>
         </div>
       </form>
