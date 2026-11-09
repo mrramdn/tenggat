@@ -22,6 +22,7 @@ type LaporanStore interface {
 	SetReportToken(ctx context.Context, userID, klienID, tokenHash string) error
 	DeleteReportToken(ctx context.Context, userID, klienID string) error
 	KlienByReportToken(ctx context.Context, tokenHash string) (store.Klien, store.Pengguna, error)
+	AwalLaporan(ctx context.Context, klienID string) (time.Time, error)
 }
 
 // reportPerMinute caps public report requests per client; a person reading a
@@ -81,10 +82,20 @@ type laporanJatuhTempo struct {
 // see the same thing: internal notes (activity notes, asset, task and client
 // notes) never go in; catatan is the owner's words written for the client.
 type laporanJSON struct {
-	Klien        namaJSON              `json:"klien"`
-	Penyusun     namaJSON              `json:"penyusun"`
-	Bulan        string                `json:"bulan"`
-	LabelBulan   string                `json:"label_bulan"`
+	Klien      namaJSON `json:"klien"`
+	Penyusun   namaJSON `json:"penyusun"`
+	Bulan      string   `json:"bulan"`
+	LabelBulan string   `json:"label_bulan"`
+	// BulanPertama and BulanTerakhir bound the months a report exists for:
+	// the client's first month and this month in Jakarta.
+	BulanPertama  string `json:"bulan_pertama"`
+	BulanTerakhir string `json:"bulan_terakhir"`
+	// Lampau marks a month that has ended. Its work and renewals are that
+	// month's; the asset list and statuses are as of PerTanggal (today), and
+	// the due-soon list and 30-day cost are left out because they only make
+	// sense from today.
+	Lampau       bool                  `json:"lampau"`
+	PerTanggal   string                `json:"per_tanggal"`
 	Dibuat       time.Time             `json:"dibuat"`
 	Catatan      string                `json:"catatan"`
 	Ringkasan    laporanRingkasan      `json:"ringkasan"`
@@ -108,6 +119,47 @@ func (s *Server) reportMonth(v string) (time.Time, bool) {
 	return d, true
 }
 
+// bulanLabel is "November 2026".
+func bulanLabel(b time.Time) string {
+	return bulanPanjang[b.Month()-1] + " " + strconv.Itoa(b.Year())
+}
+
+// reportRange is the first and last month of a client's reports: the month the
+// client was added (or of an earlier work entry) up to this month in Jakarta.
+func (s *Server) reportRange(ctx context.Context, k store.Klien, now time.Time) (first, last time.Time, err error) {
+	y, m, _ := expiry.DateOf(now).Date()
+	last = time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
+	awal, err := s.Store.AwalLaporan(ctx, k.ID)
+	if err != nil {
+		return first, last, err
+	}
+	first = time.Date(awal.Year(), awal.Month(), 1, 0, 0, 0, 0, time.UTC)
+	if first.After(last) {
+		first = last
+	}
+	return first, last, nil
+}
+
+// inReportRange writes a 422 naming the months there are reports for when
+// bulan is outside them.
+func (s *Server) inReportRange(w http.ResponseWriter, r *http.Request, k store.Klien, bulan time.Time) bool {
+	first, last, err := s.reportRange(r.Context(), k, s.Now())
+	if err != nil {
+		s.internal(w, r, err)
+		return false
+	}
+	if bulan.Before(first) || bulan.After(last) {
+		tersedia := "Laporan hanya tersedia untuk " + bulanLabel(last) + "."
+		if !first.Equal(last) {
+			tersedia = "Laporan tersedia dari " + bulanLabel(first) + " sampai " + bulanLabel(last) + "."
+		}
+		writeError(w, http.StatusUnprocessableEntity, "Laporan untuk "+bulanLabel(bulan)+" tidak tersedia.",
+			map[string]string{"bulan": tersedia})
+		return false
+	}
+	return true
+}
+
 func writeBadMonth(w http.ResponseWriter) {
 	writeError(w, http.StatusUnprocessableEntity, "Bulan tidak valid.",
 		map[string]string{"bulan": "Tulis bulan dengan format TTTT-BB, misalnya 2026-11."})
@@ -118,14 +170,19 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 	end := bulan.AddDate(0, 1, -1)
 	rep := laporanJSON{
 		Klien: namaJSON{k.Nama}, Penyusun: namaJSON{owner.Nama},
-		Bulan: bulan.Format("2006-01"), LabelBulan: bulanPanjang[bulan.Month()-1] + " " + strconv.Itoa(bulan.Year()),
-		Dibuat: now,
+		Bulan: bulan.Format("2006-01"), LabelBulan: bulanLabel(bulan),
+		Dibuat: now, PerTanggal: expiry.DateOf(now).Format(time.DateOnly),
 		Ringkasan: laporanRingkasan{PerStatus: map[string]int{
 			string(expiry.Lewat): 0, string(expiry.Kritis): 0, string(expiry.Segera): 0, string(expiry.Aman): 0}},
 		Pekerjaan: []laporanPekerjaan{}, Perpanjangan: []laporanPerpanjangan{},
 		Aset: []laporanAset{}, JatuhTempo: []laporanJatuhTempo{},
 	}
-	var err error
+	first, last, err := s.reportRange(ctx, k, now)
+	if err != nil {
+		return rep, err
+	}
+	rep.BulanPertama, rep.BulanTerakhir = first.Format("2006-01"), last.Format("2006-01")
+	rep.Lampau = bulan.Before(last)
 	if rep.Catatan, err = s.Store.CatatanLaporan(ctx, k.ID, bulan); err != nil {
 		return rep, err
 	}
@@ -165,6 +222,9 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 			SisaHari: days, Status: st, Sumber: it.Sumber, Biaya: it.Biaya})
 		rep.Ringkasan.JumlahAset++
 		rep.Ringkasan.PerStatus[string(st)]++
+		if rep.Lampau {
+			continue
+		}
 		if days <= 30 && it.Biaya != nil {
 			rep.Ringkasan.Biaya30Hari += *it.Biaya
 		}
@@ -172,6 +232,9 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 			rep.JatuhTempo = append(rep.JatuhTempo, laporanJatuhTempo{Nama: it.Nama, Jenis: it.Jenis, Tanggal: day,
 				SisaHari: days, Status: st, Biaya: it.Biaya})
 		}
+	}
+	if rep.Lampau {
+		return rep, nil
 	}
 	limit := expiry.DateOf(now).AddDate(0, 0, jatuhTempoHari)
 	tasks, err := s.Store.ListTugas(ctx, owner.ID, store.TugasFilter{KlienID: k.ID, Sampai: &limit})
@@ -214,7 +277,7 @@ func (s *Server) getLaporan(w http.ResponseWriter, r *http.Request, u store.Peng
 		return
 	}
 	k, ok := s.ownKlien(w, r, u)
-	if !ok {
+	if !ok || !s.inReportRange(w, r, k, bulan) {
 		return
 	}
 	s.cachedRead(w, r, u.ID, "laporan:"+k.ID+":"+bulan.Format("2006-01"), func(now time.Time) (any, error) {
@@ -246,7 +309,7 @@ func (s *Server) putCatatanLaporan(w http.ResponseWriter, r *http.Request, u sto
 		return
 	}
 	k, ok := s.ownKlien(w, r, u)
-	if !ok {
+	if !ok || !s.inReportRange(w, r, k, bulan) {
 		return
 	}
 	err := s.Store.SetCatatanLaporan(r.Context(), u.ID, k.ID, bulan, teks)
@@ -338,6 +401,9 @@ func (s *Server) publicReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		s.internal(w, r, err)
+		return
+	}
+	if !s.inReportRange(w, r, k, bulan) {
 		return
 	}
 	rep, err := s.buildLaporan(r.Context(), owner, k, bulan, s.Now())

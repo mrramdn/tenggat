@@ -68,3 +68,18 @@ func (s *Store) KlienByReportToken(ctx context.Context, tokenHash string) (Klien
 	k.LaporanAktif = true
 	return k, u, err
 }
+
+// AwalLaporan returns the Jakarta date a client's reports start from: the day
+// the client was added, or the date of an earlier entry a report shows (work
+// may be logged later with the day it happened).
+func (s *Store) AwalLaporan(ctx context.Context, klienID string) (time.Time, error) {
+	var d time.Time
+	err := s.pool.QueryRow(ctx, `SELECT LEAST((k.dibuat AT TIME ZONE 'Asia/Jakarta')::date,
+		(SELECT min(a.tanggal) FROM aktivitas AS a WHERE a.klien_id = k.id
+			AND a.jenis IN ('pekerjaan', 'tugas_selesai', 'aset_diperpanjang', 'cek_diperbarui')))
+		FROM klien AS k WHERE k.id = $1`, klienID).Scan(&d)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return d, ErrNotFound
+	}
+	return d, err
+}

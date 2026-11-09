@@ -89,6 +89,26 @@ func TestLaporanContents(t *testing.T) {
 	if len(oct.Pekerjaan) != 1 || oct.Pekerjaan[0].Teks != "Bulan lalu" || oct.Catatan != "" || len(oct.Perpanjangan) != 0 {
 		t.Errorf("October %+v", oct)
 	}
+	// October has ended: its work is its own, the due-soon list and the 30-day cost are left out.
+	if !oct.Lampau || oct.PerTanggal != "2026-11-09" || len(oct.JatuhTempo) != 0 || oct.Ringkasan.Biaya30Hari != 0 ||
+		len(oct.Aset) != 3 || oct.BulanPertama != "2026-10" || oct.BulanTerakhir != "2026-11" {
+		t.Errorf("October bounds %+v", oct)
+	}
+	if rep.Lampau || rep.BulanPertama != "2026-10" || rep.BulanTerakhir != "2026-11" {
+		t.Errorf("November bounds lampau=%v %s..%s", rep.Lampau, rep.BulanPertama, rep.BulanTerakhir)
+	}
+	// Before the first entry and after this month there is no report.
+	for _, b := range []string{"2026-09", "2026-12", "2020-01"} {
+		rec := do(t, h, "GET", "/api/klien/"+k.ID+"/laporan?bulan="+b, "", c)
+		if e := decode[apiError](t, rec); rec.Code != http.StatusUnprocessableEntity ||
+			e.Field["bulan"] != "Laporan tersedia dari Oktober 2026 sampai November 2026." {
+			t.Errorf("?bulan=%s: %d %+v", b, rec.Code, e)
+		}
+		rec = do(t, h, "PUT", "/api/klien/"+k.ID+"/laporan/catatan", `{"bulan":"`+b+`","teks":"x"}`, c)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("PUT bulan %s: %d", b, rec.Code)
+		}
+	}
 	// No ?bulan is this month in Jakarta.
 	if got := decode[laporanJSON](t, do(t, h, "GET", "/api/klien/"+k.ID+"/laporan", "", c)); got.Bulan != "2026-11" {
 		t.Errorf("default month %s", got.Bulan)
@@ -152,6 +172,9 @@ func TestLaporanLink(t *testing.T) {
 	if rep.Klien.Nama != "Studio Rana" || rep.Penyusun.Nama != "Pengguna Uji" || rep.Catatan != "Ringkasan untuk klien" ||
 		len(rep.Pekerjaan) != 2 || len(rep.Aset) != 3 {
 		t.Errorf("public report %+v", rep)
+	}
+	if rec := do(t, h, "GET", "/api/laporan/"+token+"?bulan=2027-01", ""); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("public report for a future month: %d", rec.Code)
 	}
 	if strings.Contains(logs.String(), token) {
 		t.Error("the report token was written to the log")

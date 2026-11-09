@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
+	"github.com/mrramdn/tenggat/api/internal/expiry"
 	"github.com/mrramdn/tenggat/api/internal/store"
 )
 
@@ -80,4 +82,21 @@ func (m *memStore) KlienByReportToken(_ context.Context, hash string) (store.Kli
 		return store.Klien{}, store.Pengguna{}, store.ErrNotFound
 	}
 	return k, m.users[k.PenggunaID], nil
+}
+
+func (m *memStore) AwalLaporan(_ context.Context, klienID string) (time.Time, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	k, ok := m.klien[klienID]
+	if !ok {
+		return time.Time{}, store.ErrNotFound
+	}
+	awal := expiry.DateOf(k.Dibuat)
+	for _, a := range m.ruang().aktivitas {
+		if deref(a.KlienID) == klienID && a.Tanggal.Before(awal) &&
+			slices.Contains([]string{"pekerjaan", "tugas_selesai", "aset_diperpanjang", "cek_diperbarui"}, a.Jenis) {
+			awal = a.Tanggal
+		}
+	}
+	return awal, nil
 }
