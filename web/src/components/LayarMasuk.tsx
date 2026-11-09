@@ -1,9 +1,10 @@
-// Sign-in screen: "Masuk" and "Daftar" in one card, with a short pitch beside it
-// (desktop) or below it (phone). Shown whenever there is no valid session.
+// Sign-in screen: one form for "Masuk" and "Buat akun", with a slice of the product
+// beside it on wide screens. Shown whenever there is no valid session.
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ApiError, auth, type Pengguna } from '../lib/api'
 import { Icon } from './Icon'
+import { MasukPratinjau } from './MasukPratinjau'
 import { pesanGalat } from './Toasts'
 
 type Mode = 'masuk' | 'daftar'
@@ -50,12 +51,6 @@ function useTunggu() {
   }
   return { sisa: sampai === null ? 0 : Math.max(0, Math.ceil((sampai - kini) / 1000)), mulai }
 }
-
-const POIN: { icon: 'server' | 'calendar' | 'shield'; judul: string; teks: string }[] = [
-  { icon: 'server', judul: 'Sertifikat dibaca dari server', teks: 'Ketik host-nya saja. Tanggal berakhirnya terbaca langsung dan dicek ulang setiap 6 jam.' },
-  { icon: 'calendar', judul: 'Pengingat di kalender ponsel', teks: 'Unduh kalender (.ics), tenggat muncul di aplikasi kalender Anda.' },
-  { icon: 'shield', judul: 'Hanya nama dan tanggal yang disimpan', teks: 'Tanpa nilai token, kunci API, atau data pembayaran.' },
-]
 
 export function LayarMasuk({ pemberitahuan, onMasuk }: Props) {
   const uid = useId()
@@ -155,112 +150,79 @@ export function LayarMasuk({ pemberitahuan, onMasuk }: Props) {
 
   return (
     <div className="auth">
-      <header className="auth__top">
-        <div className="wordmark">tenggat</div>
-      </header>
-      <main className="auth__main">
-        <section className="auth__pitch" aria-labelledby={id('pitch')}>
-          <h1 className="display" id={id('pitch')}>
-            Semua tenggat Anda. <span className="quiet">Satu daftar.</span>
+      <div className="auth__side">
+        <header className="auth__top">
+          <div className="wordmark">tenggat</div>
+        </header>
+        <main className="auth__main">
+          <h1 className="auth__title" id={id('judul')}>
+            {daftar ? 'Buat akun Tenggat' : 'Masuk ke Tenggat'}
           </h1>
-          <p className="auth__lede">
-            Domain, sertifikat TLS, token API, dan langganan semua klien Anda, diurutkan menurut sisa hari.
+
+          {pemberitahuan && !galatUmum && tunggu.sisa === 0 ? (
+            <div className="notice" role="status">
+              <Icon name="info" />
+              <span>{pemberitahuan}</span>
+            </div>
+          ) : null}
+          {tunggu.sisa > 0 ? (
+            <div className="form-error" role="alert">
+              <Icon name="alert" />
+              <span>
+                Terlalu banyak percobaan. Coba lagi dalam <span className="num">{tunggu.sisa}</span> detik.
+              </span>
+            </div>
+          ) : galatUmum ? (
+            <div className="form-error" role="alert">
+              <Icon name="alert" />
+              <span>{galatUmum}</span>
+            </div>
+          ) : null}
+
+          <form
+            ref={formRef}
+            className="auth__form"
+            noValidate
+            aria-labelledby={id('judul')}
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!bisaKirim) return
+              setGalatUmum(null)
+              kirim.mutate(mode)
+            }}
+          >
+            {daftar ? field('nama', 'Nama', { type: 'text', autoComplete: 'name', extra: { autoCapitalize: 'words' } }) : null}
+            {field('email', 'Email', {
+              type: 'email',
+              autoComplete: 'email',
+              extra: { inputMode: 'email', autoCapitalize: 'off', spellCheck: false },
+            })}
+            {field(
+              'kata_sandi',
+              'Kata sandi',
+              { type: 'password', autoComplete: daftar ? 'new-password' : 'current-password' },
+              daftar ? 'Minimal 8 karakter.' : undefined,
+            )}
+            <button type="submit" className="btn btn--primary auth__submit" disabled={!bisaKirim} aria-busy={sibuk}>
+              {sibuk ? <Icon name="loader" className="spin" /> : null}
+              {daftar ? (sibuk ? 'Membuat akun' : 'Buat akun') : sibuk ? 'Sedang masuk' : 'Masuk'}
+            </button>
+          </form>
+
+          <p className="auth__switch">
+            {daftar ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
+            <button type="button" className="auth__link" disabled={sibuk} onClick={() => gantiMode(daftar ? 'masuk' : 'daftar')}>
+              {daftar ? 'Masuk' : 'Buat akun'}
+            </button>
           </p>
-          <ul className="auth__points">
-            {POIN.map((p) => (
-              <li key={p.judul}>
-                <Icon name={p.icon} />
-                <div>
-                  <b>{p.judul}</b>
-                  <span>{p.teks}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="auth__panel" aria-labelledby={id('judul')}>
-          <div className="auth__card">
-            <div className="seg is-full" role="radiogroup" aria-label="Pilih masuk atau daftar">
-              {(['masuk', 'daftar'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className="seg__item"
-                  role="radio"
-                  aria-checked={mode === m}
-                  disabled={sibuk}
-                  onClick={() => gantiMode(m)}
-                >
-                  {m === 'masuk' ? 'Masuk' : 'Daftar'}
-                </button>
-              ))}
-            </div>
-            <div className="auth__head">
-              <h2 className="auth__title" id={id('judul')}>
-                {daftar ? 'Buat akun Tenggat' : 'Masuk ke Tenggat'}
-              </h2>
-              <p className="auth__sub">
-                {daftar ? 'Cukup nama, email, dan kata sandi.' : 'Lanjutkan memantau tenggat Anda.'}
-              </p>
-            </div>
-
-            {pemberitahuan && !galatUmum && tunggu.sisa === 0 ? (
-              <div className="notice" role="status">
-                <Icon name="info" />
-                <span>{pemberitahuan}</span>
-              </div>
-            ) : null}
-            {tunggu.sisa > 0 ? (
-              <div className="form-error" role="alert">
-                <Icon name="alert" />
-                <span>
-                  Terlalu banyak percobaan. Coba lagi dalam <span className="num">{tunggu.sisa}</span> detik.
-                </span>
-              </div>
-            ) : galatUmum ? (
-              <div className="form-error" role="alert">
-                <Icon name="alert" />
-                <span>{galatUmum}</span>
-              </div>
-            ) : null}
-
-            <form
-              ref={formRef}
-              className="auth__form"
-              noValidate
-              aria-labelledby={id('judul')}
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!bisaKirim) return
-                setGalatUmum(null)
-                kirim.mutate(mode)
-              }}
-            >
-              {daftar ? field('nama', 'Nama', { type: 'text', autoComplete: 'name', extra: { autoCapitalize: 'words' } }) : null}
-              {field('email', 'Email', {
-                type: 'email',
-                autoComplete: 'email',
-                extra: { inputMode: 'email', autoCapitalize: 'off', spellCheck: false },
-              })}
-              {field(
-                'kata_sandi',
-                'Kata sandi',
-                { type: 'password', autoComplete: daftar ? 'new-password' : 'current-password' },
-                daftar ? 'Minimal 8 karakter.' : undefined,
-              )}
-              <button type="submit" className="btn btn--primary auth__submit" disabled={!bisaKirim} aria-busy={sibuk}>
-                {sibuk ? <Icon name="loader" className="spin" /> : null}
-                {daftar ? (sibuk ? 'Membuat akun' : 'Buat akun') : sibuk ? 'Sedang masuk' : 'Masuk'}
-              </button>
-            </form>
-          </div>
-          <div className="privacy">
-            <Icon name="shield" />
-            <span>Tenggat hanya menyimpan nama dan tanggal. Jangan simpan nilai token atau kata sandi.</span>
-          </div>
-        </section>
-      </main>
+        </main>
+        <footer className="auth__foot">
+          Tenggat menyimpan nama aset dan tanggal berakhirnya, tidak pernah nilai token atau kunci API.
+        </footer>
+      </div>
+      <div className="auth__view">
+        <MasukPratinjau />
+      </div>
     </div>
   )
 }
