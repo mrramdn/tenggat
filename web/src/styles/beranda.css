@@ -198,7 +198,7 @@
 .frag--kalender { display: flex; flex-direction: column; gap: var(--s-3); }
 .fk__langganan { background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-panel); padding: var(--s-4) var(--s-5); display: flex; flex-direction: column; gap: var(--s-2); }
 .fk__label { font-size: var(--fs-13); font-weight: var(--fw-medium); }
-.beranda .fk__url { display: flex; align-items: center; font-family: var(--font-mono); font-size: var(--fs-13); color: var(--ink-2); background: var(--surface-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.beranda .fk__url { display: block; line-height: calc(var(--h) - 2 * var(--bw)); font-family: var(--font-mono); font-size: var(--fs-13); color: var(--ink-2); background: var(--surface-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fk__kal { background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-panel); overflow: hidden; }
 .fk__kepala { display: flex; align-items: baseline; justify-content: space-between; padding: var(--s-3) var(--s-4); border-bottom: var(--bw) solid var(--line); font-size: var(--fs-13); color: var(--muted); }
 .fk__kepala b { font-size: var(--fs-16); font-weight: var(--fw-medium); color: var(--ink); }
