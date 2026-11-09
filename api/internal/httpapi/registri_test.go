@@ -164,8 +164,8 @@ func TestDomainPreview(t *testing.T) {
 		"hilang.com":       "Domain hilang.com tidak ditemukan di registri. Periksa ejaannya, atau isi tanggalnya sendiri.",
 		"tanpatanggal.com": "Registri tidak mencantumkan tanggal berakhir tanpatanggal.com. Isi tanggalnya sendiri.",
 		"lambat.com":       "Registri .com tidak dapat dihubungi saat ini. Coba beberapa saat lagi, atau isi tanggalnya sendiri.",
-		"localhost":        "Nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id.",
-		"10.1.2.3":         "Nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id.",
+		"localhost":        "Nama domain tidak valid. Tulis nama domain, misalnya mrramdn.com.",
+		"10.1.2.3":         "Nama domain tidak valid. Tulis nama domain, misalnya mrramdn.com.",
 	} {
 		rec := do(t, h, "GET", "/api/domain?host="+host, "", c)
 		if e := decode[apiError](t, rec); rec.Code != http.StatusUnprocessableEntity || e.Field["host"] != want {

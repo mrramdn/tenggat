@@ -10,7 +10,7 @@ import { pesanGalat } from '../Toasts'
 import { Pill } from '../ui'
 import { Tautan } from '../../lib/rute'
 
-const CONTOH = ['github.com', 'kompas.com', 'wikipedia.org']
+const CONTOH = ['mrramdn.com', 'github.com', 'wikipedia.org']
 
 /** Seconds left of a 429 wait, ticking down; 0 when the visitor may try again. */
 function useTunggu() {
@@ -77,7 +77,7 @@ export function DemoCek({ sudahMasuk }: { sudahMasuk: boolean }) {
   function jalankan(mentah: string) {
     const host = rapikanHost(mentah)
     if (!host) {
-      setGalatIsian('Ketik alamat situs, misalnya tokokuemawar.id.')
+      setGalatIsian('Ketik alamat situs, misalnya mrramdn.com.')
       inputRef.current?.focus()
       return
     }
@@ -119,7 +119,7 @@ export function DemoCek({ sudahMasuk }: { sudahMasuk: boolean }) {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Alamat situs, misalnya tokokuemawar.id"
+              placeholder="Alamat situs, misalnya mrramdn.com"
               value={isian}
               onChange={(e) => {
                 setIsian(e.target.value)

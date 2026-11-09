@@ -273,7 +273,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   async function ambil() {
     const h = host.trim()
     if (!h) {
-      const contoh = domain ? 'Isi nama domain terlebih dahulu, misalnya tokokuemawar.id.' : 'Isi host terlebih dahulu, misalnya tokokuemawar.id.'
+      const contoh = domain ? 'Isi nama domain terlebih dahulu, misalnya mrramdn.com.' : 'Isi host terlebih dahulu, misalnya mrramdn.com.'
       setGalat((g) => ({ ...g, host: contoh }))
       return
     }
@@ -482,7 +482,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                       <input
                         id={id('host')}
                         className="control"
-                        placeholder="misalnya tokokuemawar.id"
+                        placeholder="misalnya mrramdn.com"
                         autoComplete="off"
                         autoCapitalize="off"
                         spellCheck={false}

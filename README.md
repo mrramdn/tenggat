@@ -149,7 +149,7 @@ curl -i -c sesi.txt -X POST http://localhost:8080/api/akun \
 
 curl -i -b sesi.txt -X POST http://localhost:8080/api/item \
   -H 'Content-Type: application/json' \
-  -d '{"jenis":"domain","klien":"Toko Kue Mawar","host":"pandi.id"}'
+  -d '{"jenis":"domain","klien":"Pribadi","host":"mrramdn.com"}'
 
 curl -i -b sesi.txt -X POST http://localhost:8080/api/tugas \
   -H 'Content-Type: application/json' \
