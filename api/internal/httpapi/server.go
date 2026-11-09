@@ -34,6 +34,9 @@ type Store interface {
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUser(ctx context.Context, userID string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
+
+	RegistryStore
+	CalendarStore
 }
 
 // Checker reads a host's certificate.
@@ -56,9 +59,11 @@ type Cache interface {
 type Server struct {
 	Store   Store
 	Checker Checker
-	Cache   Cache
-	Now     func() time.Time
-	Log     *slog.Logger
+	// Registry reads domain expiry dates over RDAP; nil turns registry lookups off.
+	Registry Registry
+	Cache    Cache
+	Now      func() time.Time
+	Log      *slog.Logger
 	// LimitPerMinute caps writes and certificate lookups per client; 0 means 30.
 	LimitPerMinute int
 	// CookieSecure marks the session cookie Secure; set it when the site is served over HTTPS.
@@ -84,8 +89,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.user(s.deleteItem)))
 	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.user(s.recheckItem)))
 	mux.HandleFunc("GET /api/sertifikat", s.limit(s.user(s.previewCertificate)))
+	mux.HandleFunc("GET /api/domain", s.limit(s.user(s.previewDomain)))
+	mux.HandleFunc("GET /api/item.csv", s.user(s.exportCSV))
 	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
 	mux.HandleFunc("GET /api/kalender.ics", s.user(s.calendar))
+	mux.HandleFunc("POST /api/kalender/tautan", s.limit(s.user(s.createCalendarLink)))
+	mux.HandleFunc("DELETE /api/kalender/tautan", s.limit(s.user(s.deleteCalendarLink)))
+	mux.HandleFunc("GET /api/kalender/{berkas}", s.limitTo("kalender", calendarPerMinute, s.subscribedCalendar))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
@@ -250,8 +260,9 @@ func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request, u store.Pen
 		s.internal(w, r, err)
 		return
 	}
-	if it.Jenis != "sertifikat" || it.Host == nil {
-		writeError(w, http.StatusUnprocessableEntity, "Hanya sertifikat TLS yang dapat dicek ulang dari server.", nil)
+	if (it.Jenis != "sertifikat" && it.Sumber != "registri") || it.Host == nil {
+		writeError(w, http.StatusUnprocessableEntity,
+			"Hanya sertifikat TLS dan domain dari registri yang dapat dicek ulang.", nil)
 		return
 	}
 	updated, err := s.recheck(r.Context(), it)
@@ -262,8 +273,12 @@ func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request, u store.Pen
 	writeJSON(w, http.StatusOK, toJSON(updated, s.Now()))
 }
 
-// recheck reads one certificate and stores either the new date or the error.
+// recheck reads one certificate, or asks the registry about one domain, and
+// stores either the new date or the error.
 func (s *Server) recheck(ctx context.Context, it store.Item) (store.Item, error) {
+	if it.Sumber == "registri" {
+		return s.recheckDomain(ctx, it)
+	}
 	now := s.Now()
 	defer s.bump(ctx, it.PenggunaID)
 	res, err := s.checkHost(ctx, *it.Host, true)
@@ -329,7 +344,7 @@ func (s *Server) calendar(w http.ResponseWriter, r *http.Request, u store.Penggu
 }
 
 func (s *Server) internal(w http.ResponseWriter, r *http.Request, err error) {
-	s.Log.Error("galat internal", "method", r.Method, "path", r.URL.Path, "galat", err)
+	s.Log.Error("galat internal", "method", r.Method, "path", redactPath(r.URL.Path), "galat", err)
 	writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba lagi sebentar lagi.", nil)
 }
 

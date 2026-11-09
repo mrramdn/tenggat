@@ -168,10 +168,6 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) me(w http.ResponseWriter, _ *http.Request, u store.Pengguna) {
-	writeJSON(w, http.StatusOK, accountJSON{Pengguna: u})
-}
-
 // deleteMe removes the account with all its assets and sessions: the right to
 // have personal data deleted (UU 27/2022 Pasal 43).
 func (s *Server) deleteMe(w http.ResponseWriter, r *http.Request, u store.Pengguna) {

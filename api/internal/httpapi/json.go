@@ -12,28 +12,30 @@ import (
 	"unicode/utf8"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
+	"github.com/mrramdn/tenggat/api/internal/rdap"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
 )
 
 // itemJSON is the API form of an item, with the days left and status worked out.
 type itemJSON struct {
-	ID            string         `json:"id"`
-	Nama          string         `json:"nama"`
-	Jenis         string         `json:"jenis"`
-	Klien         string         `json:"klien"`
-	Host          *string        `json:"host"`
-	Kedaluwarsa   string         `json:"kedaluwarsa"`
-	SisaHari      int            `json:"sisa_hari"`
-	Status        expiry.Status  `json:"status"`
-	Sumber        string         `json:"sumber"`
-	Biaya         *int64         `json:"biaya"`
-	Catatan       string         `json:"catatan"`
-	TLS           *store.TLSInfo `json:"tls"`
-	TerakhirDicek *time.Time     `json:"terakhir_dicek"`
-	GalatCek      *string        `json:"galat_cek"`
-	Dibuat        time.Time      `json:"dibuat"`
-	Diubah        time.Time      `json:"diubah"`
+	ID            string              `json:"id"`
+	Nama          string              `json:"nama"`
+	Jenis         string              `json:"jenis"`
+	Klien         string              `json:"klien"`
+	Host          *string             `json:"host"`
+	Kedaluwarsa   string              `json:"kedaluwarsa"`
+	SisaHari      int                 `json:"sisa_hari"`
+	Status        expiry.Status       `json:"status"`
+	Sumber        string              `json:"sumber"`
+	Biaya         *int64              `json:"biaya"`
+	Catatan       string              `json:"catatan"`
+	TLS           *store.TLSInfo      `json:"tls"`
+	Registri      *store.RegistryInfo `json:"registri"`
+	TerakhirDicek *time.Time          `json:"terakhir_dicek"`
+	GalatCek      *string             `json:"galat_cek"`
+	Dibuat        time.Time           `json:"dibuat"`
+	Diubah        time.Time           `json:"diubah"`
 }
 
 func toJSON(it store.Item, now time.Time) itemJSON {
@@ -41,7 +43,7 @@ func toJSON(it store.Item, now time.Time) itemJSON {
 	return itemJSON{
 		ID: it.ID, Nama: it.Nama, Jenis: it.Jenis, Klien: it.Klien, Host: it.Host,
 		Kedaluwarsa: it.Kedaluwarsa.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days),
-		Sumber: it.Sumber, Biaya: it.Biaya, Catatan: it.Catatan, TLS: it.InfoTLS,
+		Sumber: it.Sumber, Biaya: it.Biaya, Catatan: it.Catatan, TLS: it.InfoTLS, Registri: it.InfoRegistri,
 		TerakhirDicek: it.TerakhirDicek, GalatCek: it.GalatCek, Dibuat: it.Dibuat, Diubah: it.Diubah,
 	}
 }
@@ -86,8 +88,12 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 	}
 
 	var host string
-	if strings.TrimSpace(req.Host) != "" || in.Jenis == "sertifikat" {
-		h, err := tlscheck.NormalizeHost(req.Host)
+	rawHost := req.Host
+	if in.Jenis == "domain" {
+		rawHost = rdap.ToASCII(rawHost) // a domain may be typed in Unicode
+	}
+	if strings.TrimSpace(rawHost) != "" || in.Jenis == "sertifikat" {
+		h, err := tlscheck.NormalizeHost(rawHost)
 		if err != nil {
 			fields["host"] = sentence(err.Error())
 		} else {
@@ -96,10 +102,14 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 		}
 	}
 
+	// A domain with a host and no date is read from the registry.
+	fromRegistry := in.Jenis == "domain" && in.Host != nil && strings.TrimSpace(req.Kedaluwarsa) == ""
 	if in.Jenis == "sertifikat" {
 		if in.Nama == "" {
 			in.Nama = host
 		}
+	} else if fromRegistry {
+		registryDefaults(&in, fields)
 	} else {
 		d, err := time.Parse(time.DateOnly, strings.TrimSpace(req.Kedaluwarsa))
 		switch {
@@ -121,6 +131,9 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 	}
 
 	// Only now, with every other field valid, contact the server.
+	if fromRegistry {
+		return s.fromRegistry(ctx, in)
+	}
 	if in.Jenis == "sertifikat" {
 		res, err := s.checkHost(ctx, host, false)
 		if err != nil {
@@ -225,7 +238,7 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if r.URL.Path == "/health" && rec.status == http.StatusOK {
 			return
 		}
-		s.Log.Info("permintaan", "method", r.Method, "path", r.URL.Path, "status", rec.status,
+		s.Log.Info("permintaan", "method", r.Method, "path", redactPath(r.URL.Path), "status", rec.status,
 			"durasi_ms", time.Since(start).Milliseconds())
 	})
 }

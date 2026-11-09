@@ -16,6 +16,7 @@ import (
 
 	"github.com/mrramdn/tenggat/api/internal/cache"
 	"github.com/mrramdn/tenggat/api/internal/httpapi"
+	"github.com/mrramdn/tenggat/api/internal/rdap"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
 )
@@ -51,7 +52,7 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	api := &httpapi.Server{Store: db, Checker: tlscheck.New(), Now: time.Now, Log: log}
+	api := &httpapi.Server{Store: db, Checker: tlscheck.New(), Registry: rdap.New(), Now: time.Now, Log: log}
 	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
 		rc := cache.New(addr)
 		defer rc.Close()

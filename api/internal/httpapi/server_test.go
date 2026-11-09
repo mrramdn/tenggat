@@ -221,7 +221,7 @@ func (m *memStore) DeleteExpiredSessions(context.Context, time.Time) (int64, err
 func fromInput(id, userID string, in store.Input) store.Item {
 	return store.Item{ID: id, PenggunaID: userID, Nama: in.Nama, Jenis: in.Jenis, Klien: in.Klien, Host: in.Host,
 		Kedaluwarsa: in.Kedaluwarsa, Sumber: in.Sumber, Biaya: in.Biaya, Catatan: in.Catatan,
-		InfoTLS: in.InfoTLS, TerakhirDicek: in.Dicek}
+		InfoTLS: in.InfoTLS, TerakhirDicek: in.Dicek, InfoRegistri: in.Registri}
 }
 
 // fakeChecker answers by host name.

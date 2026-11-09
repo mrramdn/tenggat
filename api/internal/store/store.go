@@ -39,6 +39,7 @@ type Item struct {
 	Biaya         *int64
 	Catatan       string
 	InfoTLS       *TLSInfo
+	InfoRegistri  *RegistryInfo
 	TerakhirDicek *time.Time
 	GalatCek      *string
 	Dibuat        time.Time
@@ -56,6 +57,7 @@ type Input struct {
 	Biaya       *int64
 	Catatan     string
 	InfoTLS     *TLSInfo
+	Registri    *RegistryInfo
 	Dicek       *time.Time // set when the date was just read from the server
 }
 
@@ -102,12 +104,13 @@ func (s *Store) Close() { s.pool.Close() }
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 const columns = `id, pengguna_id, nama, jenis, klien, host, kedaluwarsa, sumber, biaya, catatan,
-	info_tls, terakhir_dicek, galat_cek, dibuat, diubah`
+	info_tls, terakhir_dicek, galat_cek, dibuat, diubah, info_registri`
 
 func scanItem(row pgx.Row) (Item, error) {
 	var it Item
 	err := row.Scan(&it.ID, &it.PenggunaID, &it.Nama, &it.Jenis, &it.Klien, &it.Host, &it.Kedaluwarsa, &it.Sumber,
-		&it.Biaya, &it.Catatan, &it.InfoTLS, &it.TerakhirDicek, &it.GalatCek, &it.Dibuat, &it.Diubah)
+		&it.Biaya, &it.Catatan, &it.InfoTLS, &it.TerakhirDicek, &it.GalatCek, &it.Dibuat, &it.Diubah,
+		&it.InfoRegistri)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return it, ErrNotFound
 	}
@@ -166,23 +169,26 @@ func (s *Store) Get(ctx context.Context, userID, id string) (Item, error) {
 // Create inserts an item for a user and returns it as stored.
 func (s *Store) Create(ctx context.Context, userID string, in Input) (Item, error) {
 	return scanItem(s.pool.QueryRow(ctx, `INSERT INTO item
-		(pengguna_id, nama, jenis, klien, host, kedaluwarsa, sumber, biaya, catatan, info_tls, terakhir_dicek)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		(pengguna_id, nama, jenis, klien, host, kedaluwarsa, sumber, biaya, catatan, info_tls, terakhir_dicek,
+		 info_registri)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING `+columns,
-		userID, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek))
+		userID, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek,
+		in.Registri))
 }
 
 // Update replaces the editable fields of one of a user's items.
 func (s *Store) Update(ctx context.Context, userID, id string, in Input) (Item, error) {
 	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET
 		nama = $2, jenis = $3, klien = $4, host = $5, kedaluwarsa = $6, sumber = $7, biaya = $8,
-		catatan = $9, info_tls = $10,
+		catatan = $9, info_tls = $10, info_registri = $13,
 		terakhir_dicek = COALESCE($11, terakhir_dicek),
-		galat_cek = CASE WHEN $11::timestamptz IS NULL THEN galat_cek END,
+		galat_cek = CASE WHEN $11::timestamptz IS NULL AND $7 <> 'manual' THEN galat_cek END,
 		diubah = now()
 		WHERE id = $1 AND pengguna_id = $12
 		RETURNING `+columns,
-		id, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek, userID))
+		id, in.Nama, in.Jenis, in.Klien, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek, userID,
+		in.Registri))
 }
 
 // Delete removes one of a user's items.
@@ -205,17 +211,17 @@ func (s *Store) SaveCheck(ctx context.Context, id string, date time.Time, info T
 		RETURNING `+columns, id, date, info, at))
 }
 
-// SaveCheckError records a failed certificate check and keeps the last known date.
+// SaveCheckError records a failed certificate or registry check and keeps the last known date.
 func (s *Store) SaveCheckError(ctx context.Context, id, message string, at time.Time) (Item, error) {
 	return scanItem(s.pool.QueryRow(ctx, `UPDATE item SET terakhir_dicek = $2, galat_cek = $3
-		WHERE id = $1 AND jenis = 'sertifikat'
+		WHERE id = $1 AND (jenis = 'sertifikat' OR sumber = 'registri')
 		RETURNING `+columns, id, at, message))
 }
 
-// DueForCheck lists certificates not checked since the given time.
+// DueForCheck lists certificates and registry domains not checked since the given time.
 func (s *Store) DueForCheck(ctx context.Context, before time.Time) ([]Item, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM item
-		WHERE jenis = 'sertifikat' AND (terakhir_dicek IS NULL OR terakhir_dicek < $1)
+		WHERE (jenis = 'sertifikat' OR sumber = 'registri') AND (terakhir_dicek IS NULL OR terakhir_dicek < $1)
 		ORDER BY terakhir_dicek NULLS FIRST`, before)
 	if err != nil {
 		return nil, err
