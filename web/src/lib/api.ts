@@ -81,7 +81,33 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export interface Pengguna {
+  id: string
+  nama: string
+  email: string
+  dibuat: string
+}
+
+export interface DaftarInput {
+  nama: string
+  email: string
+  kata_sandi: string
+}
+
+export interface MasukInput {
+  email: string
+  kata_sandi: string
+}
+
+// Called once for a 401 from any request except the auth endpoints: the session
+// cookie expired or was revoked. App registers it and goes back to the sign-in screen.
+let sesiBerakhir: (() => void) | null = null
+export function saatSesiBerakhir(fn: (() => void) | null) {
+  sesiBerakhir = fn
+}
+
+/** auth: the request is part of signing in or out, so a 401 is an answer, not an expired session. */
+async function request<T>(path: string, init?: RequestInit, auth = false): Promise<T> {
   let res: Response
   try {
     res = await fetch(path, {
@@ -94,6 +120,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
+    if (res.status === 401 && !auth) sesiBerakhir?.()
     const retry = Number(res.headers.get('Retry-After'))
     throw new ApiError(
       res.status,
@@ -123,4 +150,24 @@ export const api = {
   pratinjau: (host: string) =>
     request<PratinjauSertifikat>(`/api/sertifikat?host=${encodeURIComponent(host)}`),
   kalenderUrl: '/api/kalender.ics',
+}
+
+// Accounts. The session lives in the HttpOnly cookie tenggat_sesi, which the
+// browser sends with every same-origin request; JavaScript never reads it.
+export const auth = {
+  /** The signed-in user, or null when there is no valid session. */
+  saya: () =>
+    request<{ pengguna: Pengguna }>('/api/saya', undefined, true).then(
+      (r) => r.pengguna,
+      (err: unknown) => {
+        if (err instanceof ApiError && err.status === 401) return null
+        throw err
+      },
+    ),
+  daftar: (input: DaftarInput) =>
+    request<{ pengguna: Pengguna }>('/api/akun', { method: 'POST', body: JSON.stringify(input) }, true).then((r) => r.pengguna),
+  masuk: (input: MasukInput) =>
+    request<{ pengguna: Pengguna }>('/api/sesi', { method: 'POST', body: JSON.stringify(input) }, true).then((r) => r.pengguna),
+  keluar: () => request<void>('/api/sesi', { method: 'DELETE' }, true),
+  hapusAkun: () => request<void>('/api/saya', { method: 'DELETE' }),
 }

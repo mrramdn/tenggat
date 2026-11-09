@@ -50,7 +50,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       ok: (j, t) => push('ok', j, t),
       galat: (j, t) => push('error', j, t),
-      dariGalat: (j, err) => push('error', j, pesanGalat(err)),
+      // A 401 means the session ended; the app already went back to the sign-in screen.
+      dariGalat: (j, err) => {
+        if (err instanceof ApiError && err.status === 401) return
+        push('error', j, pesanGalat(err))
+      },
     }),
     [push],
   )

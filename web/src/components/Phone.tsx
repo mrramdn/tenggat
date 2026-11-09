@@ -2,6 +2,7 @@
 import { api, type Item, type Status } from '../lib/api'
 import { biaya30, daftarKlien, judul, saringAwal, saringItem, tanpaSaring } from '../lib/derive'
 import { hariIniIso, kelasStatus, labelJenisPendek, labelStatus, lalu, rupiahBiasa, tanggalPanjang, tanggalPendek, urutanStatus } from '../lib/format'
+import { AkunTab } from './Akun'
 import type { Muat } from './Desktop'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
@@ -55,7 +56,7 @@ const GRUP: { judul: string; status: Status[] }[] = [
   { judul: 'Aman', status: ['aman'] },
 ]
 
-export function Phone({ items, saring, setSaring, aksi, muat }: LayarProps & { muat: Muat }) {
+export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat }) {
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   // Only the filters the phone shows apply here.
@@ -226,6 +227,7 @@ export function Phone({ items, saring, setSaring, aksi, muat }: LayarProps & { m
           <Icon name="calendar" />
           Kalender
         </a>
+        <AkunTab akun={akun} />
       </nav>
     </div>
   )

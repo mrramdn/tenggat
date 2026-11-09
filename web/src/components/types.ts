@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
+import type { Akun } from './Akun'
 import type { Item, Jenis } from '../lib/api'
 import type { Saring } from '../lib/derive'
 
@@ -24,4 +25,5 @@ export interface LayarProps {
   saring: Saring
   setSaring: Dispatch<SetStateAction<Saring>>
   aksi: Aksi
+  akun: Akun
 }

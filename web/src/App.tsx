@@ -1,25 +1,90 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Akun } from './components/Akun'
 import { AssetSheet, type ModeSheet } from './components/AssetSheet'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Desktop, type Muat } from './components/Desktop'
+import { Icon } from './components/Icon'
+import { LayarMasuk } from './components/LayarMasuk'
 import { Phone } from './components/Phone'
 import { pesanGalat, useToast } from './components/Toasts'
 import type { Aksi, BukaTambah } from './components/types'
 import { adaModal } from './hooks/useModal'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import { api, type Item } from './lib/api'
+import { api, auth, saatSesiBerakhir, type Item, type Pengguna } from './lib/api'
 import { daftarKlien, saringAwal, type Saring } from './lib/derive'
 import { tanggal } from './lib/format'
 
 const KUNCI = ['item'] as const
+const KUNCI_SAYA = ['saya'] as const
 
 function sedangMengetik(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 }
 
+/**
+ * Auth gate: asks the API who is signed in (GET /api/saya) and shows either the
+ * sign-in screen or the dashboard. Nothing else is fetched without a session.
+ */
 export function App() {
+  const qc = useQueryClient()
+  const saya = useQuery({ queryKey: KUNCI_SAYA, queryFn: auth.saya, staleTime: Infinity })
+  const [pemberitahuan, setPemberitahuan] = useState<string | null>(null)
+
+  // Signed out (sign out, account deleted or session expired): drop every cached
+  // answer of the previous user and go back to the sign-in screen.
+  const keHalamanMasuk = useCallback(
+    (pesan: string | null) => {
+      qc.setQueryData(KUNCI_SAYA, null)
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== KUNCI_SAYA[0] })
+      qc.getMutationCache().clear()
+      setPemberitahuan(pesan)
+    },
+    [qc],
+  )
+
+  // Any 401 from a data request while signed in means the session ended.
+  useEffect(() => {
+    saatSesiBerakhir(() => {
+      if (!qc.getQueryData(KUNCI_SAYA)) return
+      keHalamanMasuk('Sesi Anda berakhir. Silakan masuk lagi.')
+    })
+    return () => saatSesiBerakhir(null)
+  }, [qc, keHalamanMasuk])
+
+  const toast = useToast()
+  const masuk = useCallback(
+    (p: Pengguna, baru: boolean) => {
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== KUNCI_SAYA[0] })
+      qc.setQueryData(KUNCI_SAYA, p)
+      setPemberitahuan(null)
+      if (baru) toast.ok('Akun dibuat.', `Selamat datang, ${p.nama}.`)
+    },
+    [qc, toast],
+  )
+
+  if (saya.isPending) return <div className="boot" aria-busy="true" aria-label="Memuat" />
+  if (saya.isError) {
+    return (
+      <div className="boot">
+        <div className="state" role="alert">
+          <div className="wordmark">tenggat</div>
+          <h1 className="display">Tenggat tidak dapat dihubungi.</h1>
+          <p>{pesanGalat(saya.error)}</p>
+          <button type="button" className="btn btn--primary" onClick={() => void saya.refetch()}>
+            <Icon name="refresh" />
+            Coba lagi
+          </button>
+        </div>
+      </div>
+    )
+  }
+  if (!saya.data) return <LayarMasuk pemberitahuan={pemberitahuan} onMasuk={masuk} />
+  return <Dasbor key={saya.data.id} pengguna={saya.data} onKeluar={keHalamanMasuk} />
+}
+
+function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: string | null) => void }) {
   const phone = useMediaQuery('(max-width: 1023px)')
   const qc = useQueryClient()
   const toast = useToast()
@@ -29,6 +94,7 @@ export function App() {
   const [sheet, setSheet] = useState<ModeSheet | null>(null)
   const [hapus, setHapus] = useState<Item | null>(null)
   const [sedangCek, setSedangCek] = useState<ReadonlySet<string>>(new Set())
+  const [hapusAkun, setHapusAkun] = useState(false)
 
   const segarkan = useCallback(() => qc.invalidateQueries({ queryKey: KUNCI }), [qc])
 
@@ -61,6 +127,34 @@ export function App() {
     },
     onError: (err) => toast.dariGalat('Aset tidak dapat dihapus.', err),
   })
+
+  const keluarM = useMutation({
+    mutationFn: () => auth.keluar(),
+    onSuccess: () => {
+      onKeluar(null)
+      toast.ok('Anda sudah keluar.')
+    },
+    onError: (err) => toast.dariGalat('Tidak dapat keluar.', err),
+  })
+
+  const hapusAkunM = useMutation({
+    mutationFn: () => auth.hapusAkun(),
+    onSuccess: () => {
+      onKeluar(null)
+      toast.ok('Akun dihapus.', 'Akun dan semua aset Anda sudah dihapus.')
+    },
+    onError: (err) => toast.dariGalat('Akun tidak dapat dihapus.', err),
+  })
+
+  const akun = useMemo<Akun>(
+    () => ({
+      pengguna,
+      keluar: () => keluarM.mutate(),
+      hapus: () => setHapusAkun(true),
+      sedangKeluar: keluarM.isPending,
+    }),
+    [pengguna, keluarM.mutate, keluarM.isPending],
+  )
 
   const cekUlang = useCallback(
     async (it: Item) => {
@@ -120,7 +214,7 @@ export function App() {
       ? { status: 'galat', pesan: pesanGalat(q.error), cobaLagi: () => void q.refetch() }
       : { status: 'memuat' }
 
-  const props = { items, saring, setSaring, aksi, muat }
+  const props = { items, saring, setSaring, aksi, muat, akun }
 
   return (
     <>
@@ -142,11 +236,28 @@ export function App() {
       ) : null}
       {hapus ? (
         <ConfirmDialog
-          item={hapus}
+          judul="Hapus aset ini?"
+          tombol="Hapus"
+          tombolSedang="Menghapus"
           sedang={hapusM.isPending}
           onBatal={() => setHapus(null)}
-          onHapus={() => hapusM.mutate(hapus)}
-        />
+          onYa={() => hapusM.mutate(hapus)}
+        >
+          <b>{hapus.nama}</b> akan dihapus dari daftar dan dari kalender. Tindakan ini tidak dapat dibatalkan.
+        </ConfirmDialog>
+      ) : null}
+      {hapusAkun ? (
+        <ConfirmDialog
+          judul="Hapus akun Anda?"
+          tombol="Hapus akun"
+          tombolSedang="Menghapus"
+          sedang={hapusAkunM.isPending}
+          onBatal={() => setHapusAkun(false)}
+          onYa={() => hapusAkunM.mutate()}
+        >
+          Akun dan semua aset Anda akan dihapus permanen. Tindakan ini tidak dapat dibatalkan. Anda masuk sebagai{' '}
+          <b>{pengguna.email}</b>.
+        </ConfirmDialog>
       ) : null}
     </>
   )

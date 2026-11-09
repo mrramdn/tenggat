@@ -1,26 +1,53 @@
-// Overflow menu of a row: Ubah and Hapus.
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from './Icon'
+// Popover menus: the overflow menu of a row (Ubah, Hapus) and the account menu.
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Icon, type IconName } from './Icon'
 
-interface Props {
+export interface ItemMenu {
+  label: string
+  icon: IconName
+  bahaya?: boolean
+  onPilih: () => void
+}
+
+interface MenuProps {
   anchor: HTMLElement
-  onUbah: () => void
-  onHapus: () => void
+  label: string
+  items: ItemMenu[]
+  /** Optional block above the items (the account menu shows who is signed in). */
+  kepala?: ReactNode
+  /** Extra class on the menu, e.g. a wider account menu on the phone. */
+  className?: string
+  /** Make the menu at least as wide as its anchor (the sidebar account button). */
+  selebarAnchor?: boolean
   onClose: (kembalikanFokus: boolean) => void
 }
 
-export function RowMenu({ anchor, onUbah, onHapus, onClose }: Props) {
+export function RowMenu({ anchor, onUbah, onHapus, onClose }: { anchor: HTMLElement; onUbah: () => void; onHapus: () => void; onClose: (kembalikanFokus: boolean) => void }) {
+  return (
+    <Menu
+      anchor={anchor}
+      label="Tindakan aset"
+      onClose={onClose}
+      items={[
+        { label: 'Ubah', icon: 'pencil', onPilih: onUbah },
+        { label: 'Hapus', icon: 'trash', bahaya: true, onPilih: onHapus },
+      ]}
+    />
+  )
+}
+
+export function Menu({ anchor, label, items, kepala, className, selebarAnchor = false, onClose }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; minWidth?: number } | null>(null)
 
   useLayoutEffect(() => {
     const r = anchor.getBoundingClientRect()
     const el = ref.current
     const h = el?.offsetHeight ?? 80
-    const w = el?.offsetWidth ?? 168
+    const w = Math.max(el?.offsetWidth ?? 168, selebarAnchor ? r.width : 0)
     const bawah = r.bottom + 4 + h <= window.innerHeight - 8
-    setPos({ top: bawah ? r.bottom + 4 : r.top - 4 - h, left: Math.max(8, r.right - w) })
-  }, [anchor])
+    setPos({ top: bawah ? r.bottom + 4 : r.top - 4 - h, left: Math.max(8, r.right - w), minWidth: selebarAnchor ? r.width : undefined })
+  }, [anchor, selebarAnchor])
 
   // Focus the first item once the menu is placed (it is hidden until then).
   const terpasang = pos !== null
@@ -67,20 +94,19 @@ export function RowMenu({ anchor, onUbah, onHapus, onClose }: Props) {
   return (
     <div
       ref={ref}
-      className="menu"
+      className={className ? `menu ${className}` : 'menu'}
       role="menu"
-      aria-label="Tindakan aset"
-      style={pos ? { top: pos.top, left: pos.left } : { visibility: 'hidden', top: 0, left: 0 }}
+      aria-label={label}
+      style={pos ? pos : { visibility: 'hidden', top: 0, left: 0 }}
       onKeyDown={onKeyDown}
     >
-      <button type="button" className="menu__item" role="menuitem" onClick={onUbah}>
-        <Icon name="pencil" />
-        Ubah
-      </button>
-      <button type="button" className="menu__item is-danger" role="menuitem" onClick={onHapus}>
-        <Icon name="trash" />
-        Hapus
-      </button>
+      {kepala ? <div className="menu__head">{kepala}</div> : null}
+      {items.map((it) => (
+        <button key={it.label} type="button" className={it.bahaya ? 'menu__item is-danger' : 'menu__item'} role="menuitem" onClick={it.onPilih}>
+          <Icon name={it.icon} />
+          {it.label}
+        </button>
+      ))}
     </div>
   )
 }

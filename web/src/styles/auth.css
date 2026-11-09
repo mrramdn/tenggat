@@ -1,0 +1,87 @@
+/* Accounts: the sign-in screen, the account button in the sidebar and its menu. */
+
+/* blank paper while GET /api/saya answers, so a signed-in user never sees the form */
+.boot { min-height: 100vh; min-height: 100dvh; background: var(--paper); display: flex; }
+.boot .state .wordmark { padding: 0; margin-bottom: var(--s-5); }
+
+/* ---------- sign-in screen ---------- */
+.auth { min-height: 100vh; min-height: 100dvh; background: var(--paper); display: flex; flex-direction: column; }
+.auth__top { width: 100%; max-width: var(--auth-max); margin: 0 auto; padding: var(--s-5) var(--s-7) 0; flex: none; }
+.auth__top .wordmark { padding: var(--s-1) 0 0; }
+.auth__main {
+  flex: 1; width: 100%; max-width: var(--auth-max); margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--auth-w); grid-template-areas: "pitch panel";
+  gap: var(--s-9); align-items: start; align-content: center;
+  padding: var(--s-6) var(--s-7) var(--s-9);
+}
+.auth__pitch { grid-area: pitch; max-width: var(--measure-form); padding-top: var(--s-5); }
+.auth__pitch .display { margin-top: 0; }
+.auth__pitch .display .quiet { display: block; }
+.auth__lede { margin-top: var(--s-4); font-size: var(--fs-16); line-height: var(--lh-24); color: var(--muted); max-width: var(--measure-text); text-wrap: pretty; }
+.auth__points { list-style: none; margin-top: var(--s-7); border-top: var(--bw) solid var(--line); }
+.auth__points li { display: flex; gap: var(--s-3); padding: var(--s-4) 0; border-bottom: var(--bw) solid var(--line); }
+.auth__points li svg.i { color: var(--ink-2); margin-top: var(--s-0); }
+.auth__points li div { display: flex; flex-direction: column; gap: var(--s-1); }
+.auth__points b { font-size: var(--fs-14); font-weight: var(--fw-medium); line-height: var(--lh-20); }
+.auth__points span { font-size: var(--fs-13); color: var(--muted); line-height: var(--lh-20); }
+
+.auth__panel { grid-area: panel; display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.auth__card {
+  background: var(--surface); border-radius: var(--r-panel); box-shadow: var(--shadow-panel);
+  padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-5);
+}
+.auth__head { display: flex; flex-direction: column; gap: var(--s-1); }
+.auth__title { font-size: var(--fs-20); font-weight: var(--fw-medium); letter-spacing: var(--track-title); line-height: var(--lh-snug); }
+.auth__sub { font-size: var(--fs-14); color: var(--muted); line-height: var(--lh-20); }
+.auth__form { display: flex; flex-direction: column; gap: var(--s-4); }
+.auth__submit { width: 100%; margin-top: var(--s-1); }
+.auth__submit[aria-busy="true"] { opacity: 1; }
+.seg__item[disabled] { cursor: default; }
+.notice { display: flex; gap: var(--s-2); padding: var(--s-3); border-radius: var(--r-control); background: var(--accent-soft); color: var(--ink-2); font-size: var(--fs-13); line-height: var(--lh-20); }
+.notice svg.i { color: var(--accent); margin-top: var(--s-0); }
+.auth__card .form-error, .notice { text-wrap: pretty; }
+
+/* ---------- account (sidebar) ---------- */
+.akun {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%;
+  padding: var(--s-2); border-radius: var(--r-card);
+  text-align: left; cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.akun:hover, .akun[aria-expanded="true"] { background: var(--surface-3); }
+.akun:focus-visible { outline: none; box-shadow: var(--ring); }
+.akun > svg.i { color: var(--muted); margin-left: auto; }
+.akun.is-static { cursor: default; padding: var(--s-2); }
+.akun.is-static:hover { background: transparent; }
+.avatar {
+  width: var(--avatar); height: var(--avatar); flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-pill); background: var(--ink); color: var(--on-ink);
+  font-size: var(--fs-12); font-weight: var(--fw-semibold); letter-spacing: 0.02em; line-height: 1;
+}
+.akun__teks { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.akun__nama, .akun__email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.akun__nama { font-size: var(--fs-13); font-weight: var(--fw-medium); color: var(--ink); line-height: var(--lh-20); }
+.akun__email { font-size: var(--fs-12); color: var(--muted); line-height: var(--lh-16); }
+
+.menu__head { padding-bottom: var(--s-1); margin-bottom: var(--s-1); border-bottom: var(--bw) solid var(--line); }
+.menu--akun { min-width: var(--menu-akun-w); max-width: calc(100vw - var(--s-4)); }
+
+/* ---------- phone and tablet ---------- */
+@media (max-width: 1023px) {
+  .auth { background: var(--paper); }
+  .auth__top { max-width: calc(var(--measure-form) + 2 * var(--s-4)); padding: var(--s-5) var(--s-6) 0; }
+  .auth__main {
+    grid-template-columns: minmax(0, 1fr); grid-template-areas: "panel" "pitch";
+    max-width: calc(var(--measure-form) + 2 * var(--s-4)); gap: var(--s-6); align-items: start; align-content: start;
+    padding: var(--s-4) var(--s-4) var(--s-7);
+  }
+  .auth__pitch { padding: 0 var(--s-4); }
+  .auth__pitch .display { font-size: var(--fs-28); }
+  .auth__lede { display: none; }
+  .auth__points { margin-top: var(--s-4); }
+  .auth__points li { padding: var(--s-3) 0; }
+  .auth__points span { display: none; }
+  .auth__card { padding: var(--s-5) var(--s-4); }
+  .boot .state { padding: var(--s-5); }
+}

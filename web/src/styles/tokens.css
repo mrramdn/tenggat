@@ -80,6 +80,10 @@
   --sheet-w: 488px;
   --dialog-w: 400px;
   --menu-w: 168px;
+  --menu-akun-w: 256px;
+  --auth-w: 400px;
+  --auth-max: 1120px;
+  --avatar: 32px;
 
   /* colour: warm near-monochrome + one cobalt accent */
   --canvas: #e4e3df;

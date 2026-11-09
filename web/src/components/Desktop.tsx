@@ -22,6 +22,7 @@ import {
   tanggalPanjang,
   urutanStatus,
 } from '../lib/format'
+import { AkunSidebar } from './Akun'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
 import { RowMenu } from './RowMenu'
@@ -42,7 +43,7 @@ export function fokusKlien() {
   }
 }
 
-function Sidebar({ items, saring, setSaring, muat }: LayarProps & { muat: Muat['status'] }) {
+function Sidebar({ items, saring, setSaring, muat, akun }: LayarProps & { muat: Muat['status'] }) {
   const siap = muat === 'siap'
   const klien = daftarKlien(items)
   return (
@@ -121,6 +122,7 @@ function Sidebar({ items, saring, setSaring, muat }: LayarProps & { muat: Muat['
           <Icon name="shield" />
           <span>Tenggat hanya menyimpan nama dan tanggal. Jangan simpan nilai token atau kata sandi.</span>
         </div>
+        <AkunSidebar akun={akun} />
       </div>
     </aside>
   )
