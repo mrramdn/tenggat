@@ -107,7 +107,7 @@ export function Pilihan<T extends string>({ id, label, nilai, opsi, onPilih, dis
         <span className="control__teks">{opsi[dipilih]?.label ?? ''}</span>
       </button>
       {buka ? (
-        <ul className="picker__list" id={listId} role="listbox" aria-label={label}>
+        <ul className="picker__list is-lepas" id={listId} role="listbox" aria-label={label}>
           {opsi.map((o, i) => (
             <li
               key={o.nilai}

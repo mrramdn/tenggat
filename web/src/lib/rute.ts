@@ -1,6 +1,6 @@
 // A small router on the History API: the path decides the screen, links push a new entry, and the back button
 // works. No dependency; every screen reads the current route with useRute().
-import { createElement, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent, type ReactElement } from 'react'
+import { createElement, useEffect, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent, type ReactElement } from 'react'
 
 export type TabKlien = 'aset' | 'tugas' | 'aktivitas' | 'laporan'
 
@@ -100,4 +100,12 @@ export function Tautan({ ke, onClick, ...props }: AnchorHTMLAttributes<HTMLAncho
     pergi(ke)
   }
   return createElement('a', { ...props, href: ke, onClick: klik })
+}
+
+/** Sets the tab title, e.g. "Pribadi · Tenggat"; null gives the plain "Tenggat", undefined leaves it to the page. */
+export function useJudulHalaman(judul: string | null | undefined) {
+  useEffect(() => {
+    if (judul === undefined) return
+    document.title = judul ? `${judul} · Tenggat` : 'Tenggat'
+  }, [judul])
 }

@@ -18,7 +18,7 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import { KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna } from './lib/api'
 import { saringAwal, type Saring } from './lib/derive'
 import { tanggal } from './lib/format'
-import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useRute, type Rute } from './lib/rute'
+import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useJudulHalaman, useRute, type Rute } from './lib/rute'
 
 const KUNCI = ['item'] as const
 const KUNCI_SAYA = ['saya'] as const
@@ -77,6 +77,11 @@ export function App() {
       if (baru) toast.ok('Akun dibuat.', `Selamat datang, ${p.nama}.`)
     },
     [qc, toast],
+  )
+
+  // The sign-in pages and the not-found page; the app (Dasbor) and the public pages set their own title.
+  useJudulHalaman(
+    rute.nama === 'masuk' ? 'Masuk' : rute.nama === 'daftar' ? 'Buat akun' : rute.nama === 'tidak-ditemukan' ? 'Halaman tidak ditemukan' : undefined,
   )
 
   if (rute.nama === 'laporan-publik') return <HalamanLaporan token={rute.token} />
@@ -283,6 +288,13 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
         : { status: 'memuat' }
 
   const props = { items, klien, saring, setSaring, aksi, muat, akun, rute }
+  useJudulHalaman(
+    rute.nama === 'pengaturan'
+      ? 'Pengaturan'
+      : rute.nama === 'klien'
+        ? (klien.find((x) => x.id === rute.id)?.nama ?? 'Klien')
+        : 'Ringkasan',
+  )
 
   return (
     <>

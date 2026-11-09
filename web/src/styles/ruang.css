@@ -8,7 +8,7 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 .nav__item[aria-current="page"] svg.i { color: var(--ink); }
 .nav--klien { min-height: 0; }
 .nav__item.is-client { gap: var(--s-3); }
-.nav__dot { width: var(--dot-sm); height: var(--dot-sm); margin: 0 var(--s-1); border-radius: var(--r-pill); background: currentColor; flex: none; }
+.nav__dot { width: var(--dot-sm); height: var(--dot-sm); margin: 0 5px; border-radius: var(--r-pill); background: currentColor; flex: none; }
 .nav__dot.is-kosong { background: transparent; box-shadow: inset 0 0 0 var(--bw) var(--faint); }
 .nav__nama { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
 .nav__item[aria-current="page"] .nav__nama { color: var(--ink); font-weight: var(--fw-medium); }
@@ -33,8 +33,10 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 .rk__judul { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
 .rk__nama { font-size: var(--fs-28); font-weight: var(--fw-medium); letter-spacing: var(--track-title); line-height: var(--lh-snug); overflow-wrap: anywhere; }
 .rk__catatan { font-size: var(--fs-14); color: var(--ink-2); line-height: var(--lh-20); overflow-wrap: anywhere; white-space: pre-line; max-width: var(--measure-form); }
-.rk__fakta { display: flex; flex-wrap: wrap; column-gap: var(--s-2); list-style: none; font-size: var(--fs-13); color: var(--muted); line-height: var(--lh-20); }
-.rk__fakta li + li::before { content: "·"; margin-right: var(--s-2); color: var(--faint); }
+/* The separator dots sit left of each item; the clip hides the one that starts a wrapped line. */
+.rk__fakta { display: flex; flex-wrap: wrap; list-style: none; font-size: var(--fs-13); color: var(--muted); line-height: var(--lh-20); margin-left: calc(-1 * var(--s-4)); clip-path: inset(0 0 0 var(--s-4)); }
+.rk__fakta li { position: relative; padding-left: var(--s-4); }
+.rk__fakta li::before { content: "·"; position: absolute; left: 6px; color: var(--faint); }
 .rk__fakta b { color: var(--ink); font-weight: var(--fw-medium); }
 .rk__aksi { display: flex; gap: var(--s-2); flex: none; }
 .ruang__isi { padding-top: var(--s-5); display: flex; flex-direction: column; min-width: 0; }
@@ -102,7 +104,7 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 .ruang.is-phone .rk { flex-direction: column; align-items: stretch; gap: var(--s-4); padding: var(--s-4) var(--s-5) var(--s-4); }
 .ruang.is-phone .rk__nama { font-size: var(--fs-24); }
 .ruang.is-phone .rk__fakta { flex-direction: column; font-size: var(--fs-14); }
-.ruang.is-phone .rk__fakta li + li::before { content: none; }
+.ruang.is-phone .rk__fakta li::before { content: none; }
 .ruang.is-phone .rk__aksi .btn--primary { flex: 1 1 auto; }
 .rk__tabs { margin: 0 var(--s-5); }
 .ruang.is-phone .ruang__isi { padding-top: var(--s-4); }
@@ -153,4 +155,4 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 }
 /* the not-found page sits in the middle of the screen */
 .boot.is-tengah { align-items: center; justify-content: center; }
-.boot.is-tengah .state { flex: none; }
+.boot.is-tengah .state { flex: none; width: 100%; }

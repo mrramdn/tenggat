@@ -39,3 +39,5 @@ textarea.control.klien-dialog__note {
 .nav__item.is-add:hover { color: var(--ink); }
 .nav__item.is-add svg.i { color: inherit; }
 .side-note { font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted); padding: 0 var(--s-2) var(--s-2); }
+/* Pilihan: the list may grow wider than its button, so long client names are not cut. */
+.picker__list.is-lepas { right: auto; min-width: 100%; width: max-content; max-width: min(320px, calc(100vw - var(--s-6))); }
