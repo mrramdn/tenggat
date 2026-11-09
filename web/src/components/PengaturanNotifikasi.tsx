@@ -241,18 +241,7 @@ export function PengaturanNotifikasi() {
   }
 
   return (
-    <section className="notif" aria-labelledby={`${uid}-j`}>
-      <div className="notif__kepala">
-        <h2 className="notif__judul" id={`${uid}-j`}>
-          Notifikasi
-        </h2>
-        <p className="notif__teks">
-          Setiap pukul 08.00 WIB Tenggat mengirim ringkasan ke Slack, Discord, atau Telegram bila ada aset atau tugas
-          yang sudah lewat atau jatuh tempo dalam 7 hari. Pada hari tanpa tenggat dekat, tidak ada pesan. URL webhook
-          disimpan hanya untuk mengirim pesan ini.
-        </p>
-      </div>
-      {isi}
-    </section>
+    // The heading and the explanation come from the Notifikasi section of Pengaturan.
+    <div className="notif">{isi}</div>
   )
 }
