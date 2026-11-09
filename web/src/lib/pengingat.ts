@@ -32,14 +32,14 @@ export function teksPengingat(it: Item): string {
   let kalimat: string
   let minta: string
   if (n < 0) {
-    kalimat = `Kami informasikan bahwa ${aset}${untuk} sudah berakhir pada ${tgl}, ${-n} hari yang lalu.`
+    kalimat = `Saya ingin memberi tahu bahwa ${aset}${untuk} sudah berakhir pada ${tgl}, ${-n} hari yang lalu.`
     minta = 'Mohon konfirmasinya agar dapat segera diperpanjang.'
   } else if (n === 0) {
-    kalimat = `Kami ingin mengingatkan bahwa ${aset}${untuk} berakhir hari ini, ${tgl}.`
+    kalimat = `Saya ingin mengingatkan bahwa ${aset}${untuk} berakhir hari ini, ${tgl}.`
     minta = 'Mohon konfirmasinya agar dapat diperpanjang hari ini.'
   } else {
     const sisa = n === 1 ? 'besok' : `${n} hari lagi`
-    kalimat = `Kami ingin mengingatkan bahwa ${aset}${untuk} akan berakhir pada ${tgl}, ${sisa}.`
+    kalimat = `Saya ingin mengingatkan bahwa ${aset}${untuk} akan berakhir pada ${tgl}, ${sisa}.`
     minta = 'Mohon konfirmasinya agar dapat diperpanjang sebelum tanggal tersebut.'
   }
   const biaya = it.biaya != null && it.biaya > 0 ? ` Biaya perpanjangannya ${rupiahBiasa(it.biaya)}.` : ''

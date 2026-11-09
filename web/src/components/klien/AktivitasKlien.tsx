@@ -97,9 +97,9 @@ export function AktivitasKlien({ klienId }: { klienId: string }) {
     onSuccess: (_, a) => {
       setHapus(null)
       segarkan()
-      toast.ok(a.jenis === 'pekerjaan' ? 'Pekerjaan dihapus' : 'Catatan dihapus')
+      toast.ok(a.jenis === 'pekerjaan' ? 'Pekerjaan dihapus.' : 'Catatan dihapus.')
     },
-    onError: (err) => toast.dariGalat('Entri tidak terhapus', err),
+    onError: (err) => toast.dariGalat('Entri tidak dapat dihapus.', err),
   })
 
   let isi
@@ -179,7 +179,7 @@ export function AktivitasKlien({ klienId }: { klienId: string }) {
         klienId={klienId}
         onSaved={(a) => {
           segarkan()
-          toast.ok(a.jenis === 'pekerjaan' ? 'Pekerjaan dicatat' : 'Catatan disimpan')
+          toast.ok(a.jenis === 'pekerjaan' ? 'Pekerjaan dicatat.' : 'Catatan disimpan.')
         }}
       />
       {isi}

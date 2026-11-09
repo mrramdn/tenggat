@@ -51,9 +51,9 @@ export function TugasKlien({ klienId }: { klienId: string }) {
     onSuccess: (_, t) => {
       setDialog(null)
       segarkan()
-      toast.ok('Tugas dihapus', t.judul)
+      toast.ok('Tugas dihapus.', t.judul)
     },
-    onError: (err) => toast.dariGalat('Tugas tidak terhapus', err),
+    onError: (err) => toast.dariGalat('Tugas tidak dapat dihapus.', err),
   })
 
   const tutupMenu = useCallback((kembali: boolean) => {
@@ -188,7 +188,7 @@ export function TugasKlien({ klienId }: { klienId: string }) {
           onSaved={(t, baru) => {
             setDialog(null)
             segarkan()
-            toast.ok(baru ? 'Tugas ditambahkan' : 'Tugas disimpan', `${t.judul}, jatuh tempo ${tanggal(t.jatuh_tempo)}.`)
+            toast.ok(baru ? 'Tugas ditambahkan.' : 'Tugas disimpan.', `${t.judul}, jatuh tempo ${tanggal(t.jatuh_tempo)}.`)
           }}
         />
       ) : null}
@@ -199,7 +199,7 @@ export function TugasKlien({ klienId }: { klienId: string }) {
           onSaved={(t) => {
             setDialog(null)
             segarkan()
-            toast.ok('Tugas selesai', `Jatuh tempo berikutnya ${tanggal(t.jatuh_tempo)}.`)
+            toast.ok('Tugas selesai.', `Jatuh tempo berikutnya ${tanggal(t.jatuh_tempo)}.`)
           }}
         />
       ) : null}

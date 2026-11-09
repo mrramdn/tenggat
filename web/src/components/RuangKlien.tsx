@@ -53,7 +53,7 @@ function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: bo
           </li>
           {k.terdekat ? (
             <li>
-              Tenggat terdekat <b className="num">{tanggal(k.terdekat)}</b>
+              Jatuh tempo terdekat <b className="num">{tanggal(k.terdekat)}</b>
             </li>
           ) : null}
         </ul>

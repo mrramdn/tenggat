@@ -84,7 +84,7 @@ export function judul(items: Item[], hariIni = new Date()): { utama: string; sun
   }
   if (n.segera > 0) return { utama: 'Tidak ada yang berakhir minggu ini.', sunyi: `${n.segera} aset berakhir dalam 30 hari.` }
   const terdekat = [...items].sort((a, b) => a.sisa_hari - b.sisa_hari)[0]
-  return { utama: 'Semua aset aman.', sunyi: terdekat ? `Tenggat terdekat ${tanggal(terdekat.kedaluwarsa)}.` : null }
+  return { utama: 'Semua aset aman.', sunyi: terdekat ? `Jatuh tempo terdekat ${tanggal(terdekat.kedaluwarsa)}.` : null }
 }
 
 /** Name as it reads inside a sentence: "domain tokokuemawar.id", "VPS 2 vCPU". */

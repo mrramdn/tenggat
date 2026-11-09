@@ -9,10 +9,10 @@ export const labelStatus: Record<Status, string> = {
 }
 
 export const keteranganStatus: Record<Status, string> = {
-  lewat: 'Sudah kedaluwarsa',
-  kritis: 'Berakhir 0 sampai 7 hari lagi',
+  lewat: 'Sudah berakhir',
+  kritis: 'Berakhir hari ini sampai 7 hari lagi',
   segera: 'Berakhir 8 sampai 30 hari lagi',
-  aman: 'Lebih dari 30 hari',
+  aman: 'Berakhir lebih dari 30 hari lagi',
 }
 
 export const labelJenis: Record<Jenis, string> = {

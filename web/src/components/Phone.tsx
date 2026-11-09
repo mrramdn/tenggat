@@ -95,7 +95,7 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
               <b className="num">{rupiahBiasa(b.total)}</b> jatuh tempo dalam 30 hari ke depan.
             </>
           ) : (
-            'Tidak ada biaya jatuh tempo dalam 30 hari ke depan.'
+            'Tidak ada biaya perpanjangan dalam 30 hari ke depan.'
           )}
         </p>
       </div>

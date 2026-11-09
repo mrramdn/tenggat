@@ -204,7 +204,7 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
     mutationFn: () => auth.hapusAkun(),
     onSuccess: () => {
       onKeluar('/', null)
-      toast.ok('Akun dihapus.', 'Akun dan semua aset Anda sudah dihapus.')
+      toast.ok('Akun dihapus.', 'Akun dan semua data Anda sudah dihapus.')
     },
     onError: (err) => toast.dariGalat('Akun tidak dapat dihapus.', err),
   })

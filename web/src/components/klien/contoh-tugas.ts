@@ -14,7 +14,7 @@ export const contohTugas: ContohTugas[] = [
   { label: 'Cek backup', judul: 'Cek backup situs', ulang_jumlah: 1, ulang_satuan: 'bulan' },
   { label: 'Update plugin dan core', judul: 'Update plugin, tema, dan core', ulang_jumlah: 1, ulang_satuan: 'bulan' },
   { label: 'Pindai malware', judul: 'Pindai malware', ulang_jumlah: 1, ulang_satuan: 'bulan' },
-  { label: 'Tinjau uptime dan SSL', judul: 'Tinjau uptime dan sertifikat SSL', ulang_jumlah: 3, ulang_satuan: 'bulan' },
+  { label: 'Tinjau uptime dan TLS', judul: 'Tinjau uptime dan sertifikat TLS', ulang_jumlah: 3, ulang_satuan: 'bulan' },
   { label: 'Tagih perpanjangan', judul: 'Tagih perpanjangan hosting dan domain', ulang_jumlah: 1, ulang_satuan: 'tahun' },
 ]
 

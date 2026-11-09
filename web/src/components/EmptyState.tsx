@@ -36,7 +36,7 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
             <input
               id="first-host"
               className="control"
-              placeholder="contoh: tokoanda.id"
+              placeholder="misalnya tokokuemawar.id"
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}

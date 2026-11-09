@@ -482,7 +482,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                       <input
                         id={id('host')}
                         className="control"
-                        placeholder="contoh: tokoanda.id"
+                        placeholder="misalnya tokokuemawar.id"
                         autoComplete="off"
                         autoCapitalize="off"
                         spellCheck={false}
