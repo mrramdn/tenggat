@@ -75,15 +75,15 @@ menghapusnya.
 
 ## Tampilan
 
-| Tambah aset: sertifikat dibaca dari server | Ponsel |
+| Tambah aset: tanggal domain dibaca dari registri | Ponsel |
 |---|---|
-| ![Panel tambah aset](docs/tambah-aset.png) | ![Tampilan ponsel](docs/ponsel.png) |
+| ![Panel tambah aset dengan tanggal domain dari registri](docs/tambah-aset.png) | ![Tampilan ponsel](docs/ponsel.png) |
 
-Halaman masuk dan daftar:
+Halaman masuk:
 
 ![Halaman masuk](docs/masuk.png)
 
-Saat belum ada aset, halaman awal langsung meminta host pertama:
+Saat belum ada aset, halaman awal langsung meminta domain pertama:
 
 ![Keadaan kosong](docs/kosong.png)
 
