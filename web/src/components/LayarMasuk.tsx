@@ -3,11 +3,12 @@
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ApiError, auth, type Pengguna } from '../lib/api'
+import { pergi } from '../lib/rute'
 import { Icon } from './Icon'
 import { MasukPratinjau } from './MasukPratinjau'
 import { pesanGalat } from './Toasts'
 
-type Mode = 'masuk' | 'daftar'
+export type Mode = 'masuk' | 'daftar'
 type Isian = 'nama' | 'email' | 'kata_sandi'
 
 const ISIAN: Record<Mode, Isian[]> = {
@@ -16,6 +17,8 @@ const ISIAN: Record<Mode, Isian[]> = {
 }
 
 interface Props {
+  /** masuk on /masuk, daftar on /daftar; switching changes the address. */
+  mode: Mode
   /** A note shown above the form, e.g. after the session expired. */
   pemberitahuan: string | null
   onMasuk: (p: Pengguna, baru: boolean) => void
@@ -52,10 +55,9 @@ function useTunggu() {
   return { sisa: sampai === null ? 0 : Math.max(0, Math.ceil((sampai - kini) / 1000)), mulai }
 }
 
-export function LayarMasuk({ pemberitahuan, onMasuk }: Props) {
+export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
   const uid = useId()
   const id = (s: string) => `${uid}-${s}`
-  const [mode, setMode] = useState<Mode>('masuk')
   const [nama, setNama] = useState('')
   const [email, setEmail] = useState('')
   const [sandi, setSandi] = useState('')
@@ -101,9 +103,17 @@ export function LayarMasuk({ pemberitahuan, onMasuk }: Props) {
     },
   })
 
+  // The form state is reset when the address switches between /masuk and /daftar (back button included).
+  useEffect(() => {
+    setGalat({})
+    setGalatUmum(null)
+    setSandi('')
+    kirim.reset()
+  }, [mode])
+
   function gantiMode(m: Mode) {
     if (m === mode) return
-    setMode(m)
+    pergi(`/${m}${window.location.search}`, { ganti: true })
     setGalat({})
     setGalatUmum(null)
     setSandi('')

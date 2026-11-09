@@ -1,7 +1,8 @@
-// The signed-in account: a button with the initials, name and email (bottom of
-// the sidebar) or an "Akun" tab (phone), both opening the same menu.
+// The signed-in account: a button with the initials, name and email at the bottom of the sidebar, opening a menu
+// with Pengaturan and Keluar. On the phone the account lives in the Pengaturan tab.
 import { useCallback, useState } from 'react'
 import type { Pengguna } from '../lib/api'
+import { pergi } from '../lib/rute'
 import { Icon } from './Icon'
 import { Menu } from './RowMenu'
 
@@ -35,29 +36,22 @@ function useMenuAkun() {
   return { anchor, tutup, alih }
 }
 
-function MenuAkun({ akun, anchor, tutup, phone }: { akun: Akun; anchor: HTMLElement; tutup: (kembali: boolean) => void; phone: boolean }) {
-  const { pengguna } = akun
+function MenuAkun({ akun, anchor, tutup }: { akun: Akun; anchor: HTMLElement; tutup: (kembali: boolean) => void }) {
   return (
     <Menu
       anchor={anchor}
       label="Akun"
-      className={phone ? 'menu--akun' : undefined}
-      selebarAnchor={!phone}
+      selebarAnchor
       onClose={tutup}
-      kepala={
-        phone ? (
-          <div className="akun is-static">
-            <span className="avatar" aria-hidden="true">
-              {inisial(pengguna.nama)}
-            </span>
-            <span className="akun__teks">
-              <span className="akun__nama">{pengguna.nama}</span>
-              <span className="akun__email">{pengguna.email}</span>
-            </span>
-          </div>
-        ) : undefined
-      }
       items={[
+        {
+          label: 'Pengaturan',
+          icon: 'settings',
+          onPilih: () => {
+            tutup(false)
+            pergi('/app/pengaturan')
+          },
+        },
         {
           label: akun.sedangKeluar ? 'Sedang keluar' : 'Keluar',
           icon: akun.sedangKeluar ? 'loader' : 'log-out',
@@ -65,15 +59,6 @@ function MenuAkun({ akun, anchor, tutup, phone }: { akun: Akun; anchor: HTMLElem
             if (akun.sedangKeluar) return
             tutup(false)
             akun.keluar()
-          },
-        },
-        {
-          label: 'Hapus akun',
-          icon: 'trash',
-          bahaya: true,
-          onPilih: () => {
-            tutup(false)
-            akun.hapus()
           },
         },
       ]}
@@ -104,27 +89,7 @@ export function AkunSidebar({ akun }: { akun: Akun }) {
         </span>
         <Icon name="chevrons-up-down" />
       </button>
-      {anchor ? <MenuAkun akun={akun} anchor={anchor} tutup={tutup} phone={false} /> : null}
-    </>
-  )
-}
-
-export function AkunTab({ akun }: { akun: Akun }) {
-  const { anchor, tutup, alih } = useMenuAkun()
-  return (
-    <>
-      <button
-        type="button"
-        className={anchor ? 'tab is-active' : 'tab'}
-        aria-haspopup="menu"
-        aria-expanded={!!anchor}
-        aria-label={`Akun: ${akun.pengguna.nama}`}
-        onClick={(e) => alih(e.currentTarget)}
-      >
-        <Icon name="user" />
-        Akun
-      </button>
-      {anchor ? <MenuAkun akun={akun} anchor={anchor} tutup={tutup} phone /> : null}
+      {anchor ? <MenuAkun akun={akun} anchor={anchor} tutup={tutup} /> : null}
     </>
   )
 }

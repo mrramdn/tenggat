@@ -45,6 +45,8 @@ svg.i { width: var(--icon); height: var(--icon); flex: none; stroke: currentColo
 .btn--danger:focus-visible { box-shadow: var(--shadow-primary), var(--ring); }
 .btn--secondary { background: var(--surface); border-color: var(--line-strong); color: var(--ink); box-shadow: var(--shadow-control); }
 .btn--secondary:hover { background: var(--surface-2); border-color: var(--faint); }
+.btn--secondary.is-danger { color: var(--danger); }
+.btn--secondary.is-danger:hover { border-color: var(--danger); background: var(--st-lewat-bg); }
 .btn--ghost { background: transparent; color: var(--muted); }
 .btn--ghost:hover, .btn--ghost[aria-expanded="true"] { background: var(--surface-3); color: var(--ink); }
 .btn--icon { width: var(--h); padding: 0; }
@@ -69,13 +71,24 @@ svg.i { width: var(--icon); height: var(--icon); flex: none; stroke: currentColo
 .control.is-sm { --h: var(--control-sm); font-size: var(--fs-13); }
 .control.is-lg { --h: var(--control-lg); font-size: var(--fs-16); }
 .control.is-error, .control[aria-invalid="true"] { border-color: var(--danger); box-shadow: var(--ring-error); }
-select.control, .control.is-combo {
+/* A focused field with an error keeps a visible focus ring, in the error colour. */
+.control.is-error:focus, .control[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: var(--ring-error-focus); }
+/* Every dropdown (native select, the Pilihan button, the client combobox) shares the chevron, the padding and the
+   ellipsis; the list they open is .picker__list (klien.css). */
+select.control, .control.is-combo, .control.is-select {
   padding-right: var(--s-6); cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236a6862' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right var(--s-3) center; background-size: var(--icon) var(--icon);
   text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
 }
 .control.is-combo { cursor: text; }
+.control.is-select { display: flex; align-items: center; gap: var(--s-2); text-align: left; font-weight: var(--fw-regular); }
+.control.is-select[aria-expanded="true"] { border-color: var(--accent); box-shadow: var(--ring); }
+.control__teks { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.control:disabled, .control[aria-disabled="true"] {
+  background-color: var(--surface-2); border-color: var(--line); color: var(--muted); box-shadow: none; cursor: not-allowed;
+}
+.control[readonly] { background-color: var(--surface-2); }
 /* Date input: the native picker opens from the calendar icon on the left. */
 input[type="date"].control { position: relative; }
 input[type="date"].control::-webkit-calendar-picker-indicator {
@@ -106,8 +119,9 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
 }
 .seg__item:hover { color: var(--ink); }
 .seg__item:focus-visible { outline: none; box-shadow: var(--ring); }
-.seg__item[aria-checked="true"] { background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-primary); }
-.seg__item[aria-checked="true"]:focus-visible { box-shadow: var(--shadow-primary), var(--ring); }
+.seg__item[aria-checked="true"], .seg__item[aria-current="page"] { background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-primary); }
+.seg__item[aria-checked="true"]:focus-visible, .seg__item[aria-current="page"]:focus-visible { box-shadow: var(--shadow-primary), var(--ring); }
+a.seg__item { text-decoration: none; }
 .seg.is-sm .seg__item { --h: var(--control-sm); padding: 0 var(--control-px-sm); font-size: var(--fs-13); }
 .seg__count { color: inherit; opacity: 0.6; font-weight: var(--fw-regular); }
 .seg.is-full { display: flex; }
@@ -155,7 +169,7 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
   display: flex; flex-direction: column;
 }
 .menu__item {
-  display: flex; align-items: center; gap: var(--s-2);
+  display: flex; align-items: center; gap: var(--s-2); white-space: nowrap;
   height: var(--control-sm); padding: 0 var(--s-2); border-radius: var(--r-control);
   font-size: var(--fs-13); font-weight: var(--fw-medium); color: var(--ink-2); cursor: pointer; text-align: left;
 }

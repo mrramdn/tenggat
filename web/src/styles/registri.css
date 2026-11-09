@@ -20,23 +20,20 @@
 /* Sheet: the line under the registry result. */
 .ganti-sumber { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-2); margin-top: calc(-1 * var(--s-2)); font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted); }
 
-/* Calendar dialog */
-.dialog.kal { width: min(var(--kal-w), calc(100vw - var(--s-6))); gap: var(--s-3); }
-.kal__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin: calc(-1 * var(--s-2)) calc(-1 * var(--s-2)) 0 0; }
-.kal__isi { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4) 0; border-top: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); margin-top: var(--s-1); }
+/* Calendar subscription, a section of Pengaturan */
+.kal { display: flex; flex-direction: column; gap: var(--s-4); }
+.kal__isi { display: flex; flex-direction: column; gap: var(--s-3); }
 .kal__url { font-family: var(--font-mono); font-size: var(--fs-13); color: var(--ink-2); background: var(--surface-2); text-overflow: ellipsis; }
 .kal__salin { min-width: var(--kal-salin-w); }
 .kal__buka { align-self: flex-start; text-decoration: none; }
 .kal__kelola { display: flex; gap: var(--s-4); font-size: var(--fs-13); }
-.kal__aksi { display: flex; justify-content: flex-end; gap: var(--s-2); }
-.kal__aksi.is-start { justify-content: flex-start; }
+.kal__aksi { display: flex; justify-content: flex-start; gap: var(--s-2); }
 .kal__info, .kal__konfirmasi p { font-size: var(--fs-14); line-height: var(--lh-20); color: var(--ink-2); }
 .kal__info { display: flex; gap: var(--s-2); }
 .kal__info svg.i { color: var(--muted); flex: none; margin-top: var(--s-0); }
 .kal__konfirmasi { display: flex; flex-direction: column; gap: var(--s-4); }
-.kal__catatan { margin-top: var(--s-1); }
-.kal__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin-top: var(--s-2); }
-.kal__foot .btn--ghost { margin-left: calc(-1 * var(--control-px-md)); }
+.kal__foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2) var(--s-3); padding-top: var(--s-4); border-top: var(--bw) solid var(--line); }
+.kal__foot-teks { font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted); }
 
 @media (max-width: 1023px) {
   .dialog.kal { width: calc(100vw - var(--s-4)); padding: var(--s-4) var(--s-4) var(--s-4) var(--s-5); max-height: calc(100dvh - var(--s-4)); overflow-y: auto; }

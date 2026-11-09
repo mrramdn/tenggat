@@ -76,7 +76,7 @@
   --pill-h: 24px;
 
   /* layout */
-  --sidebar-w: 216px;
+  --sidebar-w: 232px;
   --sheet-w: 488px;
   --dialog-w: 400px;
   --menu-w: 168px;
@@ -92,7 +92,7 @@
   --surface-2: #f9f8f6;
   --surface-3: #f1f0ec;
   --line: #e7e5e0;
-  --line-strong: #d6d4ce;
+  --line-strong: #cfcdc6; /* control borders: raised from #d6d4ce so inputs read on white */
   --ink: #121211;
   --ink-2: #3a3936;
   --muted: #6a6862;
@@ -144,6 +144,7 @@
   /* fixed component dimensions */
   --ring: 0 0 0 3px var(--focus);
   --ring-error: 0 0 0 3px rgba(179, 38, 30, 0.12);
+  --ring-error-focus: 0 0 0 3px rgba(179, 38, 30, 0.28);
   --kbd: 20px;
   --dot-sm: 6px;
   --sep: 3px;

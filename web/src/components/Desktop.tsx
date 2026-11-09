@@ -1,101 +1,43 @@
-// Desktop dashboard: sidebar, header, hero with overview, filters and the list.
-import { useCallback, useState } from 'react'
-import type { Item, Jenis, Sumber } from '../lib/api'
-import {
-  adaSaring,
-  hitungStatus,
-  judul,
-  kalimatBiaya,
-  rentangTanggal,
-  saringAwal,
-  saringItem,
-  tanpaSaring,
-} from '../lib/derive'
-import {
-  frasaHari,
-  hariIniIso,
-  labelJenis,
-  lalu,
-  rupiahBiasa,
-  tanggal,
-  tanggalPanjang,
-  urutanStatus,
-} from '../lib/format'
+// Desktop shell: the sidebar (Ringkasan, the clients, Pengaturan, the account) and the main panel, whose content
+// follows the route: the overview, a client's space or the settings.
+import type { ReactNode } from 'react'
+import { hitungStatus, judul, kalimatBiaya, rentangTanggal, statusTerburuk } from '../lib/derive'
+import { hariIniIso, kelasStatus, labelStatus, tanggalPanjang, urutanStatus } from '../lib/format'
+import { jalurKlien, Tautan, type Rute } from '../lib/rute'
 import { AkunSidebar } from './Akun'
-import { EmptyState } from './EmptyState'
-import { Icon, ikonJenis } from './Icon'
-import { KlienKepala } from './KlienKepala'
-import { BukaKalender } from './KalenderDialog'
+import { DaftarAset } from './DaftarAset'
 import { EksporCsv } from './EksporCsv'
-import { RowMenu } from './RowMenu'
+import { EmptyState } from './EmptyState'
+import { Icon } from './Icon'
+import { Pengaturan } from './Pengaturan'
+import { PerluDikerjakan } from './PerluDikerjakan'
+import { RuangKlien } from './RuangKlien'
 import { Timeline } from './Timeline'
-import type { Aksi, LayarProps } from './types'
-import { Days, Pill } from './ui'
+import type { LayarProps } from './types'
+import { Pill } from './ui'
 
 export type Muat = { status: 'memuat' } | { status: 'galat'; pesan: string; cobaLagi: () => void } | { status: 'siap' }
 
-export function fokusKlien() {
-  const el = document.getElementById('saring-klien') as HTMLSelectElement | null
-  if (!el) return
-  el.focus()
-  try {
-    el.showPicker?.()
-  } catch {
-    /* some browsers refuse showPicker for select; focus is enough */
-  }
-}
+export type ShellProps = LayarProps & { muat: Muat; rute: Rute }
 
-function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat['status'] }) {
-  const siap = muat === 'siap'
-  const adaAset = items.length > 0
+function Sidebar({ items, klien, rute, aksi, muat, akun }: ShellProps) {
+  const siap = muat.status === 'siap'
+  const terburuk = statusTerburuk(items)
   return (
     <aside className="side">
-      <div className="wordmark">tenggat</div>
-      <label className={saring.cari ? 'input-icon' : 'input-icon has-kbd'}>
-        <Icon name="search" />
-        <input
-          id="cari"
-          type="search"
-          className="control"
-          placeholder="Cari aset"
-          aria-label="Cari aset (tekan / untuk fokus)"
-          autoComplete="off"
-          value={saring.cari}
-          onChange={(e) => setSaring((s) => ({ ...s, cari: e.target.value }))}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setSaring((s) => ({ ...s, cari: '' }))
-              e.currentTarget.blur()
-            }
-          }}
-        />
-        {saring.cari ? null : <span className="kbd" aria-hidden="true">/</span>}
-      </label>
+      <Tautan ke="/app" className="wordmark" aria-label="Tenggat, ke ringkasan">
+        tenggat
+      </Tautan>
       <nav className="nav" aria-label="Menu">
-        <button
-          type="button"
-          className="nav__item is-active"
-          aria-current="page"
-          title="Tampilkan semua aset"
-          onClick={() => setSaring(saringAwal)}
-        >
-          <Icon name="layers" />
-          Aset
+        <Tautan ke="/app" className="nav__item" aria-current={rute.nama === 'ringkasan' ? 'page' : undefined}>
+          <Icon name="layout-dashboard" />
+          Ringkasan
           <span className="count num">{siap ? items.length : ''}</span>
-        </button>
-        <button type="button" className="nav__item" title="Saring menurut klien" onClick={fokusKlien} disabled={!siap || !adaAset || klien.length === 0}>
-          <Icon name="users" />
-          Klien
-          <span className="count num">{siap ? klien.length : ''}</span>
-        </button>
-        <BukaKalender className="nav__item" title="Langganan kalender dan unduh .ics">
-          <Icon name="calendar" />
-          Kalender
-        </BukaKalender>
+        </Tautan>
       </nav>
-      <nav className="nav" aria-label="Klien" hidden={muat === 'galat'}>
+      <nav className="nav nav--klien" aria-label="Klien" hidden={muat.status === 'galat'}>
         <div className="nav__label">Klien</div>
-        {muat === 'memuat'
+        {muat.status === 'memuat'
           ? [96, 120, 80].map((w) => (
               <div key={w} className="nav__item is-client is-note">
                 <span className="sk" style={{ width: w, height: 12 }} />
@@ -103,22 +45,30 @@ function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarPro
             ))
           : null}
         {siap && klien.length === 0 ? (
-          <p className="side-note">Kelompokkan aset per klien untuk melihat tenggat dan biaya perpanjangan tiap klien.</p>
+          <p className="side-note">Setiap klien punya halaman sendiri berisi aset, tugas, aktivitas, dan laporan bulanannya.</p>
         ) : null}
         {klien.map((k) => {
-          const aktif = saring.klien === k.id
+          const st = terburuk.get(k.id)
+          const aktif = rute.nama === 'klien' && rute.id === k.id
+          const pasif = k.status === 'jeda' || k.status === 'selesai'
           return (
-            <button
+            <Tautan
               key={k.id}
-              type="button"
-              className={aktif ? 'nav__item is-client is-active' : 'nav__item is-client'}
-              aria-pressed={aktif}
+              ke={jalurKlien(k.id)}
+              className={pasif ? 'nav__item is-client is-pasif' : 'nav__item is-client'}
+              aria-current={aktif ? 'page' : undefined}
               title={k.nama}
-              onClick={() => setSaring((s) => ({ ...s, klien: aktif ? null : k.id }))}
             >
-              <span>{k.nama}</span>
-              <span className="count num">{k.jumlah_aset}</span>
-            </button>
+              <span
+                className={st ? `nav__dot st-${kelasStatus[st]}` : 'nav__dot is-kosong'}
+                role="img"
+                aria-label={st ? `Status terdekat: ${labelStatus[st]}` : 'Belum ada aset'}
+              />
+              <span className="nav__nama">{k.nama}</span>
+              <span className="count num" aria-label={`${k.jumlah_aset} aset`}>
+                {k.jumlah_aset}
+              </span>
+            </Tautan>
           )
         })}
         {siap ? (
@@ -129,13 +79,17 @@ function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarPro
         ) : null}
       </nav>
       <div className="side__foot">
+        <Tautan ke="/app/pengaturan" className="nav__item" aria-current={rute.nama === 'pengaturan' ? 'page' : undefined}>
+          <Icon name="settings" />
+          Pengaturan
+        </Tautan>
         <AkunSidebar akun={akun} />
       </div>
     </aside>
   )
 }
 
-function Hero({ items, saring, setSaring }: Omit<LayarProps, 'aksi'>) {
+function Hero({ items, saring, setSaring, jumlahKlien }: Pick<LayarProps, 'items' | 'saring' | 'setSaring'> & { jumlahKlien: number }) {
   const j = judul(items)
   const b = kalimatBiaya(items)
   const n = hitungStatus(items)
@@ -145,7 +99,13 @@ function Hero({ items, saring, setSaring }: Omit<LayarProps, 'aksi'>) {
         <div className="eyebrow">
           {tanggalPanjang(hariIniIso())}
           <span className="sep" />
-          <span className="num">{items.length} aset dipantau</span>
+          <span className="num">{items.length} aset</span>
+          {jumlahKlien > 0 ? (
+            <>
+              <span className="sep" />
+              <span className="num">{jumlahKlien} klien</span>
+            </>
+          ) : null}
         </div>
         <h1 className="display">
           {j.utama}
@@ -185,249 +145,6 @@ function Hero({ items, saring, setSaring }: Omit<LayarProps, 'aksi'>) {
           <Timeline items={items} />
         </div>
       </div>
-    </section>
-  )
-}
-
-function Check({ it }: { it: Item }) {
-  if (it.sumber === 'server' || it.sumber === 'registri') {
-    if (it.galat_cek) {
-      return (
-        <div className="check is-fail">
-          <span className="check__src">
-            <Icon name="alert" />
-            Cek gagal{it.terakhir_dicek ? ` · ${lalu(it.terakhir_dicek)}` : ''}
-          </span>
-          <span className="check__meta" title={it.galat_cek}>
-            {it.galat_cek.replace(/\.$/, '')}
-          </span>
-        </div>
-      )
-    }
-    return (
-      <div className="check">
-        <span className="check__src">
-          <Icon name={it.sumber === 'registri' ? 'database' : 'server'} />
-          {it.sumber === 'registri' ? 'Dari registri' : 'Dari server'}
-        </span>
-        <span className="check__meta">{it.terakhir_dicek ? `Dicek ${lalu(it.terakhir_dicek)}` : 'Belum dicek'}</span>
-      </div>
-    )
-  }
-  return (
-    <div className="check">
-      <span className="check__src">
-        <Icon name="pencil" />
-        Manual
-      </span>
-      <span className="check__meta">Tanggal diisi Anda</span>
-    </div>
-  )
-}
-
-export function subJenis(it: Item): string {
-  const detail =
-    it.jenis === 'sertifikat'
-      ? it.tls?.penerbit
-      : it.sumber === 'registri' && it.registri?.registrar
-        ? it.registri.registrar
-        : it.biaya
-          ? rupiahBiasa(it.biaya)
-          : ''
-  return detail ? `${labelJenis[it.jenis]} · ${detail}` : labelJenis[it.jenis]
-}
-
-function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTerbuka: boolean; bukaMenu: (el: HTMLElement) => void }) {
-  // Certificates and registry domains are read again on request; the rest is extended by hand.
-  const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
-  const cek = aksi.sedangCek.has(it.id)
-  return (
-    <div className="row" role="listitem" aria-label={`${it.nama}, ${frasaHari(it.sisa_hari)}`}>
-      <div className="sisa">
-        <Days n={it.sisa_hari} />
-        <Pill status={it.status} />
-      </div>
-      <div className="asset">
-        <div className="asset__name" title={it.nama}>
-          {it.nama}
-        </div>
-        <div className="asset__sub">
-          <Icon name={ikonJenis[it.jenis]} />
-          <span>
-            {subJenis(it)}
-            {it.klien ? <span className="sub-klien"> · {it.klien}</span> : null}
-            <span className="sub-tgl"> · {tanggal(it.kedaluwarsa)}</span>
-          </span>
-        </div>
-      </div>
-      <div className={it.klien ? 'cell col-client' : 'cell col-client is-empty'}>{it.klien || 'Tanpa klien'}</div>
-      <div className="cell num col-date">{tanggal(it.kedaluwarsa)}</div>
-      <Check it={it} />
-      <div className="actions">
-        {bisaCek ? (
-          <button
-            type="button"
-            className={cek ? 'btn btn--secondary is-sm btn--fixed is-busy' : 'btn btn--secondary is-sm btn--fixed'}
-            aria-busy={cek}
-            onClick={() => aksi.cekUlang(it)}
-          >
-            <Icon name={cek ? 'loader' : 'refresh'} className={cek ? 'spin' : undefined} />
-            {cek ? 'Memeriksa' : 'Cek ulang'}
-          </button>
-        ) : (
-          <button type="button" className="btn btn--secondary is-sm btn--fixed" onClick={() => aksi.ubah(it, 'kedaluwarsa')}>
-            <Icon name="calendar" />
-            Perpanjang
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn btn--ghost is-sm btn--icon"
-          aria-label={`Tindakan lain untuk ${it.nama}`}
-          aria-haspopup="menu"
-          aria-expanded={menuTerbuka}
-          onClick={(e) => bukaMenu(e.currentTarget)}
-        >
-          <Icon name="more" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-const JENIS_UTAMA: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan']
-
-function List({ items, klien, saring, setSaring, aksi }: LayarProps) {
-  const rows = saringItem(items, saring)
-  const perJenis = tanpaSaring(items, saring, 'jenis')
-  const jenis = items.some((it) => it.jenis === 'lainnya') ? [...JENIS_UTAMA, 'lainnya' as const] : JENIS_UTAMA
-  const dipilih = klien.find((k) => k.id === saring.klien)
-  const [menu, setMenu] = useState<{ it: Item; el: HTMLElement } | null>(null)
-  const tutupMenu = useCallback(
-    (kembali: boolean) => {
-      setMenu((m) => {
-        if (m && kembali) m.el.focus()
-        return null
-      })
-    },
-    [],
-  )
-
-  return (
-    <section className="list" aria-label="Daftar aset">
-      {dipilih ? <KlienKepala klien={dipilih} aksi={aksi} /> : null}
-      <div className="toolbar">
-        <div className="seg" role="radiogroup" aria-label="Jenis aset">
-          <button
-            type="button"
-            className="seg__item"
-            role="radio"
-            aria-checked={saring.jenis === null}
-            onClick={() => setSaring((s) => ({ ...s, jenis: null }))}
-          >
-            Semua <span className="seg__count num">{perJenis.length}</span>
-          </button>
-          {jenis.map((j) => (
-            <button
-              key={j}
-              type="button"
-              className="seg__item"
-              role="radio"
-              aria-checked={saring.jenis === j}
-              onClick={() => setSaring((s) => ({ ...s, jenis: j }))}
-            >
-              {labelJenis[j]} <span className="seg__count num">{perJenis.filter((it) => it.jenis === j).length}</span>
-            </button>
-          ))}
-        </div>
-        <div className="toolbar__group">
-          <select
-            id="saring-klien"
-            className="control"
-            aria-label="Klien"
-            value={saring.klien ?? ''}
-            onChange={(e) => setSaring((s) => ({ ...s, klien: e.target.value || null }))}
-          >
-            <option value="">Semua klien</option>
-            {klien.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.nama}
-              </option>
-            ))}
-          </select>
-          <select
-            className="control"
-            aria-label="Sumber tanggal"
-            value={saring.sumber ?? ''}
-            onChange={(e) => setSaring((s) => ({ ...s, sumber: (e.target.value || null) as Sumber | null }))}
-          >
-            <option value="">Semua sumber</option>
-            <option value="server">Dari server</option>
-            <option value="registri">Dari registri</option>
-            <option value="manual">Manual</option>
-          </select>
-          <div className="toolbar__end num" aria-live="polite">
-            {rows.length} dari {items.length} aset
-          </div>
-        </div>
-      </div>
-      <div className="rows">
-        <div className="row row--head">
-          <span className="sisa">
-            <button
-              type="button"
-              className={saring.naik ? 'sort' : 'sort is-desc'}
-              aria-label={saring.naik ? 'Sisa hari, terdekat dulu. Ubah urutan' : 'Sisa hari, terjauh dulu. Ubah urutan'}
-              onClick={() => setSaring((s) => ({ ...s, naik: !s.naik }))}
-            >
-              Sisa
-              <Icon name="arrow-down" />
-            </button>
-            <span>Status</span>
-          </span>
-          <span>Aset</span>
-          <span className="col-client">Klien</span>
-          <span className="col-date">Berakhir</span>
-          <span>Pemeriksaan</span>
-          <span />
-        </div>
-        <div role="list">
-          {rows.map((it) => (
-            <Row
-              key={it.id}
-              it={it}
-              aksi={aksi}
-              menuTerbuka={menu?.it.id === it.id}
-              bukaMenu={(el) => setMenu((m) => (m?.it.id === it.id ? null : { it, el }))}
-            />
-          ))}
-        </div>
-        {rows.length === 0 ? (
-          <div className="rows__empty">
-            <b>Tidak ada aset yang cocok.</b>
-            <span>Ubah pencarian atau saringan, atau tampilkan semua aset.</span>
-            {adaSaring(saring) ? (
-              <button type="button" className="btn btn--secondary" onClick={() => setSaring((s) => ({ ...saringAwal, naik: s.naik }))}>
-                Tampilkan semua
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      {menu ? (
-        <RowMenu
-          anchor={menu.el}
-          onClose={tutupMenu}
-          onUbah={() => {
-            setMenu(null)
-            aksi.ubah(menu.it)
-          }}
-          onHapus={() => {
-            setMenu(null)
-            aksi.hapus(menu.it)
-          }}
-        />
-      ) : null}
     </section>
   )
 }
@@ -481,64 +198,152 @@ function Skeleton() {
   )
 }
 
-export function Desktop(props: LayarProps & { muat: Muat }) {
-  const { items, klien, saring, aksi, muat } = props
-  const klienTerbuka = klien.find((k) => k.id === saring.klien)
-  const siap = muat.status === 'siap'
-  const kosong = siap && items.length === 0
+/** The search field of the topbar; "/" focuses it. It filters the asset list on the page. */
+function Cari({ saring, setSaring }: Pick<LayarProps, 'saring' | 'setSaring'>) {
   return (
-    <div className="app">
-      <Sidebar {...props} muat={muat.status} />
-      <main className="main">
-        <header className="topbar">
-          <div className="crumbs">
-            <b>Aset</b>
-            {kosong ? null : (
-              <>
-                <span>/</span>
-                <span>{klien.find((k) => k.id === saring.klien)?.nama ?? 'Semua klien'}</span>
-              </>
-            )}
-          </div>
-          {kosong ? null : (
-            <div className="topbar__end">
-              <EksporCsv className="btn btn--secondary" />
-              <BukaKalender className="btn btn--secondary">
-                <Icon name="calendar" />
-                Kalender
-              </BukaKalender>
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => aksi.tambah(klienTerbuka ? { klien: klienTerbuka } : undefined)}
-                aria-keyshortcuts="N"
-              >
-                <Icon name="plus" />
-                Tambah aset
-              </button>
-            </div>
-          )}
-        </header>
-        {muat.status === 'memuat' ? <Skeleton /> : null}
-        {muat.status === 'galat' ? (
-          <div className="state" role="alert">
-            <h1 className="display">Data tidak dapat dimuat.</h1>
-            <p>{muat.pesan}</p>
-            <button type="button" className="btn btn--primary" onClick={muat.cobaLagi}>
-              <Icon name="refresh" />
-              Coba lagi
-            </button>
-          </div>
-        ) : null}
-        {kosong ? <EmptyState aksi={aksi} /> : null}
-        {siap && !kosong ? (
-          <div className="content">
-            <Hero {...props} />
-            <List {...props} />
-          </div>
-        ) : null}
-      </main>
+    <label className={saring.cari ? 'input-icon topbar__cari' : 'input-icon has-kbd topbar__cari'}>
+      <Icon name="search" />
+      <input
+        id="cari"
+        type="search"
+        className="control"
+        placeholder="Cari aset"
+        aria-label="Cari aset (tekan / untuk fokus)"
+        autoComplete="off"
+        value={saring.cari}
+        onChange={(e) => setSaring((s) => ({ ...s, cari: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setSaring((s) => ({ ...s, cari: '' }))
+            e.currentTarget.blur()
+          }
+        }}
+      />
+      {saring.cari ? null : (
+        <span className="kbd" aria-hidden="true">
+          /
+        </span>
+      )}
+    </label>
+  )
+}
+
+/** A page inside the app that does not exist, such as an unknown client id. */
+export function TidakAda({ judul: j, teks, phone = false }: { judul: string; teks: string; phone?: boolean }) {
+  return (
+    <div className="state" role="alert">
+      <h1 className="display">{j}</h1>
+      <p>{teks}</p>
+      <Tautan ke="/app" className={phone ? 'btn btn--secondary is-lg' : 'btn btn--secondary'}>
+        <Icon name="arrow-left" />
+        Ke ringkasan
+      </Tautan>
     </div>
   )
 }
 
+export function Galat({ muat, phone = false }: { muat: Extract<Muat, { status: 'galat' }>; phone?: boolean }) {
+  return (
+    <div className="state" role="alert">
+      <h1 className="display">Data tidak dapat dimuat.</h1>
+      <p>{muat.pesan}</p>
+      <button type="button" className={phone ? 'btn btn--primary is-lg' : 'btn btn--primary'} onClick={muat.cobaLagi}>
+        <Icon name="refresh" />
+        Coba lagi
+      </button>
+    </div>
+  )
+}
+
+export function Desktop(props: ShellProps) {
+  const { items, klien, saring, setSaring, aksi, muat, rute, akun } = props
+  const siap = muat.status === 'siap'
+  const kosong = siap && items.length === 0
+  const k = rute.nama === 'klien' ? klien.find((x) => x.id === rute.id) : undefined
+  // Remount the scroll area per page, so a new page starts at the top.
+  const kunciIsi = rute.nama === 'klien' ? `klien-${rute.id}-${rute.tab}` : rute.nama
+
+  let crumbs: ReactNode
+  let ujung: ReactNode = null
+  let isi: ReactNode
+
+  if (rute.nama === 'pengaturan') {
+    crumbs = <b>Pengaturan</b>
+    isi = (
+      <div className="content" key={kunciIsi}>
+        <Pengaturan akun={akun} />
+      </div>
+    )
+  } else if (rute.nama === 'klien') {
+    crumbs = (
+      <>
+        <span>Klien</span>
+        <span>/</span>
+        <b>{k?.nama ?? ''}</b>
+      </>
+    )
+    if (k && rute.tab === 'aset' && items.some((it) => it.klien_id === k.id)) ujung = <Cari saring={saring} setSaring={setSaring} />
+    isi =
+      muat.status === 'memuat' ? (
+        <div className="content" aria-busy="true" aria-label="Memuat data">
+          <span className="sk" style={{ width: 280, height: 32 }} />
+          <span className="sk" style={{ width: 420, height: 14 }} />
+          <span className="sk" style={{ width: '100%', height: 240 }} />
+        </div>
+      ) : muat.status === 'galat' ? (
+        <Galat muat={muat} />
+      ) : k ? (
+        <div className="content" key={kunciIsi}>
+          <RuangKlien klien={k} items={items} semuaKlien={klien} tab={rute.tab} saring={saring} setSaring={setSaring} aksi={aksi} />
+        </div>
+      ) : (
+        <TidakAda judul="Klien tidak ditemukan." teks="Klien ini sudah dihapus atau alamatnya salah." />
+      )
+  } else {
+    crumbs = <b>Ringkasan</b>
+    if (!kosong && siap) {
+      ujung = (
+        <>
+          <Cari saring={saring} setSaring={setSaring} />
+          <EksporCsv className="btn btn--secondary" />
+          <button type="button" className="btn btn--primary" onClick={() => aksi.tambah()} aria-keyshortcuts="N">
+            <Icon name="plus" />
+            Tambah aset
+          </button>
+        </>
+      )
+    }
+    isi =
+      muat.status === 'memuat' ? (
+        <Skeleton />
+      ) : muat.status === 'galat' ? (
+        <Galat muat={muat} />
+      ) : kosong ? (
+        <EmptyState aksi={aksi} />
+      ) : (
+        <div className="content" key={kunciIsi}>
+          <Hero items={items} saring={saring} setSaring={setSaring} jumlahKlien={klien.length} />
+          <PerluDikerjakan />
+          <section className="blok" aria-labelledby="judul-semua-aset">
+            <h2 className="blok__judul" id="judul-semua-aset">
+              Semua aset
+            </h2>
+            <DaftarAset items={items} klien={klien} saring={saring} setSaring={setSaring} aksi={aksi} />
+          </section>
+        </div>
+      )
+  }
+
+  return (
+    <div className="app">
+      <Sidebar {...props} />
+      <main className="main">
+        <header className="topbar">
+          <div className="crumbs">{crumbs}</div>
+          {ujung ? <div className="topbar__end">{ujung}</div> : null}
+        </header>
+        {isi}
+      </main>
+    </div>
+  )
+}

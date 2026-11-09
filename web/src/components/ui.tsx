@@ -1,5 +1,5 @@
 // Small shared pieces: the status pill and the big day count.
-import type { Status } from '../lib/api'
+import type { Status, StatusKlien } from '../lib/api'
 import { kelasStatus, labelStatus, satuanHari } from '../lib/format'
 
 export function Pill({ status }: { status: Status }) {
@@ -19,3 +19,17 @@ export function Days({ n }: { n: number }) {
     </div>
   )
 }
+
+const LABEL_KLIEN: Record<StatusKlien, string> = { aktif: 'Aktif', jeda: 'Jeda', selesai: 'Selesai' }
+
+/** A client's status: aktif, jeda (paused) or selesai (no longer a client). */
+export function PillKlien({ status }: { status: StatusKlien }) {
+  return (
+    <span className={`pill pill--klien is-${status}`}>
+      <span className="dot" />
+      {LABEL_KLIEN[status]}
+    </span>
+  )
+}
+
+export const labelStatusKlien = LABEL_KLIEN

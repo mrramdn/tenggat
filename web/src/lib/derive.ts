@@ -114,3 +114,16 @@ export function kalimatBiaya(items: Item[]): { pre: string; jumlah: string | nul
   const dari = b.nama.length > 3 ? `${b.nama.length} aset` : gabung(b.nama)
   return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah: rupiahBiasa(b.total), post: `, dari ${dari}.` }
 }
+
+const BOBOT: Record<Status, number> = { lewat: 0, kritis: 1, segera: 2, aman: 3 }
+
+/** The most urgent status of each client's assets, by client id (the dot in the sidebar). */
+export function statusTerburuk(items: Item[]): Map<string, Status> {
+  const m = new Map<string, Status>()
+  for (const it of items) {
+    if (!it.klien_id) continue
+    const ada = m.get(it.klien_id)
+    if (!ada || BOBOT[it.status] < BOBOT[ada]) m.set(it.klien_id, it.status)
+  }
+  return m
+}

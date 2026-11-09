@@ -1,8 +1,8 @@
-// Calendar subscription: a private link a calendar app polls, plus the one-time .ics download. The API shows the
-// link only once, when it is made, so a link made earlier in another tab or device can only be replaced.
+// Calendar subscription (a section of Pengaturan): a private link a calendar app polls, plus the one-time .ics
+// download. The API shows the link only once, when it is made, so a link made earlier in another tab or device can
+// only be replaced.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
-import { useModal } from '../hooks/useModal'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
 import { Icon } from './Icon'
 import { useToast } from './Toasts'
@@ -14,9 +14,7 @@ const KUNCI_JALUR = ['kalender', 'jalur'] as const
 
 type Konfirmasi = null | 'ganti' | 'hapus'
 
-export function KalenderDialog({ onClose }: { onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useModal(ref, onClose)
+export function KalenderPengaturan() {
   const uid = useId()
   const qc = useQueryClient()
   const toast = useToast()
@@ -99,7 +97,7 @@ export function KalenderDialog({ onClose }: { onClose: () => void }) {
     isi = (
       <div className="form-error" role="alert">
         <Icon name="alert" />
-        <span>Status tautan tidak dapat dimuat. Tutup lalu buka lagi jendela ini.</span>
+        <span>Status tautan tidak dapat dimuat. Muat ulang halaman ini.</span>
       </div>
     )
   } else if (konfirmasi) {
@@ -145,7 +143,7 @@ export function KalenderDialog({ onClose }: { onClose: () => void }) {
               spellCheck={false}
               onFocus={(e) => e.currentTarget.select()}
             />
-            <button type="button" className="btn btn--secondary kal__salin" onClick={() => void salin()} data-autofocus="">
+            <button type="button" className="btn btn--secondary kal__salin" onClick={() => void salin()}>
               <Icon name={tersalin ? 'check' : 'copy'} />
               {tersalin ? 'Tersalin' : 'Salin'}
             </button>
@@ -181,7 +179,7 @@ export function KalenderDialog({ onClose }: { onClose: () => void }) {
             <Icon name="trash" />
             Hapus tautan
           </button>
-          <button type="button" className="btn btn--primary" onClick={() => setKonfirmasi('ganti')} data-autofocus="">
+          <button type="button" className="btn btn--primary" onClick={() => setKonfirmasi('ganti')}>
             <Icon name="refresh" />
             Ganti tautan
           </button>
@@ -191,7 +189,7 @@ export function KalenderDialog({ onClose }: { onClose: () => void }) {
   } else {
     isi = (
       <div className="kal__aksi is-start">
-        <button type="button" className="btn btn--primary" onClick={() => buat.mutate()} disabled={sibuk} aria-busy={buat.isPending} data-autofocus="">
+        <button type="button" className="btn btn--primary" onClick={() => buat.mutate()} disabled={sibuk} aria-busy={buat.isPending}>
           <Icon name={buat.isPending ? 'loader' : 'link'} className={buat.isPending ? 'spin' : undefined} />
           {buat.isPending ? 'Membuat tautan' : 'Buat tautan langganan'}
         </button>
@@ -200,60 +198,21 @@ export function KalenderDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <>
-      <div className="scrim" onClick={onClose} aria-hidden="true" />
-      <div
-        ref={ref}
-        className="dialog kal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`${uid}-j`}
-        aria-describedby={`${uid}-t`}
-        tabIndex={-1}
-      >
-        <div className="kal__head">
-          <h2 className="dialog__title" id={`${uid}-j`}>
-            Langganan kalender
-          </h2>
-          <button type="button" className="btn btn--ghost btn--icon" aria-label="Tutup" onClick={onClose}>
-            <Icon name="x" />
-          </button>
-        </div>
-        <p className="dialog__text" id={`${uid}-t`}>
-          Aplikasi kalender membaca tanggal berakhir aset Anda dari tautan ini dan memperbaruinya sendiri.
-        </p>
-        <div className="kal__isi" aria-live="polite">
-          {isi}
-        </div>
-        <div className="note kal__catatan">
-          <Icon name="shield" />
-          <span>Siapa pun yang memegang tautan ini dapat melihat nama dan tanggal aset Anda.</span>
-        </div>
-        <div className="kal__foot">
-          <button type="button" className="btn btn--ghost" onClick={() => unduh.mutate()} disabled={unduh.isPending} aria-busy={unduh.isPending}>
-            <Icon name={unduh.isPending ? 'loader' : 'download'} className={unduh.isPending ? 'spin' : undefined} />
-            Unduh sekali (.ics)
-          </button>
-          <button type="button" className="btn btn--secondary" onClick={onClose}>
-            Tutup
-          </button>
-        </div>
+    <div className="kal">
+      <div className="kal__isi" aria-live="polite">
+        {isi}
       </div>
-    </>
-  )
-}
-
-type TombolProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'type'>
-
-/** A button (topbar, sidebar item, phone tab) that opens the calendar dialog. */
-export function BukaKalender({ children, ...props }: TombolProps) {
-  const [buka, setBuka] = useState(false)
-  return (
-    <>
-      <button type="button" aria-haspopup="dialog" {...props} onClick={() => setBuka(true)}>
-        {children}
-      </button>
-      {buka ? <KalenderDialog onClose={() => setBuka(false)} /> : null}
-    </>
+      <div className="note kal__catatan">
+        <Icon name="shield" />
+        <span>Siapa pun yang memegang tautan ini dapat melihat nama dan tanggal aset Anda.</span>
+      </div>
+      <div className="kal__foot">
+        <button type="button" className="btn btn--secondary" onClick={() => unduh.mutate()} disabled={unduh.isPending} aria-busy={unduh.isPending}>
+          <Icon name={unduh.isPending ? 'loader' : 'download'} className={unduh.isPending ? 'spin' : undefined} />
+          Unduh sekali (.ics)
+        </button>
+        <span className="kal__foot-teks">Berkas .ics tidak ikut berubah saat aset berubah.</span>
+      </div>
+    </div>
   )
 }

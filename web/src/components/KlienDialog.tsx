@@ -1,7 +1,7 @@
-// Dialog "Tambah klien" / "Ubah klien": a name and a short optional note.
+// Dialog "Tambah klien" / "Ubah klien": a name, a short optional note and, when editing, the status.
 import { useMutation } from '@tanstack/react-query'
 import { useId, useRef, useState } from 'react'
-import { ApiError, klienApi, type Klien, type KlienInput } from '../lib/api'
+import { ApiError, klienApi, type Klien, type KlienInput, type StatusKlien } from '../lib/api'
 import { useModal } from '../hooks/useModal'
 import { Icon } from './Icon'
 import { pesanGalat } from './Toasts'
@@ -14,6 +14,12 @@ interface Props {
   onSaved: (k: Klien, baru: boolean) => void
 }
 
+const STATUS: { nilai: StatusKlien; label: string; hint: string }[] = [
+  { nilai: 'aktif', label: 'Aktif', hint: 'Klien yang sedang Anda tangani.' },
+  { nilai: 'jeda', label: 'Jeda', hint: 'Pekerjaan untuk klien ini berhenti sementara.' },
+  { nilai: 'selesai', label: 'Selesai', hint: 'Kerja sama dengan klien ini sudah berakhir.' },
+]
+
 export function KlienDialog({ klien, onClose, onSaved }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   useModal(ref, onClose)
@@ -22,6 +28,8 @@ export function KlienDialog({ klien, onClose, onSaved }: Props) {
 
   const [nama, setNama] = useState(klien?.nama ?? '')
   const [catatan, setCatatan] = useState(klien?.catatan ?? '')
+  // The status field shows only when the API already sends it (it rejects unknown fields otherwise).
+  const [status, setStatus] = useState<StatusKlien | undefined>(klien?.status)
   const [galat, setGalat] = useState<Record<string, string>>({})
   const [galatUmum, setGalatUmum] = useState<string | null>(null)
 
@@ -29,7 +37,7 @@ export function KlienDialog({ klien, onClose, onSaved }: Props) {
     mutationFn: (input: KlienInput) => (klien ? klienApi.ubah(klien.id, input) : klienApi.buat(input)),
     onSuccess: (k) => onSaved(k, !klien),
     onError: (err) => {
-      if (err instanceof ApiError && (err.field.nama || err.field.catatan)) setGalat(err.field)
+      if (err instanceof ApiError && (err.field.nama || err.field.catatan || err.field.status)) setGalat(err.field)
       else setGalatUmum(pesanGalat(err))
     },
   })
@@ -46,7 +54,7 @@ export function KlienDialog({ klien, onClose, onSaved }: Props) {
             e.preventDefault()
             if (!bisaSimpan) return
             setGalatUmum(null)
-            simpan.mutate({ nama: nama.trim(), catatan: catatan.trim() })
+            simpan.mutate({ nama: nama.trim(), catatan: catatan.trim(), ...(status ? { status } : {}) })
           }}
         >
           <h2 className="dialog__title" id={id('j')}>
@@ -109,10 +117,41 @@ export function KlienDialog({ klien, onClose, onSaved }: Props) {
               </div>
             ) : (
               <div className="field__hint" id={id('catatan-h')}>
-                Tampil di atas daftar aset klien ini.
+                Tampil di halaman klien ini.
               </div>
             )}
           </div>
+          {status ? (
+            <div className="field">
+              <span className="field__label" id={id('status')}>
+                Status
+              </span>
+              <div className={galat.status ? 'seg is-full is-error' : 'seg is-full'} role="radiogroup" aria-labelledby={id('status')} aria-describedby={id('status-h')}>
+                {STATUS.map((st) => (
+                  <button
+                    key={st.nilai}
+                    type="button"
+                    className="seg__item"
+                    role="radio"
+                    aria-checked={status === st.nilai}
+                    onClick={() => setStatus(st.nilai)}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+              {galat.status ? (
+                <div className="field__error">
+                  <Icon name="alert" />
+                  <span>{galat.status}</span>
+                </div>
+              ) : (
+                <div className="field__hint" id={id('status-h')}>
+                  {STATUS.find((st) => st.nilai === status)?.hint}
+                </div>
+              )}
+            </div>
+          ) : null}
           <div className="dialog__foot">
             <button type="button" className="btn btn--secondary" onClick={onClose}>
               Batal

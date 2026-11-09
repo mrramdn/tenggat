@@ -1,4 +1,4 @@
-// Popover menus: the overflow menu of a row (Ubah, Hapus) and the account menu.
+// Popover menus: the overflow menu of a row (Ubah, WhatsApp reminder, Hapus) and the account menu.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 
@@ -22,7 +22,20 @@ interface MenuProps {
   onClose: (kembalikanFokus: boolean) => void
 }
 
-export function RowMenu({ anchor, onUbah, onHapus, onClose }: { anchor: HTMLElement; onUbah: () => void; onHapus: () => void; onClose: (kembalikanFokus: boolean) => void }) {
+export function RowMenu({
+  anchor,
+  onUbah,
+  onPengingat,
+  onHapus,
+  onClose,
+}: {
+  anchor: HTMLElement
+  onUbah: () => void
+  /** Opens a WhatsApp message to the client about this asset. */
+  onPengingat: () => void
+  onHapus: () => void
+  onClose: (kembalikanFokus: boolean) => void
+}) {
   return (
     <Menu
       anchor={anchor}
@@ -30,6 +43,7 @@ export function RowMenu({ anchor, onUbah, onHapus, onClose }: { anchor: HTMLElem
       onClose={onClose}
       items={[
         { label: 'Ubah', icon: 'pencil', onPilih: onUbah },
+        { label: 'Kirim pengingat lewat WhatsApp', icon: 'message-circle', onPilih: onPengingat },
         { label: 'Hapus', icon: 'trash', bahaya: true, onPilih: onHapus },
       ]}
     />

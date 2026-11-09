@@ -151,7 +151,7 @@ export function KlienPicker({ id, klien, value, onChange, invalid, describedBy }
                   <span className="picker__name">Tambah klien “{o.nama}”</span>
                 </>
               )}
-              {terpilih(o) ? <Icon name="tick" className="picker__check" /> : null}
+              <Icon name="tick" className={terpilih(o) ? 'picker__check' : 'picker__check is-hidden'} />
             </li>
           ))}
         </ul>

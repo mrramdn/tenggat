@@ -259,3 +259,16 @@ export const klienApi = {
     request<Klien>(`/api/klien/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   hapus: (id: string) => request<void>(`/api/klien/${id}`, { method: 'DELETE' }),
 }
+
+// Client status (aktif, jeda, selesai) and the report link flag. The API sends them once the client-space stage is
+// live; until then they are missing, so both stay optional (interface merging with Klien and KlienInput above).
+export type StatusKlien = 'aktif' | 'jeda' | 'selesai'
+
+export interface Klien {
+  status?: StatusKlien
+  laporan_aktif?: boolean
+}
+
+export interface KlienInput {
+  status?: StatusKlien
+}

@@ -5,9 +5,12 @@ import { AssetSheet, type ModeSheet } from './components/AssetSheet'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Desktop, type Muat } from './components/Desktop'
 import { Icon } from './components/Icon'
+import { Beranda } from './components/Beranda'
+import { HalamanLaporan } from './components/HalamanLaporan'
 import { KlienDialog } from './components/KlienDialog'
 import { LayarMasuk } from './components/LayarMasuk'
 import { Phone } from './components/Phone'
+import { TidakDitemukan } from './components/TidakDitemukan'
 import { pesanGalat, useToast } from './components/Toasts'
 import type { Aksi, BukaTambah } from './components/types'
 import { adaModal } from './hooks/useModal'
@@ -15,6 +18,7 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import { KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna } from './lib/api'
 import { saringAwal, type Saring } from './lib/derive'
 import { tanggal } from './lib/format'
+import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useRute, type Rute } from './lib/rute'
 
 const KUNCI = ['item'] as const
 const KUNCI_SAYA = ['saya'] as const
@@ -24,19 +28,28 @@ function sedangMengetik(el: EventTarget | null): boolean {
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 }
 
+/** Sends the browser to another path as soon as it renders (redirects), showing the blank boot screen meanwhile. */
+function Alih({ ke }: { ke: string }) {
+  useEffect(() => pergi(ke, { ganti: true }), [ke])
+  return <div className="boot" aria-busy="true" aria-label="Memuat" />
+}
+
 /**
- * Auth gate: asks the API who is signed in (GET /api/saya) and shows either the
- * sign-in screen or the dashboard. Nothing else is fetched without a session.
+ * Routes and the auth gate. Public pages (/, /laporan/:token, not found) render without a session; /masuk and
+ * /daftar send a signed-in user on to the app; everything under /app asks the API who is signed in (GET /api/saya)
+ * and goes to /masuk?lanjut=<path> without a session.
  */
 export function App() {
+  const rute = useRute()
   const qc = useQueryClient()
   const saya = useQuery({ queryKey: KUNCI_SAYA, queryFn: auth.saya, staleTime: Infinity })
   const [pemberitahuan, setPemberitahuan] = useState<string | null>(null)
 
-  // Signed out (sign out, account deleted or session expired): drop every cached
-  // answer of the previous user and go back to the sign-in screen.
-  const keHalamanMasuk = useCallback(
-    (pesan: string | null) => {
+  // Signed out (sign out, account deleted or session expired): drop every cached answer of the previous user and
+  // go to the given path (the front page, or the sign-in page that comes back here).
+  const keluarKe = useCallback(
+    (tujuan: string, pesan: string | null) => {
+      pergi(tujuan, { ganti: true })
       qc.setQueryData(KUNCI_SAYA, null)
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== KUNCI_SAYA[0] })
       qc.getMutationCache().clear()
@@ -49,21 +62,26 @@ export function App() {
   useEffect(() => {
     saatSesiBerakhir(() => {
       if (!qc.getQueryData(KUNCI_SAYA)) return
-      keHalamanMasuk('Sesi Anda berakhir. Silakan masuk lagi.')
+      keluarKe(jalurMasuk(), 'Sesi Anda berakhir. Silakan masuk lagi.')
     })
     return () => saatSesiBerakhir(null)
-  }, [qc, keHalamanMasuk])
+  }, [qc, keluarKe])
 
   const toast = useToast()
   const masuk = useCallback(
     (p: Pengguna, baru: boolean) => {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== KUNCI_SAYA[0] })
+      pergi(tujuanLanjut(), { ganti: true })
       qc.setQueryData(KUNCI_SAYA, p)
       setPemberitahuan(null)
       if (baru) toast.ok('Akun dibuat.', `Selamat datang, ${p.nama}.`)
     },
     [qc, toast],
   )
+
+  if (rute.nama === 'laporan-publik') return <HalamanLaporan token={rute.token} />
+  if (rute.nama === 'beranda') return <Beranda sudahMasuk={!!saya.data} />
+  if (rute.nama === 'tidak-ditemukan') return <TidakDitemukan sudahMasuk={!!saya.data} />
 
   if (saya.isPending) return <div className="boot" aria-busy="true" aria-label="Memuat" />
   if (saya.isError) {
@@ -81,11 +99,16 @@ export function App() {
       </div>
     )
   }
-  if (!saya.data) return <LayarMasuk pemberitahuan={pemberitahuan} onMasuk={masuk} />
-  return <Dasbor key={saya.data.id} pengguna={saya.data} onKeluar={keHalamanMasuk} />
+  if (rute.nama === 'masuk' || rute.nama === 'daftar') {
+    if (saya.data) return <Alih ke={tujuanLanjut()} />
+    return <LayarMasuk mode={rute.nama} pemberitahuan={pemberitahuan} onMasuk={masuk} />
+  }
+  if (perluMasuk(rute) && !saya.data) return <Alih ke={jalurMasuk()} />
+  if (!saya.data) return null
+  return <Dasbor key={saya.data.id} pengguna={saya.data} rute={rute} onKeluar={keluarKe} />
 }
 
-function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: string | null) => void }) {
+function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; onKeluar: (tujuan: string, pesan: string | null) => void }) {
   const phone = useMediaQuery('(max-width: 1023px)')
   const qc = useQueryClient()
   const toast = useToast()
@@ -101,11 +124,25 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
   const [dialogKlien, setDialogKlien] = useState<Klien | null | undefined>(undefined)
   const [hapusKlien, setHapusKlien] = useState<Klien | null>(null)
 
-  // An asset write changes the clients' figures too, so both lists are refreshed.
+  // An asset write changes the clients' figures too, and the API logs it as activity (tasks follow the same
+  // clients), so every list that can show it is refreshed.
   const segarkan = useCallback(
-    () => Promise.all([qc.invalidateQueries({ queryKey: KUNCI }), qc.invalidateQueries({ queryKey: KUNCI_KLIEN })]),
+    () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: KUNCI }),
+        qc.invalidateQueries({ queryKey: KUNCI_KLIEN }),
+        qc.invalidateQueries({ queryKey: ['aktivitas'] }),
+        qc.invalidateQueries({ queryKey: ['tugas'] }),
+      ]),
     [qc],
   )
+
+  // A new page starts without the search and the type, status and source filters of the previous one.
+  const kunciRute = rute.nama === 'klien' ? `klien/${rute.id}` : rute.nama
+  useEffect(() => {
+    setSaring((s) => ({ ...saringAwal, klien: s.klien, naik: s.naik }))
+  }, [kunciRute])
+  const klienRute = rute.nama === 'klien' ? rute.id : null
 
   // Dev only: ?buka=tambah[&host=...]|ubah&id=... opens the sheet, for screenshots.
   useEffect(() => {
@@ -143,6 +180,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
       toast.ok('Klien dihapus.', k.nama)
       setHapusKlien(null)
       setSaring((s) => (s.klien === k.id ? { ...s, klien: null } : s))
+      if (klienRute === k.id) pergi('/app', { ganti: true })
       void segarkan()
     },
     onError: (err) => toast.dariGalat('Klien tidak dapat dihapus.', err),
@@ -151,7 +189,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
   const keluarM = useMutation({
     mutationFn: () => auth.keluar(),
     onSuccess: () => {
-      onKeluar(null)
+      onKeluar('/', null)
       toast.ok('Anda sudah keluar.')
     },
     onError: (err) => toast.dariGalat('Tidak dapat keluar.', err),
@@ -160,7 +198,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
   const hapusAkunM = useMutation({
     mutationFn: () => auth.hapusAkun(),
     onSuccess: () => {
-      onKeluar(null)
+      onKeluar('/', null)
       toast.ok('Akun dihapus.', 'Akun dan semua aset Anda sudah dihapus.')
     },
     onError: (err) => toast.dariGalat('Akun tidak dapat dihapus.', err),
@@ -221,14 +259,15 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           e.preventDefault()
           el.focus()
         }
-      } else if (e.key === 'n' || e.key === 'N') {
+      } else if ((e.key === 'n' || e.key === 'N') && rute.nama !== 'pengaturan') {
         e.preventDefault()
-        setSheet({ mode: 'tambah', awal: {} })
+        const k = klienRute ? kq.data?.find((x) => x.id === klienRute) : undefined
+        setSheet({ mode: 'tambah', awal: k ? { klien: k } : {} })
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  }, [rute.nama, klienRute, kq.data])
 
   const items = q.data ?? []
   const klien = kq.data ?? []
@@ -243,7 +282,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           }
         : { status: 'memuat' }
 
-  const props = { items, klien, saring, setSaring, aksi, muat, akun }
+  const props = { items, klien, saring, setSaring, aksi, muat, akun, rute }
 
   return (
     <>
@@ -283,7 +322,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           onSaved={(k, baru) => {
             setDialogKlien(undefined)
             toast.ok(baru ? 'Klien ditambahkan.' : 'Perubahan disimpan.', k.nama)
-            if (baru) setSaring((s) => ({ ...s, klien: k.id }))
+            if (baru) pergi(jalurKlien(k.id))
             void segarkan()
           }}
         />
@@ -312,7 +351,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           onBatal={() => setHapusAkun(false)}
           onYa={() => hapusAkunM.mutate()}
         >
-          Akun, klien, dan semua aset Anda akan dihapus dan tidak bisa dikembalikan. Anda masuk sebagai{' '}
+          Akun, klien, aset, tugas, dan catatan pekerjaan Anda akan dihapus dan tidak bisa dikembalikan. Anda masuk sebagai{' '}
           <b>{pengguna.email}</b>.
         </ConfirmDialog>
       ) : null}

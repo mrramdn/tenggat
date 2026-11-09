@@ -33,16 +33,14 @@
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: var(--s-2) var(--s-2) calc(var(--s-2) + env(safe-area-inset-bottom));
   border-top: var(--bw) solid var(--line); background: var(--surface);
 }
 .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--s-1); height: var(--control-lg); justify-content: center; font-size: var(--fs-12); color: var(--muted); font-weight: var(--fw-medium); text-decoration: none; cursor: pointer; border-radius: var(--r-control); }
-.tab:focus-visible, .tab:focus-within { outline: none; box-shadow: var(--ring); }
+.tab:focus-visible { outline: none; box-shadow: var(--ring); }
 .tab svg.i { width: var(--icon-nav); height: var(--icon-nav); }
 .tab.is-active { color: var(--ink); }
-/* The Klien tab is a native select laid over the tab, so the system picker opens. */
-.tab select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; font-size: var(--fs-16); }
 
 /* phone empty state */
 .ph-start { padding: var(--s-4) var(--s-5) var(--s-6); display: flex; flex-direction: column; }
