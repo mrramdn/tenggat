@@ -36,7 +36,7 @@ dates, read from the source where possible.</p>
 <p>You add a domain, a TLS certificate, an API token or a subscription. For a domain Tenggat asks the registry over RDAP;
 for a certificate it connects to the host on port 443. Both are re-checked every six hours. Each item gets a status
 from the days left, and a calendar feed puts reminders on your phone. Every user sees only their own assets, and
-Tenggat never stores secret values.</p>
+Tenggat stores only names and dates, never the tokens or passwords it tracks.</p>
 <h2>Architecture</h2>
 <figure><img src="arsitektur.png" alt="Architecture: five containers, the edge and data networks, the db_data volume" loading="lazy"></figure>
 
