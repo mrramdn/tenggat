@@ -20,6 +20,7 @@ type Klien struct {
 	PenggunaID string
 	Nama       string
 	Catatan    string
+	Status     string // aktif, jeda or selesai
 	Dibuat     time.Time
 }
 
@@ -31,11 +32,11 @@ type KlienRingkas struct {
 	Biaya30Hari int64      // the summed cost of assets due within 30 days, overdue ones included
 }
 
-const klienColumns = `id, pengguna_id, nama, catatan, dibuat`
+const klienColumns = `id, pengguna_id, nama, catatan, status, dibuat`
 
 func scanKlien(row pgx.Row) (Klien, error) {
 	var k Klien
-	err := row.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Dibuat)
+	err := row.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return k, ErrNotFound
 	}
@@ -50,7 +51,7 @@ func scanKlien(row pgx.Row) (Klien, error) {
 // nearest expiry date and the cost due within 30 days, overdue assets included like the
 // dashboard's renewal sentence. "Today" is the date in Jakarta, as in Summary.
 func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]KlienRingkas, error) {
-	rows, err := s.pool.Query(ctx, `SELECT k.id, k.pengguna_id, k.nama, k.catatan, k.dibuat,
+	rows, err := s.pool.Query(ctx, `SELECT k.id, k.pengguna_id, k.nama, k.catatan, k.status, k.dibuat,
 		count(i.id), min(i.kedaluwarsa),
 		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa <= $2::date + 30), 0)
 		FROM klien AS k LEFT JOIN item AS i ON i.klien_id = k.id
@@ -64,7 +65,7 @@ func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]
 	out := []KlienRingkas{}
 	for rows.Next() {
 		var k KlienRingkas
-		if err := rows.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Dibuat,
+		if err := rows.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat,
 			&k.JumlahAset, &k.Terdekat, &k.Biaya30Hari); err != nil {
 			return nil, err
 		}
@@ -79,17 +80,19 @@ func (s *Store) GetKlien(ctx context.Context, userID, id string) (Klien, error) 
 		id, userID))
 }
 
-// CreateKlien adds a client. It returns ErrKlienTaken when the name is in use.
-func (s *Store) CreateKlien(ctx context.Context, userID, nama, catatan string) (Klien, error) {
-	return scanKlien(s.pool.QueryRow(ctx, `INSERT INTO klien (pengguna_id, nama, catatan) VALUES ($1, $2, $3)
-		RETURNING `+klienColumns, userID, nama, catatan))
+// CreateKlien adds a client; an empty status means aktif. It returns ErrKlienTaken when the name is in use.
+func (s *Store) CreateKlien(ctx context.Context, userID, nama, catatan, status string) (Klien, error) {
+	return scanKlien(s.pool.QueryRow(ctx, `INSERT INTO klien (pengguna_id, nama, catatan, status)
+		VALUES ($1, $2, $3, COALESCE(NULLIF($4, ''), 'aktif'))
+		RETURNING `+klienColumns, userID, nama, catatan, status))
 }
 
-// UpdateKlien renames a client or changes its note.
-func (s *Store) UpdateKlien(ctx context.Context, userID, id, nama, catatan string) (Klien, error) {
-	return scanKlien(s.pool.QueryRow(ctx, `UPDATE klien SET nama = $3, catatan = $4
+// UpdateKlien renames a client, changes its note, or changes its status; an
+// empty status keeps the current one.
+func (s *Store) UpdateKlien(ctx context.Context, userID, id, nama, catatan, status string) (Klien, error) {
+	return scanKlien(s.pool.QueryRow(ctx, `UPDATE klien SET nama = $3, catatan = $4, status = COALESCE(NULLIF($5, ''), status)
 		WHERE id = $1 AND pengguna_id = $2
-		RETURNING `+klienColumns, id, userID, nama, catatan))
+		RETURNING `+klienColumns, id, userID, nama, catatan, status))
 }
 
 // DeleteKlien removes a client; its assets stay, without a client.

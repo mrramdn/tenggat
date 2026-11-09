@@ -38,6 +38,8 @@ type Store interface {
 	RegistryStore
 	CalendarStore
 	KlienStore
+	TugasStore
+	AktivitasStore
 }
 
 // Checker reads a host's certificate.
@@ -102,6 +104,14 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/kalender/tautan", s.limit(s.user(s.createCalendarLink)))
 	mux.HandleFunc("DELETE /api/kalender/tautan", s.limit(s.user(s.deleteCalendarLink)))
 	mux.HandleFunc("GET /api/kalender/{berkas}", s.limitTo("kalender", calendarPerMinute, s.subscribedCalendar))
+	mux.HandleFunc("GET /api/tugas", s.user(s.listTugas))
+	mux.HandleFunc("POST /api/tugas", s.limit(s.user(s.createTugas)))
+	mux.HandleFunc("PUT /api/tugas/{id}", s.limit(s.user(s.updateTugas)))
+	mux.HandleFunc("DELETE /api/tugas/{id}", s.limit(s.user(s.deleteTugas)))
+	mux.HandleFunc("POST /api/tugas/{id}/selesai", s.limit(s.user(s.completeTugas)))
+	mux.HandleFunc("GET /api/aktivitas", s.user(s.listAktivitas))
+	mux.HandleFunc("POST /api/aktivitas", s.limit(s.user(s.createAktivitas)))
+	mux.HandleFunc("DELETE /api/aktivitas/{id}", s.limit(s.user(s.deleteAktivitas)))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
@@ -193,6 +203,7 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		s.internal(w, r, err)
 		return
 	}
+	s.catatAsetBaru(r.Context(), it)
 	s.bump(r.Context(), u.ID)
 	w.Header().Set("Location", "/api/item/"+it.ID)
 	writeJSON(w, http.StatusCreated, toJSON(it, s.Now()))
@@ -204,7 +215,8 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		writeNotFound(w)
 		return
 	}
-	if _, err := s.Store.Get(r.Context(), u.ID, id); errors.Is(err, store.ErrNotFound) {
+	old, err := s.Store.Get(r.Context(), u.ID, id)
+	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
 	} else if err != nil {
@@ -228,6 +240,7 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		s.internal(w, r, err)
 		return
 	}
+	s.catatAsetDiubah(r.Context(), old, it)
 	s.bump(r.Context(), u.ID)
 	writeJSON(w, http.StatusOK, toJSON(it, s.Now()))
 }
@@ -238,7 +251,10 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		writeNotFound(w)
 		return
 	}
-	err := s.Store.Delete(r.Context(), u.ID, id)
+	it, err := s.Store.Get(r.Context(), u.ID, id)
+	if err == nil {
+		err = s.Store.Delete(r.Context(), u.ID, id)
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
@@ -247,6 +263,7 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		s.internal(w, r, err)
 		return
 	}
+	s.catatAsetDihapus(r.Context(), it)
 	s.bump(r.Context(), u.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -283,8 +300,19 @@ func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request, u store.Pen
 }
 
 // recheck reads one certificate, or asks the registry about one domain, and
-// stores either the new date or the error.
+// stores either the new date or the error. A later date or a failure goes into
+// the activity feed.
 func (s *Server) recheck(ctx context.Context, it store.Item) (store.Item, error) {
+	updated, err := s.recheckOnce(ctx, it)
+	if err != nil {
+		return updated, err
+	}
+	s.catatCek(ctx, it, updated)
+	s.bump(ctx, it.PenggunaID)
+	return updated, nil
+}
+
+func (s *Server) recheckOnce(ctx context.Context, it store.Item) (store.Item, error) {
 	if it.Sumber == "registri" {
 		return s.recheckDomain(ctx, it)
 	}

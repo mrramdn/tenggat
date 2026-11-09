@@ -62,7 +62,7 @@ func (m *memStore) GetKlien(_ context.Context, userID, id string) (store.Klien, 
 	return k, nil
 }
 
-func (m *memStore) CreateKlien(_ context.Context, userID, nama, catatan string) (store.Klien, error) {
+func (m *memStore) CreateKlien(_ context.Context, userID, nama, catatan, status string) (store.Klien, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.klienTaken(userID, nama, "") {
@@ -71,12 +71,15 @@ func (m *memStore) CreateKlien(_ context.Context, userID, nama, catatan string) 
 	if m.klien == nil {
 		m.klien = map[string]store.Klien{}
 	}
-	k := store.Klien{ID: m.newID(), PenggunaID: userID, Nama: nama, Catatan: catatan, Dibuat: testNow}
+	if status == "" {
+		status = "aktif"
+	}
+	k := store.Klien{ID: m.newID(), PenggunaID: userID, Nama: nama, Catatan: catatan, Status: status, Dibuat: testNow}
 	m.klien[k.ID] = k
 	return k, nil
 }
 
-func (m *memStore) UpdateKlien(_ context.Context, userID, id, nama, catatan string) (store.Klien, error) {
+func (m *memStore) UpdateKlien(_ context.Context, userID, id, nama, catatan, status string) (store.Klien, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k, ok := m.klien[id]
@@ -87,6 +90,9 @@ func (m *memStore) UpdateKlien(_ context.Context, userID, id, nama, catatan stri
 		return store.Klien{}, store.ErrKlienTaken
 	}
 	k.Nama, k.Catatan = nama, catatan
+	if status != "" {
+		k.Status = status
+	}
 	m.klien[id] = k
 	for itemID, it := range m.items {
 		if deref(it.KlienID) == id {
@@ -122,7 +128,7 @@ func (m *memStore) EnsureKlien(ctx context.Context, userID, nama string) (store.
 		}
 	}
 	m.mu.Unlock()
-	return m.CreateKlien(ctx, userID, nama, "")
+	return m.CreateKlien(ctx, userID, nama, "", "")
 }
 
 type klienList struct{ Klien []klienJSON }

@@ -15,8 +15,8 @@ import (
 type KlienStore interface {
 	ListKlien(ctx context.Context, userID string, now time.Time) ([]store.KlienRingkas, error)
 	GetKlien(ctx context.Context, userID, id string) (store.Klien, error)
-	CreateKlien(ctx context.Context, userID, nama, catatan string) (store.Klien, error)
-	UpdateKlien(ctx context.Context, userID, id, nama, catatan string) (store.Klien, error)
+	CreateKlien(ctx context.Context, userID, nama, catatan, status string) (store.Klien, error)
+	UpdateKlien(ctx context.Context, userID, id, nama, catatan, status string) (store.Klien, error)
 	DeleteKlien(ctx context.Context, userID, id string) error
 	EnsureKlien(ctx context.Context, userID, nama string) (store.Klien, error)
 }
@@ -26,13 +26,15 @@ type klienJSON struct {
 	ID          string  `json:"id"`
 	Nama        string  `json:"nama"`
 	Catatan     string  `json:"catatan"`
+	Status      string  `json:"status"` // aktif, jeda or selesai
 	JumlahAset  int     `json:"jumlah_aset"`
 	Terdekat    *string `json:"terdekat"`      // TTTT-BB-HH, null without assets
 	Biaya30Hari int64   `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
 }
 
 func toKlienJSON(k store.KlienRingkas) klienJSON {
-	out := klienJSON{ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, JumlahAset: k.JumlahAset, Biaya30Hari: k.Biaya30Hari}
+	out := klienJSON{ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, JumlahAset: k.JumlahAset,
+		Biaya30Hari: k.Biaya30Hari}
 	if k.Terdekat != nil {
 		d := k.Terdekat.Format(time.DateOnly)
 		out.Terdekat = &d
@@ -44,11 +46,17 @@ func toKlienJSON(k store.KlienRingkas) klienJSON {
 type klienRequest struct {
 	Nama    string `json:"nama"`
 	Catatan string `json:"catatan"`
+	Status  string `json:"status"` // optional: empty keeps the current status (aktif for a new client)
 }
+
+var klienStatusValid = map[string]bool{"aktif": true, "jeda": true, "selesai": true}
 
 func (req klienRequest) validate() (nama, catatan string, fields map[string]string) {
 	nama, catatan = strings.TrimSpace(req.Nama), strings.TrimSpace(req.Catatan)
 	fields = map[string]string{}
+	if req.Status != "" && !klienStatusValid[req.Status] {
+		fields["status"] = "Pilih status: aktif, jeda, atau selesai."
+	}
 	switch n := utf8.RuneCountInString(nama); {
 	case n == 0:
 		fields["nama"] = "Isi nama klien."
@@ -97,7 +105,7 @@ func (s *Server) createKlien(w http.ResponseWriter, r *http.Request, u store.Pen
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
 		return
 	}
-	k, err := s.Store.CreateKlien(r.Context(), u.ID, nama, catatan)
+	k, err := s.Store.CreateKlien(r.Context(), u.ID, nama, catatan, req.Status)
 	if errors.Is(err, store.ErrKlienTaken) {
 		writeKlienTaken(w)
 		return
@@ -126,7 +134,7 @@ func (s *Server) updateKlien(w http.ResponseWriter, r *http.Request, u store.Pen
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
 		return
 	}
-	_, err := s.Store.UpdateKlien(r.Context(), u.ID, id, nama, catatan)
+	_, err := s.Store.UpdateKlien(r.Context(), u.ID, id, nama, catatan, req.Status)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeKlienNotFound(w)
@@ -177,30 +185,38 @@ func (s *Server) deleteKlien(w http.ResponseWriter, r *http.Request, u store.Pen
 // wins over a name and must be one of the user's clients; a name that is not
 // a client yet becomes one; an empty name means no client.
 func (s *Server) resolveKlien(ctx context.Context, userID string, req itemRequest, in *store.Input) (map[string]string, error) {
-	if req.KlienID != nil && *req.KlienID != "" {
-		if !uuidPattern.MatchString(*req.KlienID) {
-			return map[string]string{"klien": "Klien tidak ditemukan."}, nil
+	id, nama, fields, err := s.findKlien(ctx, userID, req.KlienID, in.Klien)
+	if fields == nil && err == nil {
+		in.KlienID, in.Klien = id, nama
+	}
+	return fields, err
+}
+
+// findKlien resolves a klien_id or a client name the same way for items and
+// tasks: the id must be one of the user's clients, a new name becomes a client,
+// and an empty name means no client.
+func (s *Server) findKlien(ctx context.Context, userID string, klienID *string, nama string) (*string, string, map[string]string, error) {
+	if klienID != nil && *klienID != "" {
+		if !uuidPattern.MatchString(*klienID) {
+			return nil, "", map[string]string{"klien": "Klien tidak ditemukan."}, nil
 		}
-		k, err := s.Store.GetKlien(ctx, userID, *req.KlienID)
+		k, err := s.Store.GetKlien(ctx, userID, *klienID)
 		if errors.Is(err, store.ErrNotFound) {
-			return map[string]string{"klien": "Klien tidak ditemukan."}, nil
+			return nil, "", map[string]string{"klien": "Klien tidak ditemukan."}, nil
 		}
 		if err != nil {
-			return nil, err
+			return nil, "", nil, err
 		}
-		in.KlienID, in.Klien = &k.ID, k.Nama
-		return nil, nil
+		return &k.ID, k.Nama, nil, nil
 	}
-	if in.Klien == "" {
-		in.KlienID = nil
-		return nil, nil
+	if nama == "" {
+		return nil, "", nil, nil
 	}
-	k, err := s.Store.EnsureKlien(ctx, userID, in.Klien)
+	k, err := s.Store.EnsureKlien(ctx, userID, nama)
 	if err != nil {
-		return nil, err
+		return nil, "", nil, err
 	}
-	in.KlienID, in.Klien = &k.ID, k.Nama
-	return nil, nil
+	return &k.ID, k.Nama, nil, nil
 }
 
 // prepareItem validates an item request and resolves its client. It writes the
