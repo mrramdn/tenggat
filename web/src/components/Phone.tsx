@@ -7,7 +7,8 @@ import type { Muat } from './Desktop'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
 import { KlienKepala } from './KlienKepala'
-import { TautanKalender } from './TautanKalender'
+import { BukaKalender } from './KalenderDialog'
+import { EksporCsv } from './EksporCsv'
 import type { Aksi, LayarProps } from './types'
 import { Days, Pill } from './ui'
 
@@ -78,9 +79,7 @@ export function Phone({ items, klien, saring, setSaring, aksi, muat, akun }: Lay
       <header className="ph__head">
         <div className="wordmark">tenggat</div>
         <div className="acts">
-          <TautanKalender className="btn btn--secondary is-lg btn--icon" aria-label="Unduh kalender (.ics)">
-            <Icon name="download" />
-          </TautanKalender>
+          <EksporCsv className="btn btn--secondary is-lg btn--icon" ikonSaja />
           <button type="button" className="btn btn--primary is-lg" onClick={() => aksi.tambah()}>
             <Icon name="plus" />
             Tambah aset
@@ -223,10 +222,10 @@ export function Phone({ items, klien, saring, setSaring, aksi, muat, akun }: Lay
             <option value={TAMBAH_KLIEN}>Tambah klien</option>
           </select>
         </label>
-        <TautanKalender className="tab">
+        <BukaKalender className="tab">
           <Icon name="calendar" />
           Kalender
-        </TautanKalender>
+        </BukaKalender>
         <AkunTab akun={akun} />
       </nav>
     </div>

@@ -25,7 +25,8 @@ import { AkunSidebar } from './Akun'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
 import { KlienKepala } from './KlienKepala'
-import { TautanKalender } from './TautanKalender'
+import { BukaKalender } from './KalenderDialog'
+import { EksporCsv } from './EksporCsv'
 import { RowMenu } from './RowMenu'
 import { Timeline } from './Timeline'
 import type { Aksi, LayarProps } from './types'
@@ -87,10 +88,10 @@ function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarPro
           Klien
           <span className="count num">{siap ? klien.length : ''}</span>
         </button>
-        <TautanKalender className="nav__item" title="Unduh kalender (.ics)">
+        <BukaKalender className="nav__item" title="Langganan kalender dan unduh .ics">
           <Icon name="calendar" />
           Kalender
-        </TautanKalender>
+        </BukaKalender>
       </nav>
       <nav className="nav" aria-label="Klien" hidden={muat === 'galat'}>
         <div className="nav__label">Klien</div>
@@ -193,7 +194,7 @@ function Hero({ items, saring, setSaring }: Omit<LayarProps, 'aksi'>) {
 }
 
 function Check({ it }: { it: Item }) {
-  if (it.sumber === 'server') {
+  if (it.sumber === 'server' || it.sumber === 'registri') {
     if (it.galat_cek) {
       return (
         <div className="check is-fail">
@@ -210,8 +211,8 @@ function Check({ it }: { it: Item }) {
     return (
       <div className="check">
         <span className="check__src">
-          <Icon name="server" />
-          Dari server
+          <Icon name={it.sumber === 'registri' ? 'database' : 'server'} />
+          {it.sumber === 'registri' ? 'Dari registri' : 'Dari server'}
         </span>
         <span className="check__meta">{it.terakhir_dicek ? `Dicek ${lalu(it.terakhir_dicek)}` : 'Belum dicek'}</span>
       </div>
@@ -229,12 +230,20 @@ function Check({ it }: { it: Item }) {
 }
 
 export function subJenis(it: Item): string {
-  const detail = it.jenis === 'sertifikat' ? it.tls?.penerbit : it.biaya ? rupiahBiasa(it.biaya) : ''
+  const detail =
+    it.jenis === 'sertifikat'
+      ? it.tls?.penerbit
+      : it.sumber === 'registri' && it.registri?.registrar
+        ? it.registri.registrar
+        : it.biaya
+          ? rupiahBiasa(it.biaya)
+          : ''
   return detail ? `${labelJenis[it.jenis]} · ${detail}` : labelJenis[it.jenis]
 }
 
 function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTerbuka: boolean; bukaMenu: (el: HTMLElement) => void }) {
-  const sertifikat = it.jenis === 'sertifikat' && !!it.host
+  // Certificates and registry domains are read again on request; the rest is extended by hand.
+  const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
   const cek = aksi.sedangCek.has(it.id)
   return (
     <div className="row" role="listitem" aria-label={`${it.nama}, ${frasaHari(it.sisa_hari)}`}>
@@ -259,7 +268,7 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
       <div className="cell num col-date">{tanggal(it.kedaluwarsa)}</div>
       <Check it={it} />
       <div className="actions">
-        {sertifikat ? (
+        {bisaCek ? (
           <button
             type="button"
             className={cek ? 'btn btn--secondary is-sm btn--fixed is-busy' : 'btn btn--secondary is-sm btn--fixed'}
@@ -358,6 +367,7 @@ function List({ items, klien, saring, setSaring, aksi }: LayarProps) {
           >
             <option value="">Semua sumber</option>
             <option value="server">Dari server</option>
+            <option value="registri">Dari registri</option>
             <option value="manual">Manual</option>
           </select>
           <div className="toolbar__end num" aria-live="polite">
@@ -495,10 +505,11 @@ export function Desktop(props: LayarProps & { muat: Muat }) {
           </div>
           {kosong ? null : (
             <div className="topbar__end">
-              <TautanKalender className="btn btn--secondary">
-                <Icon name="download" />
-                Unduh kalender (.ics)
-              </TautanKalender>
+              <EksporCsv className="btn btn--secondary" />
+              <BukaKalender className="btn btn--secondary">
+                <Icon name="calendar" />
+                Kalender
+              </BukaKalender>
               <button type="button" className="btn btn--primary" onClick={() => aksi.tambah()} aria-keyshortcuts="N">
                 <Icon name="plus" />
                 Tambah aset

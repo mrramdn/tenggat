@@ -3,7 +3,7 @@
 
 export type Jenis = 'sertifikat' | 'domain' | 'token' | 'langganan' | 'lainnya'
 export type Status = 'lewat' | 'kritis' | 'segera' | 'aman'
-export type Sumber = 'manual' | 'server'
+export type Sumber = 'manual' | 'server' | 'registri'
 
 export interface TLSInfo {
   penerbit: string
@@ -29,6 +29,7 @@ export interface Item {
   biaya: number | null
   catatan: string
   tls: TLSInfo | null
+  registri: RegistriInfo | null
   terakhir_dicek: string | null
   galat_cek: string | null
   dibuat: string
@@ -62,6 +63,23 @@ export interface PratinjauSertifikat {
   sisa_hari: number
   status: Status
   tls: TLSInfo
+}
+
+/** What the domain registry said at the last lookup (RDAP). */
+export interface RegistriInfo {
+  domain: string
+  registrar: string
+  server: string
+}
+
+export interface PratinjauDomain {
+  host: string
+  /** The registrable domain, e.g. github.com for www.github.com. */
+  domain: string
+  kedaluwarsa: string
+  sisa_hari: number
+  status: Status
+  registri: { registrar: string; server: string }
 }
 
 export interface Filter {
@@ -141,6 +159,20 @@ async function request<T>(path: string, init?: RequestInit, auth = false): Promi
   return (await res.json().catch(() => ({}))) as T
 }
 
+/** Saves a file from a GET answer. Through fetch rather than a plain link, so an expired session goes back to the
+ *  sign-in screen instead of saving the error as the file. The name comes from Content-Disposition when present. */
+async function unduh(path: string, nama: string): Promise<void> {
+  const res = await kirim(path)
+  if (!res.ok) return gagal(res, false)
+  const dariServer = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1]
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = dariServer ?? nama
+  a.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
 export const api = {
   daftar(filter: Filter = {}): Promise<Item[]> {
     const q = new URLSearchParams()
@@ -171,6 +203,15 @@ export const api = {
     a.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
   },
+  /** Reads a domain's expiry date from its registry (RDAP) without saving anything. */
+  pratinjauDomain: (host: string) => request<PratinjauDomain>(`/api/domain?host=${encodeURIComponent(host)}`),
+  /** Whether the account has a calendar subscription link. The link itself is shown only when it is made. */
+  kalenderAktif: () => request<{ kalender_aktif: boolean }>('/api/saya').then((r) => r.kalender_aktif),
+  /** Makes a new subscription link and drops the old one. Returns the path, e.g. /api/kalender/<token>.ics. */
+  buatTautanKalender: () => request<{ jalur: string }>('/api/kalender/tautan', { method: 'POST' }).then((r) => r.jalur),
+  hapusTautanKalender: () => request<void>('/api/kalender/tautan', { method: 'DELETE' }),
+  /** Saves every asset as tenggat-YYYY-MM-DD.csv. */
+  unduhCsv: () => unduh('/api/item.csv', 'tenggat.csv'),
 }
 
 // Accounts. The session lives in the HttpOnly cookie tenggat_sesi, which the

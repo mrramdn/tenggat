@@ -5,6 +5,7 @@ import { App } from './App'
 import { ToastProvider } from './components/Toasts'
 import { ApiError } from './lib/api'
 import './styles/index.css'
+import './styles/registri.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

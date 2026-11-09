@@ -182,7 +182,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
       try {
         const r = await api.cekUlang(it.id)
         if (r.galat_cek) toast.galat('Cek gagal.', `${r.nama}: ${r.galat_cek}`)
-        else toast.ok('Sertifikat dicek ulang.', `${r.nama} berakhir ${tanggal(r.kedaluwarsa)}.`)
+        else toast.ok(r.jenis === 'sertifikat' ? 'Sertifikat dicek ulang.' : 'Domain dicek ulang.', `${r.nama} berakhir ${tanggal(r.kedaluwarsa)}.`)
       } catch (err) {
         toast.dariGalat('Cek ulang gagal.', err)
       } finally {

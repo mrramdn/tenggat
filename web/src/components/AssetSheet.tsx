@@ -1,8 +1,9 @@
 // Sheet "Tambah aset" / "Ubah aset". For a certificate the user types only the
-// host; "Ambil dari server" shows what the server sends before saving.
+// host; "Ambil dari server" shows what the server sends before saving. A domain
+// works the same way with "Ambil dari registri", or takes a date typed by hand.
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ApiError, api, type Item, type ItemInput, type Jenis, type Klien, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
+import { ApiError, api, type Item, type ItemInput, type Jenis, type Klien, type PratinjauDomain, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
 import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis } from '../lib/format'
 import { useModal } from '../hooks/useModal'
 import { pesanGalat } from './Toasts'
@@ -22,10 +23,13 @@ interface Props {
   onHapus: (it: Item) => void
 }
 
+type HasilOk = { status: 'ok'; host: string; kedaluwarsa: string; sisa: number; st: Status; meta: string; judul: string }
+
 type Hasil =
   | { status: 'kosong' }
-  | { status: 'memuat'; host: string }
-  | { status: 'ok'; host: string; kedaluwarsa: string; sisa: number; st: Status; tls: TLSInfo; meta: string; judul: string }
+  | { status: 'memuat'; host: string; jenis: 'sertifikat' | 'domain' }
+  | (HasilOk & { jenis: 'sertifikat'; tls: TLSInfo })
+  | (HasilOk & { jenis: 'domain'; domain: string; registrar: string; server: string; galat: string | null })
 
 const fmtWaktu = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 const tanggalDari = (iso: string) => fmtWaktu.format(new Date(iso))
@@ -33,6 +37,7 @@ const tanggalDari = (iso: string) => fmtWaktu.format(new Date(iso))
 function dariPratinjau(p: PratinjauSertifikat): Hasil {
   return {
     status: 'ok',
+    jenis: 'sertifikat',
     host: p.host,
     kedaluwarsa: p.kedaluwarsa,
     sisa: p.sisa_hari,
@@ -43,10 +48,44 @@ function dariPratinjau(p: PratinjauSertifikat): Hasil {
   }
 }
 
+function dariDomain(p: PratinjauDomain): Hasil {
+  return {
+    status: 'ok',
+    jenis: 'domain',
+    host: p.host,
+    domain: p.domain,
+    kedaluwarsa: p.kedaluwarsa,
+    sisa: p.sisa_hari,
+    st: p.status,
+    registrar: p.registri.registrar,
+    server: p.registri.server,
+    galat: null,
+    meta: 'RDAP · baru saja',
+    judul: 'Tanggal terbaca dari registri',
+  }
+}
+
 function dariItem(it: Item): Hasil {
+  if (it.jenis === 'domain' && it.sumber === 'registri' && it.registri && it.host) {
+    return {
+      status: 'ok',
+      jenis: 'domain',
+      host: it.host,
+      domain: it.registri.domain,
+      kedaluwarsa: it.kedaluwarsa,
+      sisa: it.sisa_hari,
+      st: it.status,
+      registrar: it.registri.registrar,
+      server: it.registri.server,
+      galat: it.galat_cek,
+      meta: it.terakhir_dicek ? `RDAP · ${lalu(it.terakhir_dicek)}` : 'RDAP',
+      judul: 'Tanggal terakhir dibaca dari registri',
+    }
+  }
   if (it.jenis !== 'sertifikat' || !it.tls || !it.host) return { status: 'kosong' }
   return {
     status: 'ok',
+    jenis: 'sertifikat',
     host: it.host,
     kedaluwarsa: it.kedaluwarsa,
     sisa: it.sisa_hari,
@@ -74,7 +113,7 @@ function Result({ hasil }: { hasil: Hasil }) {
       <div className="result" aria-busy="true">
         <div className="result__head is-loading">
           <Icon name="loader" className="spin" />
-          Menghubungi {hasil.host} di port 443
+          {hasil.jenis === 'domain' ? `Menanyakan ${hasil.host} ke registri` : `Menghubungi ${hasil.host} di port 443`}
         </div>
         <div className="result__main">
           <span className="sk" style={{ width: 200, height: 28 }} />
@@ -85,6 +124,7 @@ function Result({ hasil }: { hasil: Hasil }) {
       </div>
     )
   }
+  if (hasil.jenis === 'domain') return <ResultDomain hasil={hasil} />
   const { tls } = hasil
   const mulai = new Date(tls.berlaku_sejak).getTime()
   const akhir = new Date(tls.berakhir).getTime()
@@ -144,6 +184,45 @@ function Result({ hasil }: { hasil: Hasil }) {
   )
 }
 
+function ResultDomain({ hasil }: { hasil: Extract<Hasil, { jenis: 'domain'; status: 'ok' }> }) {
+  return (
+    <div className="result">
+      <div className="result__head">
+        <Icon name="check" />
+        {hasil.judul}
+        <span className="meta">{hasil.meta}</span>
+      </div>
+      <div className="result__main">
+        <div className="result__date">
+          <span className="big num">{tanggal(hasil.kedaluwarsa)}</span>
+          <Pill status={hasil.st} />
+          <span className={hasil.sisa < 0 ? 'days__u num is-lewat' : 'days__u num'}>{frasaHari(hasil.sisa)}</span>
+        </div>
+        <dl className="dl">
+          {hasil.domain && hasil.domain !== hasil.host ? (
+            <>
+              <dt>Domain</dt>
+              <dd>{hasil.domain}</dd>
+            </>
+          ) : null}
+          <dt>Registrar</dt>
+          <dd>{hasil.registrar || 'Tidak tercantum'}</dd>
+          <dt>Registri</dt>
+          <dd>{hasil.server || 'Tidak tercantum'}</dd>
+          <dt>Sumber</dt>
+          <dd>Dari registri, dicek ulang setiap 6 jam</dd>
+          {hasil.galat ? (
+            <>
+              <dt>Cek terakhir</dt>
+              <dd className="is-warn">{hasil.galat}</dd>
+            </>
+          ) : null}
+        </dl>
+      </div>
+    </div>
+  )
+}
+
 export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   useModal(ref, onClose)
@@ -155,11 +234,13 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const [jenis, setJenis] = useState<Jenis>(item?.jenis ?? awal?.jenis ?? 'sertifikat')
   const [host, setHost] = useState(item?.host ?? awal?.host ?? '')
   const [nama, setNama] = useState(item ? item.nama : '')
-  const [namaDisentuh, setNamaDisentuh] = useState(!!item && item.nama !== item.host)
+  const [namaDisentuh, setNamaDisentuh] = useState(!!item && item.nama !== item.host && item.nama !== item.registri?.domain)
   const [klienNya, setKlien] = useState<PilihanKlien>(
     item ? { id: item.klien_id, nama: item.klien } : { id: awal?.klien?.id ?? null, nama: awal?.klien?.nama ?? '' },
   )
   const [kedaluwarsa, setKedaluwarsa] = useState(item && item.sumber === 'manual' ? item.kedaluwarsa : '')
+  // A domain is read from the registry unless the user chose to type its date.
+  const [tanggalSendiri, setTanggalSendiri] = useState(!!item && item.jenis === 'domain' && item.sumber === 'manual')
   const [biaya, setBiaya] = useState(item?.biaya != null ? String(item.biaya) : '')
   const [hasil, setHasil] = useState<Hasil>(item ? dariItem(item) : { status: 'kosong' })
   const [galat, setGalat] = useState<Record<string, string>>({})
@@ -167,9 +248,16 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
 
   const sertifikat = jenis === 'sertifikat'
   const klienBaru = !klienNya.id && klienNya.nama.trim() !== ''
+  const domain = jenis === 'domain'
+  const pakaiHost = sertifikat || domain
+  const gagalBaca = pakaiHost && !!galat.host && host.trim() !== '' && hasil.status !== 'memuat'
   // A certificate the server could not read can still be saved with a date typed by hand.
-  const cadangan = sertifikat && !!galat.host && host.trim() !== '' && hasil.status !== 'memuat'
-  const namaTampil = sertifikat && !namaDisentuh ? host.trim() : nama
+  const cadangan = sertifikat && gagalBaca
+  // The same for a domain the registry could not answer; it then stays a domain with a manual date.
+  const domainManual = domain && (tanggalSendiri || gagalBaca)
+  const dariRegistri = domain && !domainManual
+  const hasilDomain = hasil.status === 'ok' && hasil.jenis === 'domain' ? hasil : null
+  const namaTampil = namaDisentuh || !pakaiHost ? nama : (hasilDomain?.domain ?? host.trim())
 
   function hapusGalat(...k: string[]) {
     setGalat((g) => {
@@ -184,13 +272,24 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   async function ambil() {
     const h = host.trim()
     if (!h) {
-      setGalat((g) => ({ ...g, host: 'Isi host terlebih dahulu, misalnya tokoanda.id.' }))
+      const contoh = domain ? 'Isi nama domain terlebih dahulu, misalnya tokoanda.id.' : 'Isi host terlebih dahulu, misalnya tokoanda.id.'
+      setGalat((g) => ({ ...g, host: contoh }))
       return
     }
     const n = ++permintaan.current
     hapusGalat('host')
-    setHasil({ status: 'memuat', host: h })
+    setHasil({ status: 'memuat', host: h, jenis: domain ? 'domain' : 'sertifikat' })
     try {
+      if (domain) {
+        const p = await api.pratinjauDomain(h)
+        if (n !== permintaan.current) return
+        // A registry answer switches a domain back from a typed date to the registry.
+        setHasil(dariDomain(p))
+        setTanggalSendiri(false)
+        setKedaluwarsa('')
+        hapusGalat('kedaluwarsa')
+        return
+      }
       const p = await api.pratinjau(h)
       if (n !== permintaan.current) return
       setHasil(dariPratinjau(p))
@@ -216,7 +315,8 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
     onSuccess: (it) => onSaved(it, !item),
     onError: (err) => {
       if (err instanceof ApiError && Object.keys(err.field).length > 0) {
-        const tampil = new Set(['nama', 'klien', 'biaya', 'jenis', ...(sertifikat ? ['host'] : []), ...(!sertifikat || cadangan ? ['kedaluwarsa'] : [])])
+        const tanggalTampil = !pakaiHost || cadangan || domainManual
+        const tampil = new Set(['nama', 'klien', 'biaya', 'jenis', ...(pakaiHost ? ['host'] : []), ...(tanggalTampil ? ['kedaluwarsa'] : [])])
         const lain = Object.entries(err.field).filter(([k]) => !tampil.has(k))
         setGalat(err.field)
         setGalatUmum(lain.length ? lain.map(([, v]) => v).join(' ') : null)
@@ -231,7 +331,11 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const bisaSimpan =
     !simpan.isPending &&
     hasil.status !== 'memuat' &&
-    (sertifikat ? host.trim() !== '' && (!galat.host || kedaluwarsa !== '') : nama.trim() !== '' && kedaluwarsa !== '')
+    (sertifikat
+      ? host.trim() !== '' && (!galat.host || kedaluwarsa !== '')
+      : dariRegistri
+        ? host.trim() !== '' && !galat.host
+        : namaTampil.trim() !== '' && kedaluwarsa !== '')
 
   function kirim() {
     if (!bisaSimpan) return
@@ -244,8 +348,12 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
     let input: ItemInput
     if (sertifikat && cadangan) {
       input = { ...dasar, jenis: 'lainnya', nama: namaDisentuh && nama.trim() ? nama.trim() : host.trim(), kedaluwarsa }
-    } else if (sertifikat) {
+    } else if (sertifikat || dariRegistri) {
+      // No date: the API reads it from the server or the registry and names the item after the host or domain.
       input = { ...dasar, jenis, host: host.trim(), nama: namaDisentuh ? nama.trim() : '' }
+    } else if (domain) {
+      input = { ...dasar, jenis, nama: namaTampil.trim(), kedaluwarsa }
+      if (host.trim()) input.host = host.trim()
     } else {
       input = { ...dasar, jenis, nama: nama.trim(), kedaluwarsa }
       if (item?.host && item.jenis !== 'sertifikat') input.host = item.host
@@ -254,7 +362,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   }
 
   const fokusTanggal = buka.mode === 'ubah' && buka.fokus === 'kedaluwarsa'
-  const fokusHost = !fokusTanggal && sertifikat
+  const fokusHost = !fokusTanggal && (sertifikat || dariRegistri)
   const judul = item ? 'Ubah aset' : 'Tambah aset'
 
   const fieldTanggal = (hint: ReactNode) => (
@@ -331,6 +439,11 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                     onClick={() => {
                       setJenis(j)
                       hapusGalat('jenis', 'kedaluwarsa', 'host', 'nama')
+                      // A certificate answer means nothing for a domain, and the other way round.
+                      if (hasil.status !== 'kosong' && hasil.jenis !== j) {
+                        permintaan.current++
+                        setHasil({ status: 'kosong' })
+                      }
                     }}
                   >
                     {phone ? labelJenisPendek[j] : labelJenis[j]}
@@ -340,11 +453,12 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
               <FieldError id={id('jenis-e')} pesan={galat.jenis} />
             </div>
 
-            {sertifikat ? (
+            {pakaiHost ? (
               <>
                 <div className="field">
                   <label className="field__label" htmlFor={id('host')}>
-                    Host
+                    {domain ? 'Domain' : 'Host'}
+                    {tanggalSendiri && !galat.host ? <span>Opsional</span> : null}
                   </label>
                   <div className="field-row">
                     <label className="input-icon">
@@ -381,19 +495,43 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                       aria-busy={hasil.status === 'memuat'}
                       disabled={hasil.status === 'memuat'}
                     >
-                      <Icon name={hasil.status === 'memuat' ? 'loader' : 'server'} className={hasil.status === 'memuat' ? 'spin' : undefined} />
-                      Ambil dari server
+                      <Icon
+                        name={hasil.status === 'memuat' ? 'loader' : domain ? 'database' : 'server'}
+                        className={hasil.status === 'memuat' ? 'spin' : undefined}
+                      />
+                      {domain ? 'Ambil dari registri' : 'Ambil dari server'}
                     </button>
                   </div>
                   <FieldError id={id('host-e')} pesan={galat.host} />
                 </div>
                 {cadangan ? (
                   fieldTanggal('Anda tetap dapat mengisi tanggal secara manual. Aset ini disimpan sebagai Lainnya dan tidak dicek ulang otomatis.')
+                ) : domainManual ? (
+                  fieldTanggal(
+                    tanggalSendiri && !gagalBaca
+                      ? 'Tanggal ini tidak dicek ulang otomatis. Untuk kembali ke registri, pilih Ambil dari registri.'
+                      : 'Anda tetap dapat mengisi tanggal secara manual. Domain ini tidak dicek ulang otomatis.',
+                  )
                 ) : (
                   <div aria-live="polite">
                     <Result hasil={hasil} />
                   </div>
                 )}
+                {dariRegistri && hasil.status !== 'memuat' ? (
+                  <div className="ganti-sumber">
+                    {hasilDomain ? null : <span>Tanggal dibaca dari registri saat Anda menyimpan.</span>}
+                    <button
+                      type="button"
+                      className="btn-teks"
+                      onClick={() => {
+                        setTanggalSendiri(true)
+                        if (hasilDomain) setKedaluwarsa(hasilDomain.kedaluwarsa)
+                      }}
+                    >
+                      Isi tanggal sendiri
+                    </button>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -405,10 +543,10 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                 <input
                   id={id('nama')}
                   className="control"
-                  placeholder={sertifikat ? 'Sama dengan host' : 'Nama aset'}
+                  placeholder={sertifikat ? 'Sama dengan host' : domain ? 'Sama dengan domain' : 'Nama aset'}
                   autoComplete="off"
                   value={namaTampil}
-                  data-autofocus={!fokusTanggal && !sertifikat ? '' : undefined}
+                  data-autofocus={!fokusTanggal && !sertifikat && !dariRegistri ? '' : undefined}
                   aria-invalid={!!galat.nama}
                   aria-describedby={galat.nama ? id('nama-e') : undefined}
                   onChange={(e) => {
@@ -443,7 +581,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
               </div>
             </div>
 
-            {sertifikat ? null : fieldTanggal(null)}
+            {pakaiHost ? null : fieldTanggal(null)}
 
             <div className="field">
               <label className="field__label" htmlFor={id('biaya')}>
