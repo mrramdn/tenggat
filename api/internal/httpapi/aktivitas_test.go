@@ -107,3 +107,18 @@ func TestKlienStatus(t *testing.T) {
 		t.Errorf("unknown status: %d", rec.Code)
 	}
 }
+
+func TestDenganJenis(t *testing.T) {
+	for _, c := range []struct{ jenis, nama, want string }{
+		{"Domain", "Domain tokokuemawar.id", "Domain tokokuemawar.id"},
+		{"Domain", "domain tokokuemawar.id", "domain tokokuemawar.id"},
+		{"Domain", "tokokuemawar.id", "Domain tokokuemawar.id"},
+		{"Domain", "Domainku.id", "Domain Domainku.id"},
+		{"Sertifikat", "Sertifikat TLS www.contoh.id", "Sertifikat TLS www.contoh.id"},
+		{"Sertifikat", "www.contoh.id", "Sertifikat www.contoh.id"},
+	} {
+		if got := denganJenis(c.jenis, c.nama); got != c.want {
+			t.Errorf("denganJenis(%q, %q) = %q, want %q", c.jenis, c.nama, got, c.want)
+		}
+	}
+}

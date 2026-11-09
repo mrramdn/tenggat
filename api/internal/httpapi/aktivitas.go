@@ -282,13 +282,23 @@ func (s *Server) catatCek(ctx context.Context, old, it store.Item) {
 	if !it.Kedaluwarsa.After(old.Kedaluwarsa) {
 		return
 	}
-	teks := "Sertifikat " + it.Nama + " diperbarui, berlaku sampai " + tanggalID(it.Kedaluwarsa)
+	teks := denganJenis("Sertifikat", it.Nama) + " diperbarui, berlaku sampai " + tanggalID(it.Kedaluwarsa)
 	if it.Sumber == "registri" {
-		teks = "Domain " + it.Nama + " diperpanjang di registri sampai " + tanggalID(it.Kedaluwarsa)
+		teks = denganJenis("Domain", it.Nama) + " diperpanjang di registri sampai " + tanggalID(it.Kedaluwarsa)
 	}
 	s.catat(ctx, it.PenggunaID, store.AktivitasInput{
 		KlienID: it.KlienID, ItemID: &id, Jenis: "cek_diperbarui", Teks: teks,
 		Data: data(map[string]any{"dari": old.Kedaluwarsa.Format(time.DateOnly),
 			"sampai": it.Kedaluwarsa.Format(time.DateOnly), "sumber": it.Sumber}),
 	})
+}
+
+// denganJenis puts the type word in front of an asset's name unless the name already starts with it, so
+// "Domain tokokuemawar.id" stays as it is and "tokokuemawar.id" becomes "Domain tokokuemawar.id".
+func denganJenis(jenis, nama string) string {
+	if len(nama) >= len(jenis) && strings.EqualFold(nama[:len(jenis)], jenis) &&
+		(len(nama) == len(jenis) || nama[len(jenis)] == ' ') {
+		return nama
+	}
+	return jenis + " " + nama
 }
