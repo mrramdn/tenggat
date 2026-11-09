@@ -11,10 +11,15 @@ const sebutanJenis: Record<Jenis, string> = {
   lainnya: '',
 }
 
-/** "domain contoh.co.id", "sertifikat TLS www.contoh.co.id", "Hosting VPS" */
-function sebutAset(it: Pick<Item, 'nama' | 'jenis'>): string {
+/** "domain contoh.co.id", "sertifikat TLS www.contoh.co.id", "Hosting VPS". A name that already starts with its
+ *  type word ("Domain contoh.co.id", "Token GitHub deploy") keeps its own words, with the type in lower case, so the
+ *  type is never said twice. */
+export function sebutAset(it: Pick<Item, 'nama' | 'jenis'>): string {
   const jenis = sebutanJenis[it.jenis]
-  return jenis ? `${jenis} ${it.nama}` : it.nama
+  if (!jenis) return it.nama
+  const kata = jenis.split(' ')[0]
+  if (it.nama.toLowerCase().startsWith(kata + ' ')) return kata + it.nama.slice(kata.length)
+  return `${jenis} ${it.nama}`
 }
 
 /** The reminder text, in polite Indonesian. */
