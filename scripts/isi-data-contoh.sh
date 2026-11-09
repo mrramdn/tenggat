@@ -1,19 +1,39 @@
 #!/usr/bin/env sh
 # Mengisi Tenggat dengan data contoh lewat API, supaya tampilan bisa dicoba.
+# Membuat akun contoh (atau masuk bila sudah ada), lalu menambah aset atas nama akun itu.
+#
 # Pemakaian: ./scripts/isi-data-contoh.sh [alamat]   (bawaan http://localhost:8080)
+# Akun bisa diganti lewat env: TENGGAT_EMAIL, TENGGAT_SANDI, TENGGAT_NAMA.
 # Nama klien dan aset manual di sini fiktif; sertifikat dibaca dari situs publik.
 set -eu
 
 BASE="${1:-http://localhost:8080}"
+EMAIL="${TENGGAT_EMAIL:-contoh@tenggat.id}"
+SANDI="${TENGGAT_SANDI:-contoh-tenggat}"
+NAMA="${TENGGAT_NAMA:-Akun Contoh}"
+JAR="$(mktemp)"
+trap 'rm -f "$JAR"' EXIT
 
 # Tanggal relatif terhadap hari ini, untuk date GNU (Linux) maupun BSD (macOS).
 hari_lagi() {
   date -d "$1 days" +%F 2>/dev/null || date -v"$1"d +%F
 }
 
+kode=$(curl -sS -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/akun" \
+  -H 'Content-Type: application/json' \
+  -d "{\"nama\":\"$NAMA\",\"email\":\"$EMAIL\",\"kata_sandi\":\"$SANDI\"}")
+if [ "$kode" = 409 ]; then
+  kode=$(curl -sS -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/sesi" \
+    -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"kata_sandi\":\"$SANDI\"}")
+fi
+case "$kode" in
+  200|201) echo "masuk sebagai $EMAIL" ;;
+  *) echo "gagal masuk sebagai $EMAIL (HTTP $kode)" >&2; exit 1 ;;
+esac
+
 kirim() {
   printf '%s -> ' "$2"
-  curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$BASE/api/item" \
+  curl -sS -b "$JAR" -o /dev/null -w '%{http_code}\n' -X POST "$BASE/api/item" \
     -H 'Content-Type: application/json' -d "$1"
 }
 

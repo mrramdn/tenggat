@@ -58,6 +58,7 @@ func run(log *slog.Logger) error {
 		api.Cache = rc
 		log.Info("cache redis aktif", "alamat", addr)
 	}
+	api.CookieSecure = os.Getenv("COOKIE_SECURE") == "true"
 	if v := os.Getenv("BATAS_PER_MENIT"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {

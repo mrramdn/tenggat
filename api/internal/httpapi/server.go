@@ -17,15 +17,23 @@ import (
 // Store is the part of store.Store the handlers use.
 type Store interface {
 	Ping(ctx context.Context) error
-	List(ctx context.Context, f store.Filter, now time.Time) ([]store.Item, error)
-	Get(ctx context.Context, id string) (store.Item, error)
-	Create(ctx context.Context, in store.Input) (store.Item, error)
-	Update(ctx context.Context, id string, in store.Input) (store.Item, error)
-	Delete(ctx context.Context, id string) error
+	List(ctx context.Context, userID string, f store.Filter, now time.Time) ([]store.Item, error)
+	Get(ctx context.Context, userID, id string) (store.Item, error)
+	Create(ctx context.Context, userID string, in store.Input) (store.Item, error)
+	Update(ctx context.Context, userID, id string, in store.Input) (store.Item, error)
+	Delete(ctx context.Context, userID, id string) error
 	SaveCheck(ctx context.Context, id string, date time.Time, info store.TLSInfo, at time.Time) (store.Item, error)
 	SaveCheckError(ctx context.Context, id, message string, at time.Time) (store.Item, error)
 	DueForCheck(ctx context.Context, before time.Time) ([]store.Item, error)
-	Summary(ctx context.Context, now time.Time) (store.Summary, error)
+	Summary(ctx context.Context, userID string, now time.Time) (store.Summary, error)
+
+	CreateUser(ctx context.Context, nama, email, hash string) (store.Pengguna, error)
+	UserByEmail(ctx context.Context, email string) (store.Pengguna, error)
+	CreateSession(ctx context.Context, tokenHash, userID string, expires time.Time) error
+	UserBySession(ctx context.Context, tokenHash string, now time.Time) (store.Pengguna, error)
+	DeleteSession(ctx context.Context, tokenHash string) error
+	DeleteUser(ctx context.Context, userID string) error
+	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 }
 
 // Checker reads a host's certificate.
@@ -39,8 +47,8 @@ type Cache interface {
 	Ping(ctx context.Context) error
 	Get(ctx context.Context, key string) ([]byte, bool)
 	Set(ctx context.Context, key string, value []byte, ttl time.Duration)
-	Version(ctx context.Context) int64
-	Bump(ctx context.Context)
+	Version(ctx context.Context, scope string) int64
+	Bump(ctx context.Context, scope string)
 	Allow(ctx context.Context, bucket, client string, limit int, window time.Duration) (bool, time.Duration)
 }
 
@@ -53,25 +61,35 @@ type Server struct {
 	Log     *slog.Logger
 	// LimitPerMinute caps writes and certificate lookups per client; 0 means 30.
 	LimitPerMinute int
+	// CookieSecure marks the session cookie Secure; set it when the site is served over HTTPS.
+	CookieSecure bool
 }
 
-// Routes returns the API handler with request logging and panic recovery.
+// Routes returns the API handler with request logging, panic recovery and the
+// same-origin check for requests that change data.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("GET /api/item", s.listItems)
-	mux.HandleFunc("POST /api/item", s.limit(s.createItem))
-	mux.HandleFunc("GET /api/item/{id}", s.getItem)
-	mux.HandleFunc("PUT /api/item/{id}", s.limit(s.updateItem))
-	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.deleteItem))
-	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.recheckItem))
-	mux.HandleFunc("GET /api/sertifikat", s.limit(s.previewCertificate))
-	mux.HandleFunc("GET /api/ringkasan", s.summary)
-	mux.HandleFunc("GET /api/kalender.ics", s.calendar)
+
+	mux.HandleFunc("POST /api/akun", s.limitTo("daftar", 5, s.createAccount))
+	mux.HandleFunc("POST /api/sesi", s.limitTo("masuk", 10, s.login))
+	mux.HandleFunc("DELETE /api/sesi", s.logout)
+	mux.HandleFunc("GET /api/saya", s.user(s.me))
+	mux.HandleFunc("DELETE /api/saya", s.limit(s.user(s.deleteMe)))
+
+	mux.HandleFunc("GET /api/item", s.user(s.listItems))
+	mux.HandleFunc("POST /api/item", s.limit(s.user(s.createItem)))
+	mux.HandleFunc("GET /api/item/{id}", s.user(s.getItem))
+	mux.HandleFunc("PUT /api/item/{id}", s.limit(s.user(s.updateItem)))
+	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.user(s.deleteItem)))
+	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.user(s.recheckItem)))
+	mux.HandleFunc("GET /api/sertifikat", s.limit(s.user(s.previewCertificate)))
+	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
+	mux.HandleFunc("GET /api/kalender.ics", s.user(s.calendar))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
-	return s.recoverPanics(s.logRequests(mux))
+	return s.recoverPanics(s.logRequests(s.sameOrigin(mux)))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -94,15 +112,15 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, status)
 }
 
-func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	f := store.Filter{Status: expiry.Status(r.URL.Query().Get("status")), Klien: r.URL.Query().Get("klien")}
 	if f.Status != "" && !f.Status.Valid() {
 		writeError(w, http.StatusUnprocessableEntity, "Status tidak dikenal.",
 			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
 		return
 	}
-	s.cachedRead(w, r, "daftar:"+string(f.Status)+":"+f.Klien, func(now time.Time) (any, error) {
-		items, err := s.Store.List(r.Context(), f, now)
+	s.cachedRead(w, r, u.ID, "daftar:"+string(f.Status)+":"+f.Klien, func(now time.Time) (any, error) {
+		items, err := s.Store.List(r.Context(), u.ID, f, now)
 		if err != nil {
 			return nil, err
 		}
@@ -122,13 +140,13 @@ func itemID(r *http.Request) (string, bool) {
 	return id, uuidPattern.MatchString(id)
 }
 
-func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getItem(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	id, ok := itemID(r)
 	if !ok {
 		writeNotFound(w)
 		return
 	}
-	it, err := s.Store.Get(r.Context(), id)
+	it, err := s.Store.Get(r.Context(), u.ID, id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
@@ -140,7 +158,7 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toJSON(it, s.Now()))
 }
 
-func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) createItem(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	var req itemRequest
 	if !decodeJSON(w, r, &req) {
 		return
@@ -150,23 +168,23 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
 		return
 	}
-	it, err := s.Store.Create(r.Context(), in)
+	it, err := s.Store.Create(r.Context(), u.ID, in)
 	if err != nil {
 		s.internal(w, r, err)
 		return
 	}
-	s.bump(r.Context())
+	s.bump(r.Context(), u.ID)
 	w.Header().Set("Location", "/api/item/"+it.ID)
 	writeJSON(w, http.StatusCreated, toJSON(it, s.Now()))
 }
 
-func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	id, ok := itemID(r)
 	if !ok {
 		writeNotFound(w)
 		return
 	}
-	if _, err := s.Store.Get(r.Context(), id); errors.Is(err, store.ErrNotFound) {
+	if _, err := s.Store.Get(r.Context(), u.ID, id); errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
 	} else if err != nil {
@@ -182,7 +200,7 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
 		return
 	}
-	it, err := s.Store.Update(r.Context(), id, in)
+	it, err := s.Store.Update(r.Context(), u.ID, id, in)
 	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
@@ -191,17 +209,17 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, r, err)
 		return
 	}
-	s.bump(r.Context())
+	s.bump(r.Context(), u.ID)
 	writeJSON(w, http.StatusOK, toJSON(it, s.Now()))
 }
 
-func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	id, ok := itemID(r)
 	if !ok {
 		writeNotFound(w)
 		return
 	}
-	err := s.Store.Delete(r.Context(), id)
+	err := s.Store.Delete(r.Context(), u.ID, id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
@@ -210,20 +228,20 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, r, err)
 		return
 	}
-	s.bump(r.Context())
+	s.bump(r.Context(), u.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // recheckItem reads the certificate again now. A server that cannot be reached
 // is a result, not a failed request: the item comes back with galat_cek set and
 // its last known date kept.
-func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	id, ok := itemID(r)
 	if !ok {
 		writeNotFound(w)
 		return
 	}
-	it, err := s.Store.Get(r.Context(), id)
+	it, err := s.Store.Get(r.Context(), u.ID, id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeNotFound(w)
 		return
@@ -247,7 +265,7 @@ func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request) {
 // recheck reads one certificate and stores either the new date or the error.
 func (s *Server) recheck(ctx context.Context, it store.Item) (store.Item, error) {
 	now := s.Now()
-	defer s.bump(ctx)
+	defer s.bump(ctx, it.PenggunaID)
 	res, err := s.checkHost(ctx, *it.Host, true)
 	if err != nil {
 		return s.Store.SaveCheckError(ctx, it.ID, checkMessage(err), now)
@@ -256,7 +274,8 @@ func (s *Server) recheck(ctx context.Context, it store.Item) (store.Item, error)
 }
 
 // RunRechecks re-reads certificates that were last checked more than one
-// interval ago: once shortly after start, then on every tick, until ctx ends.
+// interval ago, once shortly after start and then on every tick, and removes
+// expired sessions, until ctx ends.
 func (s *Server) RunRechecks(ctx context.Context, interval time.Duration) {
 	timer := time.NewTimer(30 * time.Second)
 	defer timer.Stop()
@@ -265,6 +284,11 @@ func (s *Server) RunRechecks(ctx context.Context, interval time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+		}
+		if n, err := s.Store.DeleteExpiredSessions(ctx, s.Now()); err != nil {
+			s.Log.Error("gagal menghapus sesi kedaluwarsa", "galat", err)
+		} else if n > 0 {
+			s.Log.Info("sesi kedaluwarsa dihapus", "jumlah", n)
 		}
 		due, err := s.Store.DueForCheck(ctx, s.Now().Add(-interval))
 		if err != nil {
@@ -287,14 +311,14 @@ func (s *Server) RunRechecks(ctx context.Context, interval time.Duration) {
 	}
 }
 
-func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
-	s.cachedRead(w, r, "ringkasan", func(now time.Time) (any, error) {
-		return s.Store.Summary(r.Context(), now)
+func (s *Server) summary(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
+	s.cachedRead(w, r, u.ID, "ringkasan", func(now time.Time) (any, error) {
+		return s.Store.Summary(r.Context(), u.ID, now)
 	})
 }
 
-func (s *Server) calendar(w http.ResponseWriter, r *http.Request) {
-	items, err := s.Store.List(r.Context(), store.Filter{}, s.Now())
+func (s *Server) calendar(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
+	items, err := s.Store.List(r.Context(), u.ID, store.Filter{}, s.Now())
 	if err != nil {
 		s.internal(w, r, err)
 		return

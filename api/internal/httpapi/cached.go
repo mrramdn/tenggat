@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
+	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
 )
 
@@ -18,15 +19,16 @@ const (
 	certTTL = time.Hour        // cached certificate lookup per host
 )
 
-// cachedRead answers a GET from Redis when it can. The key holds the cache
-// version (bumped by every write) and today's date in Jakarta (statuses change
-// at midnight), so a cached answer is never stale for longer than readTTL.
+// cachedRead answers a GET from Redis when it can. The key holds the user, that
+// user's cache version (bumped by every write of theirs) and today's date in
+// Jakarta (statuses change at midnight), so one user never reads another's
+// cached answer and a cached answer is never stale for longer than readTTL.
 // The X-Cache header tells which path answered.
-func (s *Server) cachedRead(w http.ResponseWriter, r *http.Request, name string, load func(now time.Time) (any, error)) {
+func (s *Server) cachedRead(w http.ResponseWriter, r *http.Request, userID, name string, load func(now time.Time) (any, error)) {
 	now := s.Now()
 	var key string
 	if s.Cache != nil {
-		key = "baca:" + strconv.FormatInt(s.Cache.Version(r.Context()), 10) + ":" +
+		key = "baca:" + userID + ":" + strconv.FormatInt(s.Cache.Version(r.Context(), userID), 10) + ":" +
 			expiry.DateOf(now).Format(time.DateOnly) + ":" + name
 		if body, ok := s.Cache.Get(r.Context(), key); ok {
 			w.Header().Set("X-Cache", "HIT")
@@ -57,10 +59,10 @@ func writeRaw(w http.ResponseWriter, status int, body []byte) {
 	_, _ = w.Write(append(body, '\n'))
 }
 
-// bump invalidates cached reads after a write.
-func (s *Server) bump(ctx context.Context) {
+// bump invalidates a user's cached reads after a write.
+func (s *Server) bump(ctx context.Context, userID string) {
 	if s.Cache != nil {
-		s.Cache.Bump(ctx)
+		s.Cache.Bump(ctx, userID)
 	}
 }
 
@@ -98,7 +100,7 @@ type certificatePreview struct {
 }
 
 // previewCertificate reads a host's certificate without storing anything.
-func (s *Server) previewCertificate(w http.ResponseWriter, r *http.Request) {
+func (s *Server) previewCertificate(w http.ResponseWriter, r *http.Request, _ store.Pengguna) {
 	host, err := tlscheck.NormalizeHost(r.URL.Query().Get("host"))
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.",
@@ -129,17 +131,22 @@ func (s *Server) previewCertificate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// limit allows each client a fixed number of requests per minute on endpoints
-// that write or open connections to other servers. Over the limit it answers
-// 429 with Retry-After.
+// limit allows each client LimitPerMinute requests per minute (30 by default)
+// on endpoints that write or open connections to other servers.
 func (s *Server) limit(next http.HandlerFunc) http.HandlerFunc {
+	perMinute := s.LimitPerMinute
+	if perMinute <= 0 {
+		perMinute = 30
+	}
+	return s.limitTo("tulis", perMinute, next)
+}
+
+// limitTo counts requests per client in its own bucket; over the limit it
+// answers 429 with Retry-After.
+func (s *Server) limitTo(bucket string, perMinute int, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.Cache != nil {
-			perMinute := s.LimitPerMinute
-			if perMinute <= 0 {
-				perMinute = 30
-			}
-			ok, retry := s.Cache.Allow(r.Context(), "tulis", clientIP(r), perMinute, time.Minute)
+			ok, retry := s.Cache.Allow(r.Context(), bucket, clientIP(r), perMinute, time.Minute)
 			if !ok {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 				writeError(w, http.StatusTooManyRequests,

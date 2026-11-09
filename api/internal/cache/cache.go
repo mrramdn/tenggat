@@ -50,18 +50,25 @@ func (c *Cache) Set(ctx context.Context, key string, value []byte, ttl time.Dura
 	_ = c.rdb.Set(ctx, prefix+key, value, ttl).Err()
 }
 
-// Version is part of every cached read key. Bump changes it after a write, so
-// old entries are never read again and simply expire.
-func (c *Cache) Version(ctx context.Context) int64 {
-	v, err := c.rdb.Get(ctx, prefix+"versi").Int64()
+// Version is part of every cached read key of one scope (a user). Bump changes
+// it after a write, so old entries are never read again and simply expire.
+func (c *Cache) Version(ctx context.Context, scope string) int64 {
+	v, err := c.rdb.Get(ctx, prefix+"versi:"+scope).Int64()
 	if err != nil {
 		return 0
 	}
 	return v
 }
 
-// Bump invalidates every cached read.
-func (c *Cache) Bump(ctx context.Context) { _ = c.rdb.Incr(ctx, prefix+"versi").Err() }
+// Bump invalidates every cached read of one scope. The counter lives a day; read
+// entries live a minute, so a counter that expires can never revive a stale one.
+func (c *Cache) Bump(ctx context.Context, scope string) {
+	key := prefix + "versi:" + scope
+	pipe := c.rdb.TxPipeline()
+	pipe.Incr(ctx, key)
+	pipe.Expire(ctx, key, 24*time.Hour)
+	_, _ = pipe.Exec(ctx)
+}
 
 // Allow counts one request from client in a fixed window. It returns false and
 // the time until the window resets once limit requests were already counted.
