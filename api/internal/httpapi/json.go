@@ -252,7 +252,7 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 		defer func() {
 			if v := recover(); v != nil {
 				s.Log.Error("panic", "path", redactPath(r.URL.Path), "nilai", v)
-				writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba lagi sebentar lagi.", nil)
+				writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba beberapa saat lagi.", nil)
 			}
 		}()
 		next.ServeHTTP(w, r)

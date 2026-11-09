@@ -16,8 +16,8 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
         Belum ada aset.
       </h1>
       <p className="empty__lede">
-        Ketik nama domain situs Anda. Tenggat membaca tanggal berakhir domainnya dari registri dan mengeceknya ulang
-        setiap 6 jam. Sertifikat TLS dibaca dengan cara yang sama dari servernya.
+        Ketik nama domain situs yang Anda kelola. Tenggat membaca tanggal berakhir domainnya dari registri dan
+        mengeceknya ulang setiap 6 jam. Sertifikat TLS dibaca langsung dari servernya.
       </p>
       <form
         className="empty__form"

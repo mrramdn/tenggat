@@ -112,7 +112,7 @@ export function kalimatBiaya(items: Item[]): { pre: string; jumlah: string | nul
   const b = biaya30(items)
   if (b.total === 0) return { pre: 'Tidak ada biaya perpanjangan dalam 30 hari ke depan.', jumlah: null, post: '' }
   const dari = b.nama.length > 3 ? `${b.nama.length} aset` : gabung(b.nama)
-  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah: rupiahBiasa(b.total), post: `, dari ${dari}.` }
+  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah: rupiahBiasa(b.total), post: `, untuk ${dari}.` }
 }
 
 const BOBOT: Record<Status, number> = { lewat: 0, kritis: 1, segera: 2, aman: 3 }

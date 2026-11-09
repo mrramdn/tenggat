@@ -102,7 +102,7 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
       <div className="kal__konfirmasi" role="group" aria-labelledby={`${uid}-k`}>
         <p id={`${uid}-k`}>
           {konfirmasi === 'ganti'
-            ? 'Tautan lama berhenti bekerja. Klien yang menyimpan tautan lama perlu menerima tautan baru dari Anda.'
+            ? 'Tautan lama tidak berlaku lagi. Klien yang menyimpan tautan lama perlu menerima tautan baru dari Anda.'
             : 'Klien tidak dapat lagi membuka laporan lewat tautan ini. Anda dapat membuat tautan baru kapan saja.'}
         </p>
         <div className="kal__aksi">
@@ -163,7 +163,7 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
           <Icon name="info" />
           <span>
             Tautan laporan sudah aktif. Tenggat hanya menampilkannya sekali, saat dibuat. Untuk melihat tautan lagi,
-            ganti dengan tautan baru. Tautan lama lalu berhenti bekerja.
+            ganti dengan tautan baru. Tautan lama lalu tidak berlaku lagi.
           </span>
         </div>
         <TombolKelola onCabut={() => setKonfirmasi('cabut')} onGanti={() => setKonfirmasi('ganti')} fokus />

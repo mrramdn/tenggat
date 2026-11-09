@@ -176,7 +176,7 @@ function Result({ hasil }: { hasil: Hasil }) {
           {tls.rantai_valid ? null : (
             <>
               <dt>Rantai</dt>
-              <dd className="is-warn">Tidak valid{tls.galat_rantai ? `: ${tls.galat_rantai}` : ''}</dd>
+              <dd className="is-warn" title={tls.galat_rantai || undefined}>Tidak valid. Browser pengunjung bisa menampilkan peringatan.</dd>
             </>
           )}
         </dl>
@@ -273,7 +273,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   async function ambil() {
     const h = host.trim()
     if (!h) {
-      const contoh = domain ? 'Isi nama domain terlebih dahulu, misalnya tokoanda.id.' : 'Isi host terlebih dahulu, misalnya tokoanda.id.'
+      const contoh = domain ? 'Isi nama domain terlebih dahulu, misalnya tokokuemawar.id.' : 'Isi host terlebih dahulu, misalnya tokokuemawar.id.'
       setGalat((g) => ({ ...g, host: contoh }))
       return
     }

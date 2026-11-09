@@ -155,7 +155,7 @@ func (s *Server) sendWebhook(ctx context.Context, t webhookTarget, text string) 
 		if errors.As(err, &ue) {
 			detail = ue.Err.Error() // url.Error itself carries the URL, its cause does not
 		}
-		return &webhookError{Pesan: "Layanan webhook tidak dapat dihubungi. Coba lagi sebentar lagi.", Detail: detail}
+		return &webhookError{Pesan: "Layanan webhook tidak dapat dihubungi. Coba beberapa saat lagi.", Detail: detail}
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
@@ -260,7 +260,7 @@ func (s *Server) testNotifikasi(w http.ResponseWriter, r *http.Request, u store.
 		writeError(w, http.StatusUnprocessableEntity, "Atur URL webhook terlebih dahulu.", nil)
 		return
 	}
-	text := "Pesan uji dari Tenggat. Ringkasan harian untuk akun " + u.Nama + " akan dikirim ke sini setiap pukul 08.00 WIB."
+	text := "Pesan uji dari Tenggat. Ringkasan harian untuk akun " + u.Nama + " dikirim ke sini pukul 08.00 WIB, pada hari ada aset atau tugas yang lewat atau jatuh tempo dalam 7 hari."
 	if err := s.sendWebhook(r.Context(), t, text); err != nil {
 		s.logWebhookError(u.ID, t, err)
 		msg := "Pesan uji tidak terkirim."
@@ -340,7 +340,7 @@ func (s *Server) digestText(ctx context.Context, userID string, now time.Time) (
 	byDate(overdue)
 	byDate(soon)
 	var b strings.Builder
-	b.WriteString("Tenggat, ringkasan " + tanggalID(today))
+	b.WriteString("Ringkasan harian Tenggat, " + tanggalID(today))
 	written, total := 0, len(overdue)+len(soon)
 	section := func(title string, l []line) {
 		if len(l) == 0 || written >= digestMaxLines {

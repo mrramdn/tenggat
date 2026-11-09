@@ -259,8 +259,8 @@ function Separuh({ jenis, sibuk, host, hasil }: SeparuhProps) {
         {kepala}
         <p className="separuh__jelas">
           {domain
-            ? 'Tanggal pendaftaran domain berakhir. Lewat dari tanggal ini, situs berhenti bisa dibuka dan alamatnya bisa diambil orang lain.'
-            : 'Tanggal sertifikat HTTPS berakhir. Lewat dari tanggal ini, browser menampilkan peringatan tidak aman kepada pengunjung.'}
+            ? 'Tanggal pendaftaran domain berakhir. Setelah tanggal ini situs bisa tidak terbuka lagi, dan bila tidak diperpanjang, alamatnya bisa didaftarkan orang lain.'
+            : 'Tanggal sertifikat HTTPS berakhir. Setelah tanggal ini, browser menampilkan peringatan tidak aman kepada pengunjung.'}
         </p>
       </div>
     )
@@ -274,7 +274,7 @@ function Separuh({ jenis, sibuk, host, hasil }: SeparuhProps) {
         {kepala}
         <div className="separuh__gagal">
           <b>{domain ? 'Tanggal domain tidak terbaca.' : 'Sertifikat tidak terbaca.'}</b>
-          <span>{galat ? kalimat(galat) : 'Coba lagi beberapa saat lagi.'}</span>
+          <span>{galat ? kalimat(galat) : 'Coba beberapa saat lagi.'}</span>
         </div>
         <p className="separuh__jelas">
           {domain

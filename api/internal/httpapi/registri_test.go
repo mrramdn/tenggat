@@ -163,7 +163,7 @@ func TestDomainPreview(t *testing.T) {
 		"toko.io":          "Registri .io belum menyediakan RDAP. Isi tanggalnya sendiri.",
 		"hilang.com":       "Domain hilang.com tidak ditemukan di registri. Periksa ejaannya, atau isi tanggalnya sendiri.",
 		"tanpatanggal.com": "Registri tidak mencantumkan tanggal berakhir tanpatanggal.com. Isi tanggalnya sendiri.",
-		"lambat.com":       "Registri .com tidak dapat dihubungi saat ini. Coba lagi sebentar lagi, atau isi tanggalnya sendiri.",
+		"lambat.com":       "Registri .com tidak dapat dihubungi saat ini. Coba beberapa saat lagi, atau isi tanggalnya sendiri.",
 		"localhost":        "Nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id.",
 		"10.1.2.3":         "Nama domain tidak valid. Tulis nama domain, misalnya tokokuemawar.id.",
 	} {

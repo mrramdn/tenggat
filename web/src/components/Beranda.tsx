@@ -57,9 +57,9 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
         <section className="b-wadah b-untuk" aria-label="Untuk siapa">
           <p className="b-untuk__teks">
             Tenggat adalah alat kerja untuk freelancer dan agensi kecil di Indonesia yang mengurus situs klien. Setiap
-            klien punya halamannya sendiri berisi aset, tugas rutin, dan catatan pekerjaan.{' '}
+            klien punya halamannya sendiri berisi aset, tugas rutin, dan pekerjaan yang Anda catat.{' '}
             <span className="b-untuk__lanjut">
-              Di akhir bulan, catatan itu menjadi laporan yang bisa Anda kirim ke klien.
+              Di akhir bulan, pekerjaan itu disusun menjadi laporan yang bisa Anda kirim ke klien.
             </span>
           </p>
         </section>
@@ -73,7 +73,7 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
               Aset klien ada di halamannya bersama tugas rutin seperti update plugin dan backup. Tandai tugas selesai, dan
               jadwalnya maju ke periode berikutnya.
             </p>
-            <p>Pekerjaan yang Anda catat, berikut durasinya, masuk ke log aktivitas klien itu.</p>
+            <p>Pekerjaan yang Anda catat, berikut durasinya, masuk ke tab Aktivitas klien itu.</p>
           </div>
           <div className="b-bagian__layar">
             <CuplikanRuang />
@@ -86,8 +86,8 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
               Laporan bulanan untuk klien
             </h2>
             <p>
-              Laporan disusun dari log pekerjaan dan tanggal aset bulan itu. Tambahkan catatan Anda sendiri, lalu kirim
-              tautannya lewat WhatsApp atau simpan sebagai PDF dari browser.
+              Laporan disusun dari isi tab Aktivitas dan daftar aset klien bulan itu. Tulis ringkasan untuk klien, lalu
+              kirim tautannya lewat WhatsApp atau simpan sebagai PDF dari browser.
             </p>
             <p>Tautan laporan hanya bisa dibaca, dan bisa Anda cabut kapan saja.</p>
           </div>
@@ -102,8 +102,9 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
               Tanggalnya ikut ke kalender Anda
             </h2>
             <p>
-              Tempel tautan langganan di Google Calendar, Apple Calendar, atau Outlook. Kalender mengambil perubahan
-              sendiri setiap kali Anda menambah atau memperpanjang aset.
+              Tempel tautan langganan di Google Calendar, Apple Calendar, atau Outlook. Aset baru dan tanggal yang
+              diperpanjang ikut masuk tanpa menempel ulang tautannya; aplikasi kalender memeriksanya sendiri, Google
+              Calendar beberapa jam sekali.
             </p>
           </div>
           <div className="b-bagian__layar">
@@ -126,13 +127,13 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
             <div>
               <dt>Pengingat ke klien</dt>
               <dd>
-                Untuk aset yang mendekati tanggalnya, Tenggat menyiapkan pesan WhatsApp yang sopan. Anda memilih kontaknya
-                di WhatsApp, Tenggat tidak menyimpan nomor telepon.
+                Untuk aset yang mendekati tanggalnya, Tenggat menyiapkan pesan pengingat WhatsApp. Kontaknya Anda pilih
+                sendiri di WhatsApp, jadi Tenggat tidak menyimpan nomor telepon.
               </dd>
             </div>
             <div>
               <dt>Yang disimpan</dt>
-              <dd>Nama aset, tanggal berakhir, biaya, dan catatan. Nilai token atau kunci API tidak pernah disimpan.</dd>
+              <dd>Untuk setiap aset: nama, tanggal berakhir, biaya, dan catatan. Nilai token atau kunci API tidak pernah disimpan.</dd>
             </div>
             <div>
               <dt>Kode sumber</dt>

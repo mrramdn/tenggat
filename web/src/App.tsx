@@ -350,8 +350,9 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
         >
           <b>{hapusKlien.nama}</b> akan dihapus.{' '}
           {hapusKlien.jumlah_aset > 0
-            ? `${hapusKlien.jumlah_aset} asetnya tetap tersimpan, tanpa klien.`
-            : 'Klien ini belum punya aset.'}
+            ? `${hapusKlien.jumlah_aset} aset dan tugasnya tetap tersimpan, tanpa klien.`
+            : 'Tugasnya tetap tersimpan, tanpa klien.'}{' '}
+          Aktivitas, ringkasan laporan, dan tautan laporannya tidak bisa dibuka lagi.
         </ConfirmDialog>
       ) : null}
       {hapusAkun ? (

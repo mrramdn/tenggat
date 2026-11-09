@@ -2,7 +2,7 @@
 // follows the route: the overview, a client's space or the settings.
 import type { ReactNode } from 'react'
 import { hitungStatus, judul, kalimatBiaya, rentangTanggal, statusTerburuk } from '../lib/derive'
-import { hariIniIso, kelasStatus, labelStatus, tanggalPanjang, urutanStatus } from '../lib/format'
+import { hariIniIso, kelasStatus, keteranganStatus, tanggalPanjang, urutanStatus } from '../lib/format'
 import { jalurKlien, Tautan, type Rute } from '../lib/rute'
 import { AkunSidebar } from './Akun'
 import { DaftarAset } from './DaftarAset'
@@ -62,7 +62,7 @@ function Sidebar({ items, klien, rute, aksi, muat, akun }: ShellProps) {
               <span
                 className={st ? `nav__dot st-${kelasStatus[st]}` : 'nav__dot is-kosong'}
                 role="img"
-                aria-label={st ? `Status terdekat: ${labelStatus[st]}` : 'Belum ada aset'}
+                aria-label={st ? `Paling mendesak: ${keteranganStatus[st]}` : 'Belum ada aset'}
               />
               <span className="nav__nama">{k.nama}</span>
               <span className="count num" aria-label={`${k.jumlah_aset} aset`}>

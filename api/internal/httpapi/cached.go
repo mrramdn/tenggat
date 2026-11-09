@@ -150,7 +150,7 @@ func (s *Server) limitTo(bucket string, perMinute int, next http.HandlerFunc) ht
 			if !ok {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 				writeError(w, http.StatusTooManyRequests,
-					"Terlalu banyak permintaan dalam satu menit. Coba lagi sebentar lagi.", nil)
+					"Terlalu banyak permintaan dalam satu menit. Coba beberapa saat lagi.", nil)
 				return
 			}
 		}

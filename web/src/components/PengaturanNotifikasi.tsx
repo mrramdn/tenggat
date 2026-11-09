@@ -147,7 +147,7 @@ export function PengaturanNotifikasi() {
           <b>Slack</b>: Incoming Webhook, diawali <code>hooks.slack.com/services/</code>
         </li>
         <li>
-          <b>Discord</b>: Pengaturan kanal, Integrasi, Webhook, lalu Salin URL Webhook.
+          <b>Discord</b>: Edit Saluran, Integrasi, Webhook, lalu Salin URL Webhook
         </li>
         <li>
           <b>Telegram</b>: <code>api.telegram.org/bot&lt;token&gt;/sendMessage?chat_id=&lt;id&gt;</code>

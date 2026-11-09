@@ -33,7 +33,7 @@ const TUGAS = [
 const AKTIVITAS: { ikon: IconName; teks: string; meta: string; hari: number }[] = [
   { ikon: 'tick', teks: 'Selesai: Backup database', meta: '20 menit', hari: -2 },
   { ikon: 'pencil', teks: 'Mengganti foto banner promo Natal', meta: '35 menit', hari: -3 },
-  { ikon: 'refresh', teks: 'Sertifikat tokokuemawar.id diperbarui sampai ' + tanggal(hariKe(87)), meta: 'otomatis', hari: -5 },
+  { ikon: 'refresh', teks: 'Sertifikat tokokuemawar.id diperbarui, berlaku sampai ' + tanggal(hariKe(87)), meta: 'otomatis', hari: -5 },
 ]
 
 export function CuplikanRuang() {
@@ -238,7 +238,7 @@ export function CuplikanLaporan() {
 
 const ACARA: { teks: string; sisa: number }[] = [
   { teks: 'Lisensi font Rana', sisa: -3 },
-  { teks: 'Update plugin Mawar', sisa: 2 },
+  { teks: 'Token GitHub deploy', sisa: 2 },
   { teks: 'Domain Mawar', sisa: 4 },
   { teks: 'Token Cloudflare', sisa: 9 },
   { teks: 'TLS Kopi Senja', sisa: 13 },

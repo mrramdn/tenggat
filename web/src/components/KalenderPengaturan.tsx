@@ -149,7 +149,7 @@ export function KalenderPengaturan() {
               {tersalin ? 'Tersalin' : 'Salin'}
             </button>
           </div>
-          <div className="field__hint">Di Google Calendar, buka Kalender lain, pilih Dari URL, lalu tempel tautan ini.</div>
+          <div className="field__hint">Di Google Calendar versi web, klik + di samping Kalender lain, pilih Dari URL, lalu tempel tautan ini. Google memperbaruinya beberapa jam sekali.</div>
         </div>
         <a className="btn btn--secondary kal__buka" href={webcal}>
           <Icon name="external-link" />

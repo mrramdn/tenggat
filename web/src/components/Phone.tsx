@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import type { Klien } from '../lib/api'
 import { biaya30, judul, saringAwal, saringItem, statusTerburuk, tanpaSaring } from '../lib/derive'
-import { hariIniIso, kelasStatus, labelStatus, rupiahBiasa, tanggalPanjang, urutanStatus } from '../lib/format'
+import { hariIniIso, kelasStatus, keteranganStatus, labelStatus, rupiahBiasa, tanggalPanjang, urutanStatus } from '../lib/format'
 import { jalurKlien, Tautan } from '../lib/rute'
 import { useModal } from '../hooks/useModal'
 import { DaftarAsetPhone } from './DaftarAsetPhone'
@@ -46,7 +46,7 @@ function SheetKlien({ klien, terburuk, aktifId, aksi, onClose }: { klien: Klien[
                 <span
                   className={st ? `nav__dot st-${kelasStatus[st]}` : 'nav__dot is-kosong'}
                   role="img"
-                  aria-label={st ? `Status terdekat: ${labelStatus[st]}` : 'Belum ada aset'}
+                  aria-label={st ? `Paling mendesak: ${keteranganStatus[st]}` : 'Belum ada aset'}
                 />
                 <span className="ph-klien__nama">{k.nama}</span>
                 <span className="ph-klien__n num">{k.jumlah_aset} aset</span>
@@ -102,7 +102,7 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
       <div
         className="ph__bar"
         role="img"
-        aria-label={urutanStatus.map((s) => `${items.filter((it) => it.status === s).length} ${labelStatus[s].toLowerCase()}`).join(', ')}
+        aria-label={urutanStatus.map((s) => `${keteranganStatus[s]}: ${items.filter((it) => it.status === s).length}`).join(', ')}
       >
         {urut.map((it) => (
           <span key={it.id} className={`st-${kelasStatus[it.status]}`} />

@@ -194,7 +194,7 @@ func (s *Server) workDate(v string, fields map[string]string) time.Time {
 
 func validDuration(d *int, fields map[string]string) {
 	if d != nil && (*d < 1 || *d > 1440) {
-		fields["durasi_menit"] = "Durasi harus 1 sampai 1440 menit."
+		fields["durasi_menit"] = "Durasi harus 1 sampai 1.440 menit."
 	}
 }
 

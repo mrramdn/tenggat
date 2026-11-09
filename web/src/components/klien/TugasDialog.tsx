@@ -350,7 +350,7 @@ export function SelesaiDialog({ tugas, onClose, onSaved }: SelesaiDialogProps) {
     const g: Record<string, string> = {}
     if (!tgl) g.tanggal = 'Pilih tanggal tugas dikerjakan.'
     else if (tgl > hariIni) g.tanggal = 'Tanggal tidak boleh setelah hari ini.'
-    if (menit !== '' && !(Number(menit) >= 1 && Number(menit) <= 1440)) g.durasi_menit = 'Isi 1 sampai 1440 menit.'
+    if (menit !== '' && !(Number(menit) >= 1 && Number(menit) <= 1440)) g.durasi_menit = 'Isi 1 sampai 1.440 menit.'
     if (Object.keys(g).length > 0) {
       setGalat(g)
       fokusGalat()

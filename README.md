@@ -1,6 +1,6 @@
 # Tenggat
 
-Tenggat untuk freelancer dan agensi kecil yang mengurus situs klien. Setiap klien punya halaman sendiri: aset
+Tenggat dibuat untuk freelancer dan agensi kecil yang mengurus situs klien. Setiap klien punya halaman sendiri: aset
 (domain, sertifikat TLS, token API, langganan) beserta tanggal berakhirnya, tugas maintenance yang berulang, catatan
 pekerjaan, dan laporan bulanan yang bisa dikirim ke klien. Tanggal domain dibaca dari registri dan tanggal sertifikat
 dari server, lalu dicek ulang tiap 6 jam.
@@ -37,8 +37,8 @@ keduanya per klien.
   tidak disimpan).
 - **Kalender** `.ics` dengan pengingat 30 dan 7 hari sebelumnya: unduh sekali, atau tautan langganan pribadi supaya
   aplikasi kalender ikut memperbarui sendiri.
-- **Notifikasi harian** pukul 08.00 WIB ke Slack, Discord, atau Telegram lewat webhook milik Anda, bila ada yang lewat
-  atau jatuh tempo dalam 7 hari.
+- **Ringkasan harian** pukul 08.00 WIB ke Slack, Discord, atau Telegram lewat webhook milik Anda, bila ada aset atau
+  tugas yang lewat atau jatuh tempo dalam 7 hari.
 - Ekspor CSV, akun dengan data terpisah per pengguna, dan penolakan host yang mengarah ke alamat lokal atau privat
   (SSRF).
 
@@ -164,7 +164,7 @@ curl -i -b sesi.txt -X POST http://localhost:8080/api/tugas \
   tanggal, biaya, catatan), tugas, dan aktivitas. Tenggat tidak pernah meminta atau menyimpan token dan kata sandi dari
   aset yang dilacak.
 - Satu-satunya rahasia yang disimpan adalah URL webhook notifikasi yang Anda isi sendiri. URL itu hanya dipakai untuk
-  mengirim pengingat, tidak pernah ditampilkan utuh atau ditulis ke log, dan terhapus saat notifikasi dimatikan atau
+  mengirim ringkasan harian dan pesan uji, tidak pernah ditampilkan utuh atau ditulis ke log, dan terhapus saat notifikasi dimatikan atau
   akun dihapus.
 - Catatan klien dan aktivitas bisa memuat nama kontak; isi seperlunya. Catatan internal tidak pernah masuk laporan.
 - Tautan laporan dan tautan kalender berisi token acak. Database hanya menyimpan SHA-256-nya, tautannya bisa diganti atau

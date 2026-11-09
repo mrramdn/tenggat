@@ -277,7 +277,7 @@ function Penulis({ klienId, onSaved }: { klienId: string; onSaved: (a: Aktivitas
     if (!tgl) g.tanggal = 'Pilih tanggal.'
     else if (tgl > hariIni) g.tanggal = 'Tanggal tidak boleh setelah hari ini.'
     if (jenis === 'pekerjaan' && menit !== '' && !(Number(menit) >= 1 && Number(menit) <= 1440))
-      g.durasi_menit = 'Isi 1 sampai 1440 menit.'
+      g.durasi_menit = 'Isi 1 sampai 1.440 menit.'
     if (Object.keys(g).length > 0) {
       setGalat(g)
       fokusGalat()

@@ -407,7 +407,7 @@ func (s *Server) calendar(w http.ResponseWriter, r *http.Request, u store.Penggu
 
 func (s *Server) internal(w http.ResponseWriter, r *http.Request, err error) {
 	s.Log.Error("galat internal", "method", r.Method, "path", redactPath(r.URL.Path), "galat", err)
-	writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba lagi sebentar lagi.", nil)
+	writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba beberapa saat lagi.", nil)
 }
 
 func deref(p *string) string {

@@ -87,7 +87,7 @@ func registryMessage(err error, domain string) string {
 	case errors.Is(err, rdap.ErrNoExpiration):
 		return "Registri tidak mencantumkan tanggal berakhir " + domain + ". Isi tanggalnya sendiri."
 	case errors.Is(err, rdap.ErrUnreachable):
-		return "Registri ." + rdap.TLD(domain) + " tidak dapat dihubungi saat ini. Coba lagi sebentar lagi, atau isi tanggalnya sendiri."
+		return "Registri ." + rdap.TLD(domain) + " tidak dapat dihubungi saat ini. Coba beberapa saat lagi, atau isi tanggalnya sendiri."
 	default:
 		return "Jawaban registri tidak dapat dibaca. Isi tanggalnya sendiri."
 	}

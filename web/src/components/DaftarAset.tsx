@@ -42,7 +42,7 @@ function Check({ it }: { it: Item }) {
         <Icon name="pencil" />
         Manual
       </span>
-      <span className="check__meta">Tanggal diisi Anda</span>
+      <span className="check__meta">Tanggal diisi sendiri</span>
     </div>
   )
 }

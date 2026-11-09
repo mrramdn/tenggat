@@ -43,10 +43,10 @@ export function teksWhatsApp(l: Laporan, url: string | null): string {
   if (!l.lampau && l.jatuh_tempo.length > 0) {
     const biaya = l.jatuh_tempo.reduce((n, j) => n + (j.biaya ?? 0), 0)
     baris.push(
-      `Dalam 60 hari ke depan ada ${l.jatuh_tempo.length} jatuh tempo${biaya > 0 ? ` dengan perkiraan biaya ${rupiahBiasa(biaya)}` : ''}.`,
+      `Dalam 60 hari ke depan ada ${l.jatuh_tempo.length} aset atau tugas yang jatuh tempo${biaya > 0 ? `, dengan perkiraan biaya ${rupiahBiasa(biaya)}` : ''}.`,
     )
   }
-  if (!l.lampau && r.per_status.lewat > 0) baris.push(`${r.per_status.lewat} aset sudah melewati tanggal berakhir dan perlu segera diperpanjang.`)
+  if (!l.lampau && r.per_status.lewat > 0) baris.push(`${r.per_status.lewat} aset sudah berakhir dan perlu segera diperpanjang.`)
   baris.push('')
   baris.push(url ? `Laporan lengkap: ${url}` : 'Laporan lengkap saya kirim dalam bentuk PDF.')
   baris.push('', 'Terima kasih.')
@@ -333,7 +333,7 @@ function Isi({ klienId }: { klienId: string }) {
               {tautanAktif ? 'Aktif. Klien dapat membuka laporan tanpa masuk.' : 'Belum dibuat.'}
             </span>
             <p className="lk__teks">
-              Lewat tautan ini klien juga dapat membuka laporan bulan sebelumnya, sejak klien ini dicatat. Catatan internal
+              Lewat tautan ini klien juga dapat membuka laporan bulan sebelumnya, sejak klien ini ditambahkan. Catatan internal
               tidak ikut ditampilkan.
             </p>
           </div>
