@@ -4,11 +4,13 @@ import '../styles/beranda.css'
 import { CuplikanKalender, CuplikanLaporan, CuplikanRuang } from './beranda/Cuplikan'
 import { DemoCek } from './beranda/DemoCek'
 import { Icon } from './Icon'
+import { Tautan, useJudulHalaman } from '../lib/rute'
 
 const GITHUB = 'https://github.com/mrramdn/tenggat'
 const ARTIKEL = 'https://www.mrramdn.com/en/blog/tenggat'
 
 export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
+  useJudulHalaman(null)
   return (
     <div className="beranda">
       <a className="beranda__lewati btn btn--secondary is-sm" href="#isi">
@@ -16,22 +18,22 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
       </a>
       <header className="b-kepala">
         <div className="b-wadah b-kepala__isi">
-          <a className="wordmark b-kepala__merek" href="/" aria-label="Tenggat, beranda">
+          <Tautan className="wordmark b-kepala__merek" aria-label="Tenggat, beranda" ke="/">
             tenggat
-          </a>
+          </Tautan>
           <nav className="b-kepala__aksi" aria-label="Akun">
             {sudahMasuk ? (
-              <a className="btn btn--primary is-sm" href="/app">
+              <Tautan className="btn btn--primary is-sm" ke="/app">
                 Buka aplikasi
-              </a>
+              </Tautan>
             ) : (
               <>
-                <a className="btn btn--ghost is-sm b-kepala__masuk" href="/masuk">
+                <Tautan className="btn btn--ghost is-sm b-kepala__masuk" ke="/masuk">
                   Masuk
-                </a>
-                <a className="btn btn--primary is-sm" href="/daftar">
+                </Tautan>
+                <Tautan className="btn btn--primary is-sm" ke="/daftar">
                   Buat akun
-                </a>
+                </Tautan>
               </>
             )}
           </nav>
@@ -153,20 +155,20 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
           {sudahMasuk ? (
             <>
               <p className="b-akhir__teks">Anda sudah masuk.</p>
-              <a className="btn btn--primary is-lg" href="/app">
+              <Tautan className="btn btn--primary is-lg" ke="/app">
                 Buka aplikasi
-              </a>
+              </Tautan>
             </>
           ) : (
             <>
               <p className="b-akhir__teks">Akun Tenggat gratis. Anda hanya perlu nama, email, dan kata sandi.</p>
               <div className="b-akhir__aksi">
-                <a className="btn btn--primary is-lg" href="/daftar">
+                <Tautan className="btn btn--primary is-lg" ke="/daftar">
                   Buat akun
-                </a>
-                <a className="btn btn--secondary is-lg" href="/masuk">
+                </Tautan>
+                <Tautan className="btn btn--secondary is-lg" ke="/masuk">
                   Masuk
-                </a>
+                </Tautan>
               </div>
             </>
           )}

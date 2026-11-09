@@ -8,6 +8,7 @@ import { frasaHari, tanggal } from '../../lib/format'
 import { Icon } from '../Icon'
 import { pesanGalat } from '../Toasts'
 import { Pill } from '../ui'
+import { Tautan } from '../../lib/rute'
 
 const CONTOH = ['github.com', 'kompas.com', 'wikipedia.org']
 
@@ -200,16 +201,16 @@ export function DemoCek({ sudahMasuk }: { sudahMasuk: boolean }) {
           {sudahMasuk ? (
             <p>
               Simpan keduanya sebagai aset di Tenggat agar dicek ulang berkala dan masuk ke kalender Anda.{' '}
-              <a className="btn-teks" href="/app">
+              <Tautan className="btn-teks" ke="/app">
                 Buka aplikasi
-              </a>
+              </Tautan>
             </p>
           ) : (
             <p>
               Simpan keduanya di Tenggat agar dicek ulang berkala dan masuk ke kalender Anda.{' '}
-              <a className="btn-teks" href="/daftar">
+              <Tautan className="btn-teks" ke="/daftar">
                 Buat akun
-              </a>
+              </Tautan>
             </p>
           )}
         </footer>
