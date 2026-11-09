@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ApiError, api, type Item, type ItemInput, type Jenis, type Klien, type PratinjauDomain, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
 import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis } from '../lib/format'
 import { useModal } from '../hooks/useModal'
+import { tautanPengingat } from '../lib/pengingat'
 import { pesanGalat } from './Toasts'
 import { Icon } from './Icon'
 import { KlienPicker, type PilihanKlien } from './KlienPicker'
@@ -412,9 +413,24 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
             <h2 className="sheet__title" id={id('judul')}>
               {judul}
             </h2>
-            <button type="button" className="btn btn--ghost btn--icon" aria-label="Tutup" onClick={onClose}>
-              <Icon name="x" />
-            </button>
+            <div className="sheet__head-aksi">
+              {/* Close comes first in the DOM, so it keeps the initial focus; the reminder shows left of it. */}
+              <button type="button" className="btn btn--ghost btn--icon" aria-label="Tutup" onClick={onClose}>
+                <Icon name="x" />
+              </button>
+              {item ? (
+                <a
+                  className="btn btn--ghost btn--icon sheet__wa"
+                  href={tautanPengingat(item)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Kirim pengingat lewat WhatsApp"
+                  title="Kirim pengingat lewat WhatsApp"
+                >
+                  <Icon name="message-circle" />
+                </a>
+              ) : null}
+            </div>
           </div>
           <div className="sheet__body">
             {galatUmum ? (

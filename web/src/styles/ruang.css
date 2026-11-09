@@ -156,3 +156,5 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 /* the not-found page sits in the middle of the screen */
 .boot.is-tengah { align-items: center; justify-content: center; }
 .boot.is-tengah .state { flex: none; width: 100%; }
+.sheet__head-aksi { display: flex; gap: var(--s-1); }
+.sheet__wa { order: -1; }
