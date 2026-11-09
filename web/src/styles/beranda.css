@@ -26,8 +26,7 @@
 /* ---------- header ---------- */
 .b-kepala {
   position: sticky; top: 0; z-index: 10;
-  background: rgba(246, 245, 242, 0.92);
-  backdrop-filter: saturate(1.4) blur(8px); -webkit-backdrop-filter: saturate(1.4) blur(8px);
+  background: var(--paper);
   border-bottom: var(--bw) solid var(--line);
 }
 .b-kepala__isi { display: flex; align-items: center; justify-content: space-between; height: var(--b-kepala-h); }
@@ -59,7 +58,7 @@
 .demo__form .form-error { text-wrap: pretty; }
 .demo__contoh { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted); }
 .demo__contoh .btn-teks { color: var(--ink-2); font-weight: var(--fw-regular); }
-.demo__contoh .btn-teks[disabled] { cursor: default; color: var(--muted); }
+.demo__contoh .btn-teks[disabled] { cursor: not-allowed; color: var(--muted); opacity: 0.55; text-decoration-color: transparent; }
 
 .jawab {
   grid-area: jawab; align-self: start;

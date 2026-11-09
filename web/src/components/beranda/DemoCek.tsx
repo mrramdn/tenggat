@@ -49,9 +49,12 @@ export function DemoCek({ sudahMasuk }: { sudahMasuk: boolean }) {
   const [galatUmum, setGalatUmum] = useState<string | null>(null)
   const tunggu = useTunggu()
   const inputRef = useRef<HTMLInputElement>(null)
+  // The last answer stays on screen when a later check fails (a 429 wait, a server error).
+  const [terakhir, setTerakhir] = useState<HasilCek | null>(null)
 
   const cek = useMutation({
     mutationFn: (host: string) => publik.cek(host),
+    onSuccess: (h) => setTerakhir(h),
     onMutate: () => {
       setGalatIsian(null)
       setGalatUmum(null)
@@ -84,7 +87,7 @@ export function DemoCek({ sudahMasuk }: { sudahMasuk: boolean }) {
   }
 
   const sibuk = cek.isPending
-  const hasil = sibuk ? null : (cek.data ?? null)
+  const hasil = sibuk ? null : terakhir
   const dicek = sibuk ? cek.variables : hasil?.host
 
   return (

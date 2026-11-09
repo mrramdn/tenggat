@@ -2,7 +2,9 @@
 // Decorative: hidden from assistive tech and never focusable. Dates are relative to today so they never go stale.
 import type { Status } from '../../lib/api'
 import { angka, frasaHari, hariIniIso, keTanggal, kelasStatus, statusDariSisa, tanggal, tanggalPendek } from '../../lib/format'
+import { durasi } from '../../lib/api-laporan'
 import { Icon, type IconName } from '../Icon'
+import { IkonLaporan } from '../IkonLaporan'
 import { Days, Pill } from '../ui'
 
 function hariKe(n: number): string {
@@ -148,11 +150,6 @@ const JATUH_TEMPO = [
   { nama: 'Sertifikat tokokuemawar.id', sisa: 87, biaya: null },
 ]
 
-function durasi(menit: number): string {
-  const j = Math.floor(menit / 60)
-  const m = menit % 60
-  return j ? (m ? `${j} j ${m} m` : `${j} jam`) : `${m} menit`
-}
 
 export function CuplikanLaporan() {
   const b = bulanLalu()
@@ -163,20 +160,23 @@ export function CuplikanLaporan() {
         <span className="fl__bar-judul">Laporan {b.label}</span>
         <span className="fl__bar-aksi">
           <span className="btn btn--secondary is-sm">
-            <Icon name="download" />
-            Simpan PDF
+            <Icon name="link" />
+            Bagikan tautan
           </span>
           <span className="btn btn--secondary is-sm fl__opsional">
-            <Icon name="link" />
-            Salin tautan
+            <IkonLaporan name="message" />
+            Kirim lewat WhatsApp
           </span>
-          <span className="btn btn--primary is-sm">Kirim lewat WhatsApp</span>
+          <span className="btn btn--primary is-sm">
+            <IkonLaporan name="printer" />
+            Cetak / Simpan PDF
+          </span>
         </span>
       </div>
       <div className="fl__kertas">
         <div className="fl__kop">
           <div>
-            <div className="fl__kecil">Laporan pemeliharaan situs</div>
+            <div className="fl__kecil">Laporan bulanan</div>
             <div className="fl__judul">Toko Kue Mawar</div>
           </div>
           <div className="fl__kop-kanan">
@@ -194,8 +194,8 @@ export function CuplikanLaporan() {
             <span className="fl__u">waktu kerja</span>
           </div>
           <div>
-            <span className="fl__n num">4</span>
-            <span className="fl__u">aset, 1 perlu diperpanjang</span>
+            <span className="fl__n num">1</span>
+            <span className="fl__u">perpanjangan</span>
           </div>
         </div>
         <p className="fl__catatan">
@@ -212,14 +212,15 @@ export function CuplikanLaporan() {
             </div>
           ))}
         </div>
-        <div className="fl__bagian">Jatuh tempo 60 hari ke depan</div>
+        {/* A month that has ended lists the assets as they are today, as the real report does. */}
+        <div className="fl__bagian">Daftar aset per {tanggal(hariKe(0))}</div>
         <div className="fl__tabel">
           {JATUH_TEMPO.map((j) => (
             <div key={j.nama} className="fl__baris is-tempo">
               <span className="fl__teks">{j.nama}</span>
               <span className="fl__tgl num">{tanggal(hariKe(j.sisa))}</span>
               <Pill status={statusDariSisa(j.sisa)} />
-              <span className="fl__dur num">{j.biaya ? `Rp ${angka(j.biaya)}` : 'Gratis'}</span>
+              <span className="fl__dur num">{j.biaya ? `Rp ${angka(j.biaya)}` : '-'}</span>
             </div>
           ))}
         </div>

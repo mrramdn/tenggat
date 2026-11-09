@@ -18,12 +18,12 @@ const CONTOH: Contoh[] = [
   { nama: 'Domain tokokuemawar.id', jenis: 'domain', sub: 'Domain · Rp 285.000', klien: 'Toko Kue Mawar', sisa: 4 },
   { nama: 'Token GitHub Actions deploy', jenis: 'token', sub: 'Token API', klien: 'Pribadi', sisa: 6 },
   { nama: 'Langganan VPS 2 vCPU', jenis: 'langganan', sub: 'Langganan · Rp 189.000', klien: 'Pribadi', sisa: 22 },
-  { nama: 'example.com', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt R11", klien: 'Contoh publik', sisa: 46 },
-  { nama: 'wikipedia.org', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt E6", klien: 'Contoh publik', sisa: 54 },
+  { nama: 'klinikgigisehati.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt · R11", klien: 'Klinik Gigi Sehati', sisa: 46 },
+  { nama: 'www.klinikgigisehati.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt · E6", klien: 'Klinik Gigi Sehati', sisa: 54 },
   { nama: 'Domain kopisenja.com', jenis: 'domain', sub: 'Domain · Rp 210.000', klien: 'Kopi Senja', sisa: 72 },
   { nama: 'Token Cloudflare DNS', jenis: 'token', sub: 'Token API', klien: 'Pribadi', sisa: 181 },
   { nama: 'Google Workspace', jenis: 'langganan', sub: 'Langganan · Rp 1.680.000', klien: 'Studio Arsitek Rana', sisa: 214 },
-  { nama: 'tokokuemawar.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt R10", klien: 'Toko Kue Mawar', sisa: 238 },
+  { nama: 'tokokuemawar.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt · R10", klien: 'Toko Kue Mawar', sisa: 238 },
   { nama: 'Domain studiorana.co.id', jenis: 'domain', sub: 'Domain · Rp 320.000', klien: 'Studio Arsitek Rana', sisa: 301 },
 ]
 

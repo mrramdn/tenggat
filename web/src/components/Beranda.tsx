@@ -18,7 +18,7 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
       </a>
       <header className="b-kepala">
         <div className="b-wadah b-kepala__isi">
-          <Tautan className="wordmark b-kepala__merek" aria-label="Tenggat, beranda" ke="/">
+          <Tautan className="wordmark b-kepala__merek" aria-label="Tenggat, halaman depan" ke="/">
             tenggat
           </Tautan>
           <nav className="b-kepala__aksi" aria-label="Akun">

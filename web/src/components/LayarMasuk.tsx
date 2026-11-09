@@ -159,7 +159,7 @@ export function LayarMasuk({ mode, pemberitahuan, onMasuk }: Props) {
     <div className="auth">
       <div className="auth__side">
         <header className="auth__top">
-          <Tautan className="wordmark auth__merek" ke="/" aria-label="Tenggat, beranda">
+          <Tautan className="wordmark auth__merek" ke="/" aria-label="Tenggat, halaman depan">
             tenggat
           </Tautan>
         </header>
