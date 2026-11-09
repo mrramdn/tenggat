@@ -21,7 +21,11 @@ yang punya website atau toko online, dan tim IT kecil.
 - Akun: daftar, masuk, keluar, dan hapus akun. Setiap pengguna hanya melihat asetnya sendiri.
 - Satu daftar aset dengan status otomatis dari sisa hari: **Lewat**, **7 hari**, **30 hari**, **Aman**.
 - Sertifikat TLS dibaca langsung dari server (port 443) dan dicek ulang berkala; kegagalan cek ikut tercatat.
-- Ekspor kalender `.ics` dengan pengingat 30 dan 7 hari sebelumnya.
+- Tanggal berakhir domain dibaca dari registri lewat RDAP (`.com`, `.net`, `.org`, `.id` termasuk `.co.id`, dan TLD
+  lain yang punya RDAP), juga dicek ulang berkala. TLD tanpa RDAP, misalnya `.io`, diisi tanggalnya sendiri.
+- Kalender `.ics` dengan pengingat 30 dan 7 hari sebelumnya: unduh sekali, atau tautan langganan pribadi supaya
+  aplikasi kalender di ponsel ikut memperbarui sendiri.
+- Ekspor CSV seluruh aset.
 - Filter per status dan klien, ringkasan jumlah per status.
 - Daftar klien sendiri: tambah, ubah, dan hapus klien, lengkap dengan jumlah aset dan biaya perpanjangan 30 hari.
 - Hanya menyimpan nama dan tanggal aset; nilai token atau kata sandi layanan tidak pernah disimpan.
@@ -111,14 +115,22 @@ Semua lewat http://localhost:8080 (nginx meneruskan ke `api`). Selain `/health`,
 | `GET /api/item/{id}` | Satu aset | 200, 404 |
 | `PUT /api/item/{id}` | Ubah aset, misalnya setelah diperpanjang | 200, 404, 422 |
 | `DELETE /api/item/{id}` | Hapus aset | 204, 404 |
-| `POST /api/item/{id}/cek` | Cek ulang sertifikat sekarang | 200, 404, 422, 429 |
+| `POST /api/item/{id}/cek` | Cek ulang sertifikat atau domain dari registri sekarang | 200, 404, 422, 429 |
 | `GET /api/sertifikat?host=` | Pratinjau sertifikat sebelum disimpan | 200, 422, 429 |
+| `GET /api/domain?host=` | Pratinjau tanggal domain dari registri (RDAP) | 200, 422, 429 |
+| `GET /api/item.csv` | Semua aset sebagai CSV | 200 |
 | `GET /api/ringkasan` | Jumlah aset per status dan daftar klien | 200 |
 | `GET /api/kalender.ics` | File kalender untuk semua aset | 200 |
+| `POST /api/kalender/tautan` | Buat atau ganti tautan langganan kalender | 201 |
+| `DELETE /api/kalender/tautan` | Cabut tautan langganan | 204 |
+| `GET /api/kalender/{token}.ics` | Kalender lewat tautan langganan, tanpa sesi | 200, 404, 429 |
 | `GET /api/klien` | Daftar klien dengan jumlah aset, tenggat terdekat, dan biaya 30 hari | 200 |
 | `POST /api/klien` | Tambah klien (`nama`, `catatan`) | 201 + `Location`, 409, 422, 429 |
 | `PUT /api/klien/{id}` | Ubah nama atau catatan klien | 200, 404, 409, 422 |
 | `DELETE /api/klien/{id}` | Hapus klien; asetnya tetap ada, tanpa klien | 204, 404 |
+
+Domain yang dikirim dengan `host` tanpa `kedaluwarsa` dibaca dari registri (`sumber: "registri"`); kalau tanggalnya
+diisi, aset itu manual. Token tautan kalender hanya tampil sekali dan disimpan sebagai hash SHA-256, seperti token sesi.
 
 Aset menerima `klien_id` atau `klien` (nama). Nama yang belum ada menjadi klien baru, `""` berarti tanpa klien. Nama
 klien unik per akun tanpa membedakan huruf besar dan kecil.
@@ -146,7 +158,13 @@ curl -i -b sesi.txt -X POST http://localhost:8080/api/item \
   keluar.
 - Permintaan yang mengubah data dari situs lain ditolak (`403`), dan percobaan masuk serta pendaftaran dibatasi per
   pengunjung.
-- Hapus akun menghapus akun, sesi, dan semua aset pengguna itu sekaligus.
+- Klien disimpan dengan nama dan catatan. Bila catatan berisi nama kontak, isi seperlunya; klien bisa dihapus kapan
+  saja dan asetnya tetap ada tanpa klien.
+- Untuk membaca tanggal, api menghubungi server situs (port 443) dan registri domain (RDAP lewat HTTPS). Yang dikirim
+  hanya nama host atau domain.
+- Tautan langganan kalender berisi token acak; database hanya menyimpan SHA-256-nya, dan tautan bisa diganti atau
+  dicabut kapan saja.
+- Hapus akun menghapus akun, sesi, klien, dan semua aset pengguna itu sekaligus.
 
 ## Pengembangan
 
@@ -167,7 +185,8 @@ docker-compose.yml, .env.example
 
 ## Kredit
 
-- [pgx](https://github.com/jackc/pgx), [go-redis](https://github.com/redis/go-redis), [x/crypto](https://pkg.go.dev/golang.org/x/crypto) (Argon2id)
+- [pgx](https://github.com/jackc/pgx), [go-redis](https://github.com/redis/go-redis), [x/crypto](https://pkg.go.dev/golang.org/x/crypto) (Argon2id), [x/net](https://pkg.go.dev/golang.org/x/net) (publicsuffix, idna)
+- Data bootstrap RDAP dari [IANA](https://data.iana.org/rdap/dns.json), disalin ke `api/internal/rdap/dns.json`
 - [React](https://react.dev), [Vite](https://vite.dev), [TanStack Query](https://tanstack.com/query)
 - Huruf [Geist dan Geist Mono](https://vercel.com/font) (SIL Open Font License 1.1, `web/src/assets/fonts/OFL.txt`)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
