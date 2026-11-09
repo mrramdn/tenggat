@@ -76,7 +76,8 @@ export function pergi(path: string, opsi: { ganti?: boolean } = {}): void {
   const pindahHalaman = new URL(path, window.location.origin).pathname !== window.location.pathname
   if (opsi.ganti) window.history.replaceState(null, '', path)
   else window.history.pushState(null, '', path)
-  if (pindahHalaman && !opsi.ganti) window.scrollTo({ top: 0 })
+  // A new page starts at the top, redirects too (signing out from the bottom of the settings lands on the top of /).
+  if (pindahHalaman) window.scrollTo({ top: 0 })
   beritahu()
 }
 

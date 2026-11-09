@@ -31,6 +31,9 @@
 .crumbs span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .topbar__end { margin-left: auto; display: flex; gap: var(--s-2); }
 .content { padding: var(--s-6) var(--s-7) var(--s-7); display: flex; flex-direction: column; gap: var(--s-6); flex: 1; min-height: 0; overflow-y: auto; }
+/* .content scrolls; its sections keep their own height instead of shrinking to fit (a section with overflow hidden
+   would otherwise collapse to its border). */
+.content > * { flex-shrink: 0; }
 
 /* ---------- hero ---------- */
 .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--s-7); align-items: stretch; }
@@ -107,7 +110,9 @@
 .asset__sub { font-size: var(--fs-13); color: var(--muted); display: flex; align-items: center; gap: var(--s-2); line-height: var(--lh-20); white-space: nowrap; min-width: 0; }
 .asset__sub > span { overflow: hidden; text-overflow: ellipsis; }
 .asset__sub svg.i { color: var(--quiet); }
-.asset__sub .sub-klien, .asset__sub .sub-tgl { display: none; }
+.asset__sub .sub-klien, .asset__sub .sub-tgl, .asset__sub .sub-gagal { display: none; }
+.asset__sub .sub-gagal { align-items: center; gap: var(--s-1); flex: none; color: var(--ink); }
+.asset__sub .sub-gagal svg.i { color: var(--st-lewat); }
 .cell { font-size: var(--fs-14); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cell.is-empty { color: var(--faint); }
 .check { display: flex; flex-direction: column; line-height: var(--lh-20); min-width: 0; }
@@ -175,6 +180,8 @@
 .empty__lede { margin-top: var(--s-4); font-size: var(--fs-16); color: var(--muted); line-height: var(--lh-24); max-width: var(--measure-text); text-wrap: pretty; }
 .empty__form { margin-top: var(--s-6); display: flex; flex-direction: column; gap: var(--s-2); max-width: var(--measure-form); }
 .empty__alt { margin-top: var(--s-3); display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-13); color: var(--muted); flex-wrap: wrap; }
+/* the long label wraps on narrow screens instead of widening the page */
+.empty__alt .btn { white-space: normal; height: auto; min-height: var(--h); padding-top: var(--s-1); padding-bottom: var(--s-1); line-height: var(--lh-20); text-align: left; max-width: 100%; }
 .ghost-tl { border: var(--bw) solid var(--line); border-radius: var(--r-card); padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); }
 .ghost-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
 .ghost-stat { border: var(--bw) solid var(--line); border-radius: var(--r-control); padding: var(--s-3); display: flex; justify-content: space-between; align-items: center; }
@@ -196,9 +203,10 @@
   .row > .col-client { display: none; }
   .asset__sub .sub-klien { display: inline; }
 }
+/* Narrower still, the date stays (it is what the app is about) and the check column goes; a failed check still
+   shows as a mark after the name. */
 @media (max-width: 1199px) {
-  :root { --col-check: 200px; }
-  .row { grid-template-columns: var(--col-days) minmax(0, 1fr) var(--col-check) var(--col-actions); }
-  .row > .col-date { display: none; }
-  .asset__sub .sub-tgl { display: inline; }
+  .row { grid-template-columns: var(--col-days) minmax(0, 1fr) var(--col-date) var(--col-actions); }
+  .row > .check, .row > .col-check { display: none; }
+  .asset__sub .sub-gagal { display: inline-flex; }
 }

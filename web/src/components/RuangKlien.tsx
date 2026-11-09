@@ -99,7 +99,7 @@ export function RuangKlien({ klien: k, items, semuaKlien, tab, saring, setSaring
           </Tautan>
         ))}
       </nav>
-      <div className="ruang__isi">
+      <div className={`ruang__isi is-${tab}`}>
         {tab === 'aset' ? (
           phone ? (
             milik.length === 0 ? (

@@ -187,7 +187,7 @@ a.pd__row:hover .pd__go { color: var(--ink); }
   .tg-row .actions .btn--fixed { width: auto; flex: 1; }
   .tg-main .asset__name { font-size: var(--fs-16); line-height: var(--lh-24); }
   .tg-main .asset__sub { white-space: normal; flex-wrap: wrap; column-gap: var(--s-1); }
-  .tg-contoh__item { height: var(--control-sm); padding: 0 var(--s-3); font-size: var(--fs-13); }
+  .tg-contoh__item { height: var(--control-lg); padding: 0 var(--s-3); font-size: var(--fs-14); }
   textarea.control.tg-textarea { font-size: var(--fs-16); }
   .tg-ulang { grid-template-columns: auto 72px minmax(0, 1fr); }
   .tg-dialog { padding: var(--s-4); }
@@ -198,7 +198,6 @@ a.pd__row:hover .pd__go { color: var(--ink); }
   .ak-composer__send { flex: 1 1 100%; margin-left: 0; }
   .ak-item__text { font-size: var(--fs-16); line-height: var(--lh-24); }
   .ak-item__meta { font-size: var(--fs-13); line-height: var(--lh-20); }
-  .ak-item__del { margin-right: calc(-1 * var(--s-2)); }
 
   .pd__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main due" "pill due"; row-gap: var(--s-1); padding: var(--s-3) var(--s-4); }
   .pd__row > .pill { grid-area: pill; justify-self: start; }
@@ -209,5 +208,11 @@ a.pd__row:hover .pd__go { color: var(--ink); }
   .pd__ulang { display: none; }
   .pd__head { flex-direction: column; gap: var(--s-0); }
   .pd__note { text-align: left; }
+}
+/* tablets: the head stays one row and the row buttons keep their own width instead of stretching */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .tg-head { flex-direction: row; align-items: center; }
+  .tg-row > .actions { justify-content: flex-start; }
+  .tg-row .actions .btn--fixed { flex: none; width: 240px; }
 }
 .tg-belum { color: var(--muted); }

@@ -107,10 +107,15 @@ export function Timeline({ items, ghost = false }: { items: Item[]; ghost?: bool
         let teks = labelTitik(it)
         if (it.sisa_hari < LO) teks = `${teks} · ${tanggalPendek(it.kedaluwarsa)}`
         const w = lebarTeks(teks)
-        const kanan: Label & { r: [number, number] } = { x: x + 10, y: y + 4, anchor: 'start', teks, r: [x + 10, x + 10 + w] }
+        // A label never sits across the "Hari ini" line: a right-hand label that would cross it starts just past the
+        // line, and a left-hand one that would cross it is not used.
+        const hariIni = X(0)
+        const xKanan = x + 10 < hariIni + 2 && x + 10 + w > hariIni - 2 ? hariIni + 6 : x + 10
+        const kanan: Label & { r: [number, number] } = { x: xKanan, y: y + 4, anchor: 'start', teks, r: [xKanan, xKanan + w] }
         const kiri: Label & { r: [number, number] } = { x: x - 10, y: y + 4, anchor: 'end', teks, r: [x - 10 - w, x - 10] }
         const urutan = x > X0 + plot * 0.6 ? [kiri, kanan] : [kanan, kiri]
         const lain = xs.filter((_, n) => n !== i).map((p): [number, number] => [p - 6, p + 6])
+        lain.push([hariIni - 2, hariIni + 2])
         const muat = (r: [number, number]) =>
           r[0] >= X0 - 2 &&
           r[1] <= W - PAD_R &&

@@ -47,16 +47,10 @@ function Check({ it }: { it: Item }) {
   )
 }
 
+/** "Domain · Rp 250.000 · MarkMonitor Inc.": the type, the cost when there is one, then the issuer or registrar. */
 export function subJenis(it: Item): string {
-  const detail =
-    it.jenis === 'sertifikat'
-      ? it.tls?.penerbit
-      : it.sumber === 'registri' && it.registri?.registrar
-        ? it.registri.registrar
-        : it.biaya
-          ? rupiahBiasa(it.biaya)
-          : ''
-  return detail ? `${labelJenis[it.jenis]} · ${detail}` : labelJenis[it.jenis]
+  const asal = it.jenis === 'sertifikat' ? it.tls?.penerbit : it.sumber === 'registri' ? it.registri?.registrar : null
+  return [labelJenis[it.jenis], it.biaya ? rupiahBiasa(it.biaya) : null, asal].filter(Boolean).join(' · ')
 }
 
 function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTerbuka: boolean; bukaMenu: (el: HTMLElement) => void }) {
@@ -80,6 +74,12 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
             {it.klien ? <span className="sub-klien"> · {it.klien}</span> : null}
             <span className="sub-tgl"> · {tanggal(it.kedaluwarsa)}</span>
           </span>
+          {it.galat_cek ? (
+            <span className="sub-gagal" title={it.galat_cek}>
+              <Icon name="alert" />
+              Cek gagal
+            </span>
+          ) : null}
         </div>
       </div>
       <div className={it.klien ? 'cell col-client' : 'cell col-client is-empty'}>{it.klien || 'Tanpa klien'}</div>
@@ -136,7 +136,8 @@ export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = 
   const perJenis = tanpaSaring(items, s, 'jenis')
   const perKlien = tanpaSaring(items, s, 'klien')
   const perSumber = tanpaSaring(items, s, 'sumber')
-  const jenis = items.some((it) => it.jenis === 'lainnya') ? [...JENIS_UTAMA, 'lainnya' as const] : JENIS_UTAMA
+  // One rule for every type: a tab shows when the list has that type (or it is the one chosen).
+  const jenis = [...JENIS_UTAMA, 'lainnya' as const].filter((j) => j === s.jenis || items.some((it) => it.jenis === j))
   const [menu, setMenu] = useState<{ it: Item; el: HTMLElement } | null>(null)
   const tutupMenu = useCallback((kembali: boolean) => {
     setMenu((m) => {
@@ -219,7 +220,7 @@ export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = 
           <span>Aset</span>
           <span className="col-client">Klien</span>
           <span className="col-date">Berakhir</span>
-          <span>Pemeriksaan</span>
+          <span className="col-check">Pemeriksaan</span>
           <span />
         </div>
         <div role="list">

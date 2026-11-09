@@ -146,7 +146,7 @@ export function TugasKlien({ klienId }: { klienId: string }) {
               <li key={b}>{b}</li>
             ))}
           </ul>
-          <button type="button" className="btn btn--primary" onClick={() => tambah()}>
+          <button type="button" className="btn btn--secondary" onClick={() => tambah()}>
             <Icon name="plus" />
             Tambah tugas
           </button>

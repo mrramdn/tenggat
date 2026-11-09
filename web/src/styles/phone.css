@@ -1,8 +1,10 @@
 /* Phone and tablet layout (the app switches to it below 1024px).
    Every control here uses --control-lg (44px). */
 
-.ph { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: var(--surface); padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
-.ph__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-1) var(--s-5); flex: none; }
+/* overflow-x: clip keeps a too-wide child from widening the page (and pushing the tab bar off screen); it is a
+   safety net, every block below fits on its own. */
+.ph { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: var(--surface); overflow-x: clip; padding-bottom: calc(var(--tabbar-h) + var(--s-5) + env(safe-area-inset-bottom)); }
+.ph__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: calc(var(--control-lg) + var(--s-4) + var(--s-1)); padding: var(--s-4) var(--s-5) var(--s-1); flex: none; }
 .ph__head .wordmark { padding: 0; }
 .ph__head .acts { display: flex; gap: var(--s-2); }
 .ph__hero { padding: var(--s-4) var(--s-5) var(--s-4); }
@@ -49,18 +51,28 @@
 .ph-start .field-row { flex-direction: column; }
 
 @media (max-width: 1023px) {
+  /* focus and scrollIntoView stop above the tab bar */
+  html { scroll-padding-bottom: calc(var(--tabbar-h) + var(--s-3) + env(safe-area-inset-bottom)); }
   /* every control on the phone is 44px with 16px text */
   .btn, .btn.is-sm { --h: var(--control-lg); --px: var(--control-px-lg); --fs: var(--fs-16); }
   .control, .control.is-sm { --h: var(--control-lg); font-size: var(--fs-16); }
-  .seg__item { --h: var(--control-lg); }
+  .seg__item, .seg.is-sm .seg__item { --h: var(--control-lg); }
+  .seg.is-sm .seg__item { font-size: var(--fs-14); }
   .seg.is-full .seg__item { padding: 0 var(--s-2); font-size: var(--fs-14); }
-  .sheet { inset: 0; width: auto; max-width: none; border-radius: 0; }
+  /* tablets keep the side sheet of the desktop; phones get it full screen (below) */
+  .sheet { top: var(--s-2); right: var(--s-2); bottom: var(--s-2); width: min(560px, calc(100vw - var(--s-4))); }
   .sheet__head { padding: 0 var(--s-3) 0 var(--s-5); }
   .sheet__foot { padding-bottom: calc(var(--s-4) + env(safe-area-inset-bottom)); }
-  .sheet__foot .btn--secondary, .sheet__foot .btn--primary { flex: 1; }
   .toasts { left: var(--s-4); right: var(--s-4); bottom: calc(var(--tabbar-h) + var(--s-3) + env(safe-area-inset-bottom)); align-items: stretch; }
   .toast { max-width: none; }
   .menu__item { height: var(--control-lg); font-size: var(--fs-16); }
+}
+@media (max-width: 640px) {
+  .sheet { inset: 0; width: auto; max-width: none; border-radius: 0; }
+  .sheet__foot .btn--secondary, .sheet__foot .btn--primary { flex: 1; }
+  /* the host field and its fetch button stack, so the field keeps the full width */
+  .sheet .field-row { flex-direction: column; }
+  .sheet .field-row > .btn { width: 100%; }
 }
 @media (max-width: 400px) {
   .field-grid { grid-template-columns: minmax(0, 1fr); }

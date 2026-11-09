@@ -54,7 +54,7 @@ export function EmptyState({ aksi, phone = false }: { aksi: Aksi; phone?: boolea
         <div className="empty__alt">
           <button type="button" className="btn btn--ghost is-sm" onClick={() => aksi.tambah({ jenis: 'sertifikat' })}>
             <Icon name="plus" />
-            Tambah sertifikat TLS, token API, atau langganan
+            Tambah jenis aset lain
           </button>
         </div>
       </form>

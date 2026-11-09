@@ -2,7 +2,8 @@
    the settings page, the phone client sheet, the stubs of pages other branches fill in. */
 
 /* ---------- sidebar ---------- */
-a.wordmark { text-decoration: none; align-self: flex-start; border-radius: var(--r-xs); }
+a.wordmark { text-decoration: none; border-radius: var(--r-xs); }
+.side > a.wordmark { align-self: flex-start; }
 a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 .nav__item[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-panel); }
 .nav__item[aria-current="page"] svg.i { color: var(--ink); }
@@ -108,7 +109,9 @@ a.wordmark:focus-visible { outline: none; box-shadow: var(--ring); }
 .ruang.is-phone .rk__aksi .btn--primary { flex: 1 1 auto; }
 .rk__tabs { margin: 0 var(--s-5); }
 .ruang.is-phone .ruang__isi { padding-top: var(--s-4); }
-.ruang.is-phone .ruang__isi > .stub, .ruang.is-phone .ruang__isi > .ph-empty { padding-left: var(--s-5); padding-right: var(--s-5); }
+/* Every tab but the asset list (its rows run edge to edge) gets the same side gutter as the header and the tabs. */
+.ruang.is-phone .ruang__isi:not(.is-aset) { padding-left: var(--s-5); padding-right: var(--s-5); }
+.ruang.is-phone .ruang__isi.is-aset > .ph-empty { padding-left: var(--s-5); padding-right: var(--s-5); }
 .ruang.is-phone .ph-empty { padding-top: var(--s-4); }
 .ph-empty span { font-size: var(--fs-14); line-height: var(--lh-20); }
 

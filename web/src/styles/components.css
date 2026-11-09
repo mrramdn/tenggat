@@ -21,6 +21,9 @@ svg.i { width: var(--icon); height: var(--icon); flex: none; stroke: currentColo
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* a dialog that takes focus itself (touch screens, see useModal) shows no ring */
+[role="dialog"]:focus { outline: none; }
+
 /* ---------- buttons (one component, three variants, three sizes) ---------- */
 .btn {
   --h: var(--control-md);
@@ -125,7 +128,8 @@ a.seg__item { text-decoration: none; }
 .seg.is-sm .seg__item { --h: var(--control-sm); padding: 0 var(--control-px-sm); font-size: var(--fs-13); }
 .seg__count { color: inherit; opacity: 0.6; font-weight: var(--fw-regular); }
 .seg.is-full { display: flex; }
-.seg.is-full .seg__item { flex: 1 1 auto; justify-content: center; padding: 0 var(--s-3); }
+/* Full-width segments share the width; min-width 0 lets them give up space instead of overflowing the border. */
+.seg.is-full .seg__item { flex: 1 1 auto; min-width: 0; justify-content: center; padding: 0 var(--s-2); }
 .seg.is-error { box-shadow: inset 0 0 0 var(--bw) var(--danger); }
 
 /* chips (phone filters) */
