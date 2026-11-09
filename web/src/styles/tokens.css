@@ -1,0 +1,155 @@
+/* Tenggat design tokens, ported from desain/v2-editorial/style.css.
+   Every value used in the other stylesheets comes from here. */
+
+@font-face {
+  font-family: "Geist";
+  src: url("../assets/fonts/geist-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../assets/fonts/geist-mono-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  /* type */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-28: 28px;
+  --fs-32: 32px;
+  --fs-44: 44px;
+  --lh-tight: 1.08;
+  --lh-snug: 1.25;
+  --lh-body: 1.45;
+  --lh-16: 16px;
+  --lh-20: 20px;
+  --lh-24: 24px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --track-display: -0.035em;
+  --track-title: -0.02em;
+  --track-caps: 0.04em;
+
+  /* space: 8 px grid (4 for hairline nudges only) */
+  --s-0: 2px;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 40px;
+  --s-8: 48px;
+  --s-9: 64px;
+
+  /* radii */
+  --r-xs: 4px;
+  --r-control: 8px;
+  --r-card: 12px;
+  --r-panel: 16px;
+  --r-pill: 999px;
+
+  /* borders, icons */
+  --bw: 1px;
+  --icon: 16px;
+  --icon-nav: 20px;
+  --dot: 8px;
+
+  /* controls: one height per size */
+  --control-sm: 32px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --control-px-sm: 12px;
+  --control-px-md: 16px;
+  --control-px-lg: 16px;
+  --row-action-w: 112px;
+  --pill-h: 24px;
+
+  /* layout */
+  --sidebar-w: 216px;
+  --sheet-w: 488px;
+  --dialog-w: 400px;
+  --menu-w: 168px;
+
+  /* colour: warm near-monochrome + one cobalt accent */
+  --canvas: #e4e3df;
+  --paper: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f9f8f6;
+  --surface-3: #f1f0ec;
+  --line: #e7e5e0;
+  --line-strong: #d6d4ce;
+  --ink: #121211;
+  --ink-2: #3a3936;
+  --muted: #6a6862;
+  --quiet: #85837c;
+  --faint: #9a9891;
+  --on-ink: #ffffff;
+  --accent: #2f45d8;
+  --accent-soft: #eef0fd;
+  --focus: rgba(47, 69, 216, 0.28);
+  --scrim: rgba(18, 18, 17, 0.32);
+
+  /* status: muted, always paired with a label and a day count */
+  --st-lewat: #b3261e;
+  --st-lewat-bg: #fcefed;
+  --st-lewat-band: rgba(179, 38, 30, 0.07);
+  --st-d7: #a5520a;
+  --st-d7-bg: #fdf2e4;
+  --st-d7-band: rgba(165, 82, 10, 0.08);
+  --st-d30: #7c6408;
+  --st-d30-bg: #f8f3dd;
+  --st-d30-band: rgba(124, 100, 8, 0.07);
+  --st-aman: #2c6e49;
+  --st-aman-bg: #eaf4ee;
+  --st-aman-band: rgba(44, 110, 73, 0.05);
+  --danger: #b3261e;
+  --danger-2: #9a1f18;
+  --success: #2c6e49;
+
+  /* depth */
+  --shadow-panel: 0 0 0 var(--bw) rgba(18, 18, 17, 0.06), 0 1px 2px rgba(18, 18, 17, 0.04), 0 8px 24px -12px rgba(18, 18, 17, 0.08);
+  --shadow-control: 0 1px 1px rgba(18, 18, 17, 0.04);
+  --shadow-primary: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(18, 18, 17, 0.24);
+  --shadow-sheet: 0 0 0 var(--bw) rgba(18, 18, 17, 0.08), 0 24px 64px -16px rgba(18, 18, 17, 0.28), 0 8px 16px -8px rgba(18, 18, 17, 0.12);
+  --shadow-pop: 0 0 0 var(--bw) rgba(18, 18, 17, 0.08), 0 12px 32px -12px rgba(18, 18, 17, 0.24), 0 2px 6px -2px rgba(18, 18, 17, 0.08);
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+
+  /* list grid */
+  --col-days: 144px;
+  --col-num: 56px;
+  --col-client: 136px;
+  --col-date: 96px;
+  --col-check: 232px;
+  --col-actions: 152px;
+
+  /* fixed component dimensions */
+  --ring: 0 0 0 3px var(--focus);
+  --ring-error: 0 0 0 3px rgba(179, 38, 30, 0.12);
+  --kbd: 20px;
+  --dot-sm: 6px;
+  --sep: 3px;
+  --halo: 3px;
+  --row-h: 52px;
+  --select-min-w: 176px;
+  --dl-label-w: 128px;
+  --measure-text: 520px;
+  --measure-form: 560px;
+  --ph-num-col: 56px; /* mockup 48; 56 fits three-digit counts such as 181 */
+  --bar-h: 6px;
+  --tabbar-h: 61px;
+}

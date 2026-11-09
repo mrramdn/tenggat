@@ -1,0 +1,126 @@
+// Typed client for the Tenggat API. Every request goes to the same origin; nginx
+// (and the Vite dev server) forwards /api to the Go service.
+
+export type Jenis = 'sertifikat' | 'domain' | 'token' | 'langganan' | 'lainnya'
+export type Status = 'lewat' | 'kritis' | 'segera' | 'aman'
+export type Sumber = 'manual' | 'server'
+
+export interface TLSInfo {
+  penerbit: string
+  subjek: string
+  alamat?: string
+  berlaku_sejak: string
+  berakhir: string
+  rantai_valid: boolean
+  galat_rantai?: string
+}
+
+export interface Item {
+  id: string
+  nama: string
+  jenis: Jenis
+  klien: string
+  host: string | null
+  kedaluwarsa: string // YYYY-MM-DD
+  sisa_hari: number
+  status: Status
+  sumber: Sumber
+  biaya: number | null
+  catatan: string
+  tls: TLSInfo | null
+  terakhir_dicek: string | null
+  galat_cek: string | null
+  dibuat: string
+  diubah: string
+}
+
+export interface Ringkasan {
+  lewat: number
+  kritis: number
+  segera: number
+  aman: number
+  total: number
+  klien: string[]
+}
+
+export interface ItemInput {
+  nama?: string
+  jenis: Jenis
+  klien?: string
+  host?: string
+  kedaluwarsa?: string
+  biaya?: number | null
+  catatan?: string
+}
+
+export interface PratinjauSertifikat {
+  host: string
+  kedaluwarsa: string
+  sisa_hari: number
+  status: Status
+  tls: TLSInfo
+}
+
+export interface Filter {
+  status?: Status
+  klien?: string
+}
+
+/** An error answer from the API, with per-field messages for 422. */
+export class ApiError extends Error {
+  status: number
+  field: Record<string, string>
+  /** Seconds to wait, from the Retry-After header of a 429 answer. */
+  retryAfter: number | null
+
+  constructor(status: number, message: string, field: Record<string, string> = {}, retryAfter: number | null = null) {
+    super(message)
+    this.status = status
+    this.field = field
+    this.retryAfter = retryAfter
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(path, {
+      ...init,
+      headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    })
+  } catch {
+    throw new ApiError(0, 'Tidak dapat terhubung ke server. Periksa koneksi Anda.')
+  }
+  if (res.status === 204) return undefined as T
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const retry = Number(res.headers.get('Retry-After'))
+    throw new ApiError(
+      res.status,
+      body.galat ?? 'Terjadi kesalahan.',
+      body.field ?? {},
+      Number.isFinite(retry) && retry > 0 ? retry : null,
+    )
+  }
+  return body as T
+}
+
+export const api = {
+  daftar(filter: Filter = {}): Promise<Item[]> {
+    const q = new URLSearchParams()
+    if (filter.status) q.set('status', filter.status)
+    if (filter.klien) q.set('klien', filter.klien)
+    const qs = q.toString()
+    return request<{ item: Item[] }>(`/api/item${qs ? `?${qs}` : ''}`).then((r) => r.item)
+  },
+  ringkasan: () => request<Ringkasan>('/api/ringkasan'),
+  ambil: (id: string) => request<Item>(`/api/item/${id}`),
+  buat: (input: ItemInput) => request<Item>('/api/item', { method: 'POST', body: JSON.stringify(input) }),
+  ubah: (id: string, input: ItemInput) =>
+    request<Item>(`/api/item/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  hapus: (id: string) => request<void>(`/api/item/${id}`, { method: 'DELETE' }),
+  cekUlang: (id: string) => request<Item>(`/api/item/${id}/cek`, { method: 'POST' }),
+  pratinjau: (host: string) =>
+    request<PratinjauSertifikat>(`/api/sertifikat?host=${encodeURIComponent(host)}`),
+  kalenderUrl: '/api/kalender.ics',
+}

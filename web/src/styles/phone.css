@@ -1,0 +1,74 @@
+/* Phone and tablet layout (the app switches to it below 1024px).
+   Every control here uses --control-lg (44px). */
+
+.ph { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: var(--surface); padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
+.ph__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-1) var(--s-5); flex: none; }
+.ph__head .wordmark { padding: 0; }
+.ph__head .acts { display: flex; gap: var(--s-2); }
+.ph__hero { padding: var(--s-4) var(--s-5) var(--s-4); }
+.ph__hero .display { font-size: var(--fs-32); margin-top: var(--s-2); line-height: var(--lh-tight); }
+.ph__hero .lede { margin-top: var(--s-3); padding-top: 0; }
+.ph__bar { margin: 0 var(--s-5); display: flex; gap: var(--s-0); height: var(--s-2); }
+.ph__bar span { flex: 1; border-radius: var(--r-pill); background: currentColor; }
+.ph__chips { padding: var(--s-4) var(--s-5); }
+.ph__chips .chips { margin: 0 calc(-1 * var(--s-5)); padding: 0 var(--s-5); }
+.ph-group { font-size: var(--fs-12); color: var(--muted); padding: var(--s-2) var(--s-5); background: var(--surface-2); border-top: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); display: flex; justify-content: space-between; }
+.ph-row { position: relative; display: grid; grid-template-columns: var(--ph-num-col) minmax(0, 1fr) auto; column-gap: var(--s-3); align-items: center; padding: var(--s-3) var(--s-5); border-bottom: var(--bw) solid var(--line); transition: background-color var(--t-fast) var(--ease); }
+.ph-row:active { background: var(--surface-2); }
+.ph-row .days { flex-direction: column; align-items: flex-start; gap: var(--s-1); }
+.ph-row .days__n { font-size: var(--fs-28); text-align: left; min-width: 0; }
+.ph-row .asset__name { font-size: var(--fs-16); line-height: var(--lh-24); white-space: normal; display: block; width: 100%; text-align: left; cursor: pointer; font-weight: var(--fw-medium); }
+.ph-row .asset__name::after { content: ""; position: absolute; inset: 0; }
+.ph-row .asset__name:focus-visible { outline: none; }
+.ph-row .asset__name:focus-visible::after { box-shadow: inset 0 0 0 2px var(--accent); }
+.ph-row .asset__sub { font-size: var(--fs-13); }
+.ph-row__fail { grid-column: 2 / 4; margin-top: var(--s-2); display: flex; gap: var(--s-2); font-size: var(--fs-13); line-height: var(--lh-20); color: var(--ink-2); }
+.ph-row__fail svg.i { color: var(--st-lewat); margin-top: var(--s-0); }
+.ph-row__fail span { color: var(--muted); }
+.ph-row__act { grid-column: 2 / 4; margin-top: var(--s-3); position: relative; z-index: 1; }
+.ph-row__end { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-1); }
+.ph-row__end .cell { font-size: var(--fs-13); color: var(--muted); }
+.ph-empty { padding: var(--s-6) var(--s-5); display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); color: var(--muted); font-size: var(--fs-14); }
+.ph-empty b { color: var(--ink); font-weight: var(--fw-medium); }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: var(--s-2) var(--s-2) calc(var(--s-2) + env(safe-area-inset-bottom));
+  border-top: var(--bw) solid var(--line); background: var(--surface);
+}
+.tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--s-1); height: var(--control-lg); justify-content: center; font-size: var(--fs-12); color: var(--muted); font-weight: var(--fw-medium); text-decoration: none; cursor: pointer; border-radius: var(--r-control); }
+.tab:focus-visible, .tab:focus-within { outline: none; box-shadow: var(--ring); }
+.tab svg.i { width: var(--icon-nav); height: var(--icon-nav); }
+.tab.is-active { color: var(--ink); }
+/* The Klien tab is a native select laid over the tab, so the system picker opens. */
+.tab select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; appearance: none; font-size: var(--fs-16); }
+
+/* phone empty state */
+.ph-start { padding: var(--s-4) var(--s-5) var(--s-6); display: flex; flex-direction: column; }
+.ph-start .display { font-size: var(--fs-32); }
+.ph-start .empty__lede { font-size: var(--fs-14); line-height: var(--lh-20); }
+.ph-start .field-row { flex-direction: column; }
+.ph-start .how { grid-template-columns: minmax(0, 1fr); margin-top: var(--s-6); }
+.ph-start .how__item { padding: var(--s-3) 0; border-bottom: var(--bw) solid var(--line); }
+
+@media (max-width: 1023px) {
+  /* every control on the phone is 44px with 16px text */
+  .btn, .btn.is-sm { --h: var(--control-lg); --px: var(--control-px-lg); --fs: var(--fs-16); }
+  .control, .control.is-sm { --h: var(--control-lg); font-size: var(--fs-16); }
+  .seg__item { --h: var(--control-lg); }
+  .seg.is-full .seg__item { padding: 0 var(--s-2); font-size: var(--fs-14); }
+  .sheet { inset: 0; width: auto; max-width: none; border-radius: 0; }
+  .sheet__head { padding: 0 var(--s-3) 0 var(--s-5); }
+  .sheet__foot { padding-bottom: calc(var(--s-4) + env(safe-area-inset-bottom)); }
+  .sheet__foot .btn--secondary, .sheet__foot .btn--primary { flex: 1; }
+  .toasts { left: var(--s-4); right: var(--s-4); bottom: calc(var(--tabbar-h) + var(--s-3) + env(safe-area-inset-bottom)); align-items: stretch; }
+  .toast { max-width: none; }
+  .menu__item { height: var(--control-lg); font-size: var(--fs-16); }
+}
+@media (max-width: 400px) {
+  .field-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ph-filter { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: 0 var(--s-3) var(--s-3) var(--s-5); font-size: var(--fs-14); color: var(--muted); }
+.ph-filter b { color: var(--ink); font-weight: var(--fw-medium); }
