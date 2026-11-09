@@ -18,6 +18,7 @@ import { IkonLaporan } from '../IkonLaporan'
 import { CetakLaporan, LaporanDokumen, cetak, durasi } from '../LaporanDokumen'
 import { pesanGalat } from '../Toasts'
 import { BagikanLaporanDialog } from './BagikanLaporanDialog'
+import { Pilihan } from '../Pilihan'
 
 const BATAS_TEKS = 2000
 const JEDA_SIMPAN = 1000
@@ -205,16 +206,14 @@ function Isi({ klienId }: { klienId: string }) {
           >
             <IkonLaporan name="chevron-left" />
           </button>
-          <label className="sr-only" htmlFor={`${uid}-bulan`}>
-            Bulan laporan
-          </label>
-          <select id={`${uid}-bulan`} className="control" value={bulan} onChange={(e) => pindahBulan(e.target.value)}>
-            {pilihan.map((b) => (
-              <option key={b} value={b}>
-                {labelBulan(b)}
-              </option>
-            ))}
-          </select>
+          <Pilihan
+            id={`${uid}-bulan`}
+            label="Bulan laporan"
+            className="laporan-bulan__pilih"
+            nilai={bulan}
+            opsi={pilihan.map((b) => ({ nilai: b, label: labelBulan(b) }))}
+            onPilih={pindahBulan}
+          />
           <button
             type="button"
             className="btn btn--secondary btn--icon"

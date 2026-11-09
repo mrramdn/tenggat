@@ -16,6 +16,7 @@ import { Icon } from '../Icon'
 import { pesanGalat } from '../Toasts'
 import { contohTugas, type ContohTugas } from './contoh-tugas'
 import '../../styles/tugas.css'
+import { Pilihan } from '../Pilihan'
 
 const satuan: { v: SatuanUlang; label: string }[] = [
   { v: 'hari', label: 'hari' },
@@ -223,13 +224,12 @@ export function TugasDialog({ klienId, tugas, contoh, onClose, onSaved }: TugasD
                 hapusGalat('ulang_jumlah')
               }}
             />
-            <select className="control" aria-label="Satuan" value={unit} onChange={(e) => setUnit(e.target.value as SatuanUlang)}>
-              {satuan.map((s) => (
-                <option key={s.v} value={s.v}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            <Pilihan
+              label="Satuan"
+              nilai={unit}
+              opsi={satuan.map((x) => ({ nilai: x.v, label: x.label }))}
+              onPilih={(v) => setUnit(v)}
+            />
           </div>
           <FieldError id={id('ulang-e')} pesan={galat.ulang_jumlah} />
         </div>
