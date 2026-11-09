@@ -46,9 +46,13 @@ services:
       PGUSER: ${POSTGRES_USER:?Salin .env.example ke .env}
       PGPASSWORD: ${POSTGRES_PASSWORD:?Salin .env.example ke .env}
       PGSSLMODE: disable
+      REDIS_ADDR: cache:6379
       CEK_INTERVAL: ${CEK_INTERVAL:-6h}
+      BATAS_PER_MENIT: ${BATAS_PER_MENIT:-30}
     depends_on:
       db:
+        condition: service_healthy
+      cache:
         condition: service_healthy
     networks:
       - edge
@@ -91,6 +95,29 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
+  # Cache: Redis tanpa penyimpanan ke disk, untuk cache baca, hasil cek TLS, dan pembatas permintaan.
+  cache:
+    image: redis:8.10.3-alpine3.23
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /data
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
     logging: *logging
 

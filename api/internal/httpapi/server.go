@@ -33,12 +33,26 @@ type Checker interface {
 	Check(ctx context.Context, host string) (*tlscheck.Result, error)
 }
 
+// Cache is the part of cache.Cache the handlers use. A nil Cache turns caching
+// and rate limiting off.
+type Cache interface {
+	Ping(ctx context.Context) error
+	Get(ctx context.Context, key string) ([]byte, bool)
+	Set(ctx context.Context, key string, value []byte, ttl time.Duration)
+	Version(ctx context.Context) int64
+	Bump(ctx context.Context)
+	Allow(ctx context.Context, bucket, client string, limit int, window time.Duration) (bool, time.Duration)
+}
+
 // Server holds what the handlers need.
 type Server struct {
 	Store   Store
 	Checker Checker
+	Cache   Cache
 	Now     func() time.Time
 	Log     *slog.Logger
+	// LimitPerMinute caps writes and certificate lookups per client; 0 means 30.
+	LimitPerMinute int
 }
 
 // Routes returns the API handler with request logging and panic recovery.
@@ -46,11 +60,12 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("GET /api/item", s.listItems)
-	mux.HandleFunc("POST /api/item", s.createItem)
+	mux.HandleFunc("POST /api/item", s.limit(s.createItem))
 	mux.HandleFunc("GET /api/item/{id}", s.getItem)
-	mux.HandleFunc("PUT /api/item/{id}", s.updateItem)
-	mux.HandleFunc("DELETE /api/item/{id}", s.deleteItem)
-	mux.HandleFunc("POST /api/item/{id}/cek", s.recheckItem)
+	mux.HandleFunc("PUT /api/item/{id}", s.limit(s.updateItem))
+	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.deleteItem))
+	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.recheckItem))
+	mux.HandleFunc("GET /api/sertifikat", s.limit(s.previewCertificate))
 	mux.HandleFunc("GET /api/ringkasan", s.summary)
 	mux.HandleFunc("GET /api/kalender.ics", s.calendar)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
@@ -62,11 +77,21 @@ func (s *Server) Routes() http.Handler {
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
+	status := map[string]string{"status": "ok", "db": "ok"}
+	if s.Cache != nil {
+		// The API keeps working without Redis, so a missing cache is reported
+		// but does not make the service unhealthy.
+		status["cache"] = "ok"
+		if err := s.Cache.Ping(ctx); err != nil {
+			status["cache"] = "tidak terhubung"
+		}
+	}
 	if err := s.Store.Ping(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "gagal", "db": "tidak terhubung"})
+		status["status"], status["db"] = "gagal", "tidak terhubung"
+		writeJSON(w, http.StatusServiceUnavailable, status)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "db": "ok"})
+	writeJSON(w, http.StatusOK, status)
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
@@ -76,17 +101,17 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
 		return
 	}
-	now := s.Now()
-	items, err := s.Store.List(r.Context(), f, now)
-	if err != nil {
-		s.internal(w, r, err)
-		return
-	}
-	out := make([]itemJSON, 0, len(items))
-	for _, it := range items {
-		out = append(out, toJSON(it, now))
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"item": out})
+	s.cachedRead(w, r, "daftar:"+string(f.Status)+":"+f.Klien, func(now time.Time) (any, error) {
+		items, err := s.Store.List(r.Context(), f, now)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]itemJSON, 0, len(items))
+		for _, it := range items {
+			out = append(out, toJSON(it, now))
+		}
+		return map[string]any{"item": out}, nil
+	})
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -130,6 +155,7 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, r, err)
 		return
 	}
+	s.bump(r.Context())
 	w.Header().Set("Location", "/api/item/"+it.ID)
 	writeJSON(w, http.StatusCreated, toJSON(it, s.Now()))
 }
@@ -165,6 +191,7 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, r, err)
 		return
 	}
+	s.bump(r.Context())
 	writeJSON(w, http.StatusOK, toJSON(it, s.Now()))
 }
 
@@ -183,6 +210,7 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, r, err)
 		return
 	}
+	s.bump(r.Context())
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -219,7 +247,8 @@ func (s *Server) recheckItem(w http.ResponseWriter, r *http.Request) {
 // recheck reads one certificate and stores either the new date or the error.
 func (s *Server) recheck(ctx context.Context, it store.Item) (store.Item, error) {
 	now := s.Now()
-	res, err := s.Checker.Check(ctx, *it.Host)
+	defer s.bump(ctx)
+	res, err := s.checkHost(ctx, *it.Host, true)
 	if err != nil {
 		return s.Store.SaveCheckError(ctx, it.ID, checkMessage(err), now)
 	}
@@ -259,12 +288,9 @@ func (s *Server) RunRechecks(ctx context.Context, interval time.Duration) {
 }
 
 func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
-	sum, err := s.Store.Summary(r.Context(), s.Now())
-	if err != nil {
-		s.internal(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, sum)
+	s.cachedRead(w, r, "ringkasan", func(now time.Time) (any, error) {
+		return s.Store.Summary(r.Context(), now)
+	})
 }
 
 func (s *Server) calendar(w http.ResponseWriter, r *http.Request) {

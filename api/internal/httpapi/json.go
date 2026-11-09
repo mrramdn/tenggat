@@ -122,7 +122,7 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 
 	// Only now, with every other field valid, contact the server.
 	if in.Jenis == "sertifikat" {
-		res, err := s.Checker.Check(ctx, host)
+		res, err := s.checkHost(ctx, host, false)
 		if err != nil {
 			return in, map[string]string{"host": checkMessage(err)}
 		}

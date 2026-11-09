@@ -347,3 +347,135 @@ func TestSummaryAndCalendar(t *testing.T) {
 		}
 	}
 }
+
+// memCache is an in-memory Cache for handler tests.
+type memCache struct {
+	mu      sync.Mutex
+	data    map[string][]byte
+	version int64
+	counts  map[string]int
+}
+
+func newMemCache() *memCache {
+	return &memCache{data: map[string][]byte{}, counts: map[string]int{}}
+}
+
+func (c *memCache) Ping(context.Context) error { return nil }
+func (c *memCache) Get(_ context.Context, key string) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	b, ok := c.data[key]
+	return b, ok
+}
+func (c *memCache) Set(_ context.Context, key string, value []byte, _ time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.data[key] = value
+}
+func (c *memCache) Version(context.Context) int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.version
+}
+func (c *memCache) Bump(context.Context) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.version++
+}
+func (c *memCache) Allow(_ context.Context, bucket, client string, limit int, _ time.Duration) (bool, time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.counts[bucket+client]++
+	return c.counts[bucket+client] <= limit, 42 * time.Second
+}
+
+// countingChecker counts real lookups.
+type countingChecker struct {
+	fakeChecker
+	calls int
+}
+
+func (c *countingChecker) Check(ctx context.Context, host string) (*tlscheck.Result, error) {
+	c.calls++
+	return c.fakeChecker.Check(ctx, host)
+}
+
+func TestCachedReadsAndInvalidation(t *testing.T) {
+	s, _ := newTestServer()
+	s.Cache = newMemCache()
+	h := s.Routes()
+
+	first := do(t, h, "GET", "/api/item", "")
+	second := do(t, h, "GET", "/api/item", "")
+	if first.Header().Get("X-Cache") != "MISS" || second.Header().Get("X-Cache") != "HIT" {
+		t.Fatalf("X-Cache = %q then %q", first.Header().Get("X-Cache"), second.Header().Get("X-Cache"))
+	}
+
+	do(t, h, "POST", "/api/item", `{"nama":"VPS","jenis":"langganan","kedaluwarsa":"2026-12-01"}`)
+	after := do(t, h, "GET", "/api/item", "")
+	if after.Header().Get("X-Cache") != "MISS" || len(decode[struct{ Item []itemJSON }](t, after).Item) != 1 {
+		t.Errorf("after a write: X-Cache %q, body %s", after.Header().Get("X-Cache"), after.Body)
+	}
+	if rec := do(t, h, "GET", "/api/ringkasan", ""); rec.Header().Get("X-Cache") != "MISS" {
+		t.Errorf("summary first read X-Cache = %q", rec.Header().Get("X-Cache"))
+	}
+}
+
+func TestCertificateLookupIsCached(t *testing.T) {
+	s, _ := newTestServer()
+	s.Cache = newMemCache()
+	checker := &countingChecker{fakeChecker: fakeChecker{}}
+	s.Checker = checker
+	h := s.Routes()
+
+	rec := do(t, h, "GET", "/api/sertifikat?host=studiorana.co.id", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
+	}
+	if p := decode[certificatePreview](t, rec); p.Kedaluwarsa != "2026-11-28" || p.SisaHari != 19 || p.Status != expiry.Segera {
+		t.Errorf("preview = %+v", p)
+	}
+	// Saving right after the preview reuses the lookup instead of connecting again.
+	if rec := do(t, h, "POST", "/api/item", `{"jenis":"sertifikat","host":"studiorana.co.id"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d", rec.Code)
+	}
+	if checker.calls != 1 {
+		t.Errorf("lookups = %d, want 1", checker.calls)
+	}
+	if rec := do(t, h, "GET", "/api/sertifikat?host=localhost", ""); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("preview localhost: %d", rec.Code)
+	}
+}
+
+func TestRateLimit(t *testing.T) {
+	s, _ := newTestServer()
+	s.Cache = newMemCache()
+	s.LimitPerMinute = 3
+	h := s.Routes()
+	body := `{"nama":"Token","jenis":"token","kedaluwarsa":"2027-01-01"}`
+	for i := 0; i < 3; i++ {
+		if rec := do(t, h, "POST", "/api/item", body); rec.Code != http.StatusCreated {
+			t.Fatalf("request %d: %d", i+1, rec.Code)
+		}
+	}
+	rec := do(t, h, "POST", "/api/item", body)
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") != "43" {
+		t.Errorf("4th request: %d, Retry-After %q", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	// Reads are not limited.
+	if rec := do(t, h, "GET", "/api/item", ""); rec.Code != http.StatusOK {
+		t.Errorf("read after limit: %d", rec.Code)
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "172.20.0.4:51234"
+	if got := clientIP(r); got != "172.20.0.4" {
+		t.Errorf("no header: %s", got)
+	}
+	r.Header.Set("X-Forwarded-For", "203.0.113.9, 10.0.0.7")
+	if got := clientIP(r); got != "10.0.0.7" {
+		t.Errorf("forwarded: %s", got)
+	}
+}

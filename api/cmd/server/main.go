@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/mrramdn/tenggat/api/internal/cache"
 	"github.com/mrramdn/tenggat/api/internal/httpapi"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
@@ -50,6 +52,19 @@ func run(log *slog.Logger) error {
 	}
 
 	api := &httpapi.Server{Store: db, Checker: tlscheck.New(), Now: time.Now, Log: log}
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		rc := cache.New(addr)
+		defer rc.Close()
+		api.Cache = rc
+		log.Info("cache redis aktif", "alamat", addr)
+	}
+	if v := os.Getenv("BATAS_PER_MENIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return errors.New("BATAS_PER_MENIT harus bilangan bulat positif")
+		}
+		api.LimitPerMinute = n
+	}
 	go api.RunRechecks(ctx, interval)
 
 	srv := &http.Server{
