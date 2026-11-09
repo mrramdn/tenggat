@@ -191,4 +191,9 @@ docker-compose.yml, .env.example
 - Huruf [Geist dan Geist Mono](https://vercel.com/font) (SIL Open Font License 1.1, `web/src/assets/fonts/OFL.txt`)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
 
-<!-- tautan video dan artikel menyusul -->
+## Tautan
+
+- Artikel: https://www.mrramdn.com/en/blog/tenggat (salinan: https://mrramdn.github.io/tenggat/)
+- Video demo: menyusul
+- Docker Hub: https://hub.docker.com/r/mrramdn/tenggat-api dan https://hub.docker.com/r/mrramdn/tenggat-web
+- Versi online: https://tenggat.mrramdn.com
