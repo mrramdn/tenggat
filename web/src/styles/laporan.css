@@ -219,6 +219,7 @@ textarea.control.lk__editor {
   .hl__isi { padding: var(--s-4) var(--s-2) var(--s-8); }
   .hl__pesan { padding: var(--s-8) var(--s-2); }
   .notif__aksi .btn { flex: 1 1 auto; }
+  .notif__batal { min-height: var(--control-lg); }
   .notif__aksi .btn-teks { margin-left: 0; flex-basis: 100%; height: var(--control-lg); justify-content: center; }
 }
 @media (max-width: 640px) {

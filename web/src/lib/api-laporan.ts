@@ -62,9 +62,9 @@ export type Layanan = 'slack' | 'discord' | 'telegram'
 export interface Notifikasi {
   aktif: boolean
   layanan: Layanan | null
-  /** The destination with its secret part masked. */
-  tujuan: string
-  /** When the last message went out (date or timestamp), null before the first one. */
+  /** The destination with its secret part masked, e.g. "discord.com/…6789"; null when off. */
+  tujuan: string | null
+  /** The Jakarta date of the last daily check (also set on days with nothing to send); null before the first. */
   terakhir: string | null
 }
 
@@ -105,7 +105,7 @@ export const notifikasiApi = {
   simpan: (webhook_url: string) =>
     request<Notifikasi>('/api/notifikasi', { method: 'PUT', body: JSON.stringify({ webhook_url }) }),
   matikan: () => request<void>('/api/notifikasi', { method: 'DELETE' }),
-  uji: () => request<unknown>('/api/notifikasi/uji', { method: 'POST' }),
+  uji: () => request<{ pesan?: string }>('/api/notifikasi/uji', { method: 'POST' }),
 }
 
 // ---------- months (Asia/Jakarta) ----------

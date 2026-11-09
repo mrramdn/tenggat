@@ -67,7 +67,7 @@ export function PengaturanNotifikasi() {
   const matikan = useMutation({
     mutationFn: notifikasiApi.matikan,
     onSuccess: () => {
-      qc.setQueryData<Notifikasi>(KUNCI_NOTIFIKASI, { aktif: false, layanan: null, tujuan: '', terakhir: null })
+      qc.setQueryData<Notifikasi>(KUNCI_NOTIFIKASI, { aktif: false, layanan: null, tujuan: null, terakhir: null })
       void qc.invalidateQueries({ queryKey: KUNCI_NOTIFIKASI })
       setKonfirmasi(false)
       toast.ok('Notifikasi dimatikan.', 'Tenggat tidak lagi mengirim ringkasan harian.')
@@ -157,7 +157,7 @@ export function PengaturanNotifikasi() {
         <div>
           <button
             type="button"
-            className="btn-teks"
+            className="btn-teks notif__batal"
             onClick={() => {
               setUbah(false)
               setUrl('')
@@ -197,7 +197,9 @@ export function PengaturanNotifikasi() {
             <b>Aktif lewat {n.layanan ? namaLayanan[n.layanan] : 'webhook'}</b>
             <span className="notif__tujuan">{n.tujuan}</span>
             <span className="notif__meta">
-              {n.terakhir ? `Ringkasan terakhir dikirim ${waktuTerakhir(n.terakhir)}.` : 'Belum ada ringkasan yang dikirim.'}
+              {n.terakhir
+                ? `Pemeriksaan harian terakhir ${waktuTerakhir(n.terakhir)}.`
+                : 'Pemeriksaan harian pertama berjalan pukul 08.00 WIB.'}
             </span>
           </div>
         </div>
