@@ -1,11 +1,12 @@
 // Phone layout: top bar, headline, status bar and chips, grouped list, tab bar.
 import type { Item, Status } from '../lib/api'
-import { biaya30, daftarKlien, judul, saringAwal, saringItem, tanpaSaring } from '../lib/derive'
+import { biaya30, judul, saringAwal, saringItem, tanpaSaring } from '../lib/derive'
 import { hariIniIso, kelasStatus, labelJenisPendek, labelStatus, lalu, rupiahBiasa, tanggalPanjang, tanggalPendek, urutanStatus } from '../lib/format'
 import { AkunTab } from './Akun'
 import type { Muat } from './Desktop'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
+import { KlienKepala } from './KlienKepala'
 import { TautanKalender } from './TautanKalender'
 import type { Aksi, LayarProps } from './types'
 import { Days, Pill } from './ui'
@@ -57,7 +58,10 @@ const GRUP: { judul: string; status: Status[] }[] = [
   { judul: 'Aman', status: ['aman'] },
 ]
 
-export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat }) {
+// The Klien tab's select ends with this option, which opens "Tambah klien".
+const TAMBAH_KLIEN = '+tambah'
+
+export function Phone({ items, klien, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat }) {
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   // Only the filters the phone shows apply here.
@@ -66,7 +70,7 @@ export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps
   const perStatus = tanpaSaring(items, sp, 'status')
   const j = judul(items)
   const b = biaya30(items)
-  const klien = daftarKlien(items)
+  const dipilih = klien.find((k) => k.id === saring.klien)
   const urut = [...items].sort((a, c) => a.sisa_hari - c.sisa_hari)
 
   return (
@@ -155,15 +159,8 @@ export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps
               ))}
             </div>
           </div>
-          {saring.klien !== null ? (
-            <div className="ph-filter">
-              <span>
-                Klien: <b>{saring.klien}</b>
-              </span>
-              <button type="button" className="btn btn--ghost is-lg" onClick={() => setSaring((s) => ({ ...s, klien: null }))}>
-                Semua klien
-              </button>
-            </div>
+          {dipilih ? (
+            <KlienKepala klien={dipilih} aksi={aksi} phone onTutup={() => setSaring((s) => ({ ...s, klien: null }))} />
           ) : null}
           {GRUP.map((g) => {
             const isi = rows.filter((it) => g.status.includes(it.status))
@@ -210,18 +207,20 @@ export function Phone({ items, saring, setSaring, aksi, muat, akun }: LayarProps
           <select
             aria-label="Saring menurut klien"
             value={saring.klien ?? ''}
-            disabled={klien.length === 0}
+            disabled={!siap}
             onChange={(e) => {
+              if (e.target.value === TAMBAH_KLIEN) return aksi.tambahKlien()
               setSaring((s) => ({ ...s, klien: e.target.value || null }))
               window.scrollTo({ top: 0 })
             }}
           >
             <option value="">Semua klien</option>
             {klien.map((k) => (
-              <option key={k.nama} value={k.nama}>
-                {k.nama} ({k.n})
+              <option key={k.id} value={k.id}>
+                {k.nama} ({k.jumlah_aset})
               </option>
             ))}
+            <option value={TAMBAH_KLIEN}>Tambah klien</option>
           </select>
         </label>
         <TautanKalender className="tab">

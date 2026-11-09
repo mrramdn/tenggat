@@ -76,8 +76,6 @@ select.control, .control.is-combo {
   text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
 }
 .control.is-combo { cursor: text; }
-/* The native datalist arrow stays clickable but invisible; the chevron above is drawn instead. */
-input[list]::-webkit-calendar-picker-indicator { opacity: 0; cursor: pointer; }
 /* Date input: the native picker opens from the calendar icon on the left. */
 input[type="date"].control { position: relative; }
 input[type="date"].control::-webkit-calendar-picker-indicator {

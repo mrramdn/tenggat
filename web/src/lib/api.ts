@@ -19,7 +19,8 @@ export interface Item {
   id: string
   nama: string
   jenis: Jenis
-  klien: string
+  klien: string // the client's name, '' without a client
+  klien_id: string | null
   host: string | null
   kedaluwarsa: string // YYYY-MM-DD
   sisa_hari: number
@@ -46,7 +47,9 @@ export interface Ringkasan {
 export interface ItemInput {
   nama?: string
   jenis: Jenis
+  /** A client's name: an unknown name becomes a new client, '' means no client. Ignored when klien_id is set. */
   klien?: string
+  klien_id?: string
   host?: string
   kedaluwarsa?: string
   biaya?: number | null
@@ -188,4 +191,30 @@ export const auth = {
     request<{ pengguna: Pengguna }>('/api/sesi', { method: 'POST', body: JSON.stringify(input) }, true).then((r) => r.pengguna),
   keluar: () => request<void>('/api/sesi', { method: 'DELETE' }, true),
   hapusAkun: () => request<void>('/api/saya', { method: 'DELETE' }),
+}
+
+// Clients. Their figures (asset count, cost due) change whenever an asset changes, so every write of an asset or
+// a client invalidates KUNCI_KLIEN as well as the item list.
+export const KUNCI_KLIEN = ['klien'] as const
+
+export interface Klien {
+  id: string
+  nama: string
+  catatan: string
+  jumlah_aset: number
+  terdekat: string | null // YYYY-MM-DD, null without assets
+  biaya_30_hari: number
+}
+
+export interface KlienInput {
+  nama: string
+  catatan: string
+}
+
+export const klienApi = {
+  daftar: () => request<{ klien: Klien[] }>('/api/klien').then((r) => r.klien),
+  buat: (input: KlienInput) => request<Klien>('/api/klien', { method: 'POST', body: JSON.stringify(input) }),
+  ubah: (id: string, input: KlienInput) =>
+    request<Klien>(`/api/klien/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  hapus: (id: string) => request<void>(`/api/klien/${id}`, { method: 'DELETE' }),
 }

@@ -6,6 +6,7 @@ import { bulan, bulanTahun, gabung, keTanggal, rupiahBiasa, tanggal, tanggalPend
 export interface Saring {
   cari: string
   status: Status | null
+  /** id of the chosen client */
   klien: string | null
   jenis: Jenis | null
   sumber: Sumber | null
@@ -18,7 +19,7 @@ export const adaSaring = (s: Saring) => !!(s.cari.trim() || s.status || s.klien 
 
 function cocok(it: Item, s: Saring, kecuali?: keyof Saring): boolean {
   if (kecuali !== 'status' && s.status && it.status !== s.status) return false
-  if (kecuali !== 'klien' && s.klien !== null && it.klien !== s.klien) return false
+  if (kecuali !== 'klien' && s.klien !== null && it.klien_id !== s.klien) return false
   if (kecuali !== 'jenis' && s.jenis && it.jenis !== s.jenis) return false
   if (kecuali !== 'sumber' && s.sumber && it.sumber !== s.sumber) return false
   const q = s.cari.trim().toLowerCase()
@@ -42,13 +43,6 @@ export function hitungStatus(items: Item[]): Record<Status, number> {
   const n: Record<Status, number> = { lewat: 0, kritis: 0, segera: 0, aman: 0 }
   for (const it of items) n[it.status]++
   return n
-}
-
-/** Clients with their item count, in alphabetical order. */
-export function daftarKlien(items: Item[]): { nama: string; n: number }[] {
-  const m = new Map<string, number>()
-  for (const it of items) if (it.klien) m.set(it.klien, (m.get(it.klien) ?? 0) + 1)
-  return [...m].map(([nama, n]) => ({ nama, n })).sort((a, b) => a.nama.localeCompare(b.nama, 'id'))
 }
 
 /** Date range for a status card: "6 Nov", "13–15 Nov", "28 Nov–1 Des", "Jan–Mei". */

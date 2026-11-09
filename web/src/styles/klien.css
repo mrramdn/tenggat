@@ -1,0 +1,65 @@
+/* Clients: the picker in the asset sheet, the client dialog, the client header
+   above the list and the client section of the sidebar. */
+
+/* ---------- picker (combobox) ---------- */
+.picker { position: relative; }
+.picker__list {
+  position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + var(--s-1));
+  max-height: 248px; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--s-1); list-style: none;
+  background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-pop);
+}
+.picker__opt {
+  display: flex; align-items: center; gap: var(--s-2);
+  height: var(--control-sm); padding: 0 var(--s-2); border-radius: var(--r-control);
+  font-size: var(--fs-13); color: var(--ink-2); cursor: pointer;
+}
+.picker__opt.is-active { background: var(--surface-3); color: var(--ink); }
+.picker__opt svg.i { color: var(--muted); }
+.picker__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker__muted { color: var(--muted); }
+.picker__meta { margin-left: auto; color: var(--muted); font-size: var(--fs-12); white-space: nowrap; }
+.picker__check { margin-left: auto; }
+.picker__meta + .picker__check { margin-left: 0; }
+@media (max-width: 1023px) {
+  .picker__opt { height: var(--control-lg); font-size: var(--fs-16); }
+  textarea.control.klien-dialog__note { font-size: var(--fs-16); }
+}
+
+/* ---------- client dialog ---------- */
+.klien-dialog form { display: flex; flex-direction: column; gap: var(--s-4); }
+.klien-dialog .dialog__foot { margin-top: var(--s-1); }
+textarea.control.klien-dialog__note {
+  height: auto; min-height: calc(var(--lh-20) * 2 + var(--s-2) * 2 + var(--bw) * 2);
+  padding: var(--s-2) var(--s-3); resize: vertical; font: inherit; font-size: var(--fs-14); line-height: var(--lh-20);
+}
+
+/* ---------- client header above the list ---------- */
+.kk {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4);
+  padding: var(--s-4) var(--s-4) var(--s-4) var(--s-5); margin-bottom: var(--s-4);
+  border: var(--bw) solid var(--line); border-radius: var(--r-card); background: var(--surface-2);
+}
+.kk__text { min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.kk__top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.kk__nama { font-size: var(--fs-20); font-weight: var(--fw-medium); letter-spacing: var(--track-title); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.kk__catatan { font-size: var(--fs-13); color: var(--ink-2); line-height: var(--lh-20); overflow-wrap: anywhere; white-space: pre-line; }
+.kk__fakta { display: flex; flex-wrap: wrap; column-gap: var(--s-2); list-style: none; font-size: var(--fs-13); color: var(--muted); line-height: var(--lh-20); }
+.kk__fakta li + li::before { content: "·"; margin-right: var(--s-2); color: var(--faint); }
+.kk__fakta b { color: var(--ink); font-weight: var(--fw-medium); }
+.kk__aksi { display: flex; gap: var(--s-2); flex: none; }
+
+.kk.is-phone {
+  flex-direction: column; align-items: stretch; gap: var(--s-3);
+  margin: 0 var(--s-5) var(--s-4); padding: var(--s-3) var(--s-3) var(--s-4) var(--s-4);
+}
+.kk.is-phone .kk__top { margin-right: calc(-1 * var(--s-1)); }
+.kk.is-phone .kk__aksi .btn--secondary:first-child { flex: 1 1 auto; }
+.kk.is-phone .kk__fakta { flex-direction: column; font-size: var(--fs-14); }
+.kk.is-phone .kk__fakta li + li::before { content: none; }
+
+/* ---------- sidebar ---------- */
+.nav__item.is-add { color: var(--muted); }
+.nav__item.is-add:hover { color: var(--ink); }
+.nav__item.is-add svg.i { color: inherit; }
+.side-note { font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted); padding: 0 var(--s-2) var(--s-2); }

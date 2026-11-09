@@ -30,6 +30,9 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
     function onKey(e: KeyboardEvent) {
       if (!el || tumpukan[tumpukan.length - 1] !== token) return
       if (e.key === 'Escape') {
+        // An open combobox list closes first; the combobox handles that Escape itself.
+        const t = e.target
+        if (t instanceof HTMLElement && t.getAttribute('role') === 'combobox' && t.getAttribute('aria-expanded') === 'true') return
         e.preventDefault()
         e.stopPropagation()
         tutup.current()

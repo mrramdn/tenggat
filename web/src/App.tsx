@@ -5,14 +5,15 @@ import { AssetSheet, type ModeSheet } from './components/AssetSheet'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Desktop, type Muat } from './components/Desktop'
 import { Icon } from './components/Icon'
+import { KlienDialog } from './components/KlienDialog'
 import { LayarMasuk } from './components/LayarMasuk'
 import { Phone } from './components/Phone'
 import { pesanGalat, useToast } from './components/Toasts'
 import type { Aksi, BukaTambah } from './components/types'
 import { adaModal } from './hooks/useModal'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import { api, auth, saatSesiBerakhir, type Item, type Pengguna } from './lib/api'
-import { daftarKlien, saringAwal, type Saring } from './lib/derive'
+import { KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna } from './lib/api'
+import { saringAwal, type Saring } from './lib/derive'
 import { tanggal } from './lib/format'
 
 const KUNCI = ['item'] as const
@@ -89,14 +90,22 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
   const qc = useQueryClient()
   const toast = useToast()
   const q = useQuery({ queryKey: KUNCI, queryFn: () => api.daftar(), refetchInterval: 60_000 })
+  const kq = useQuery({ queryKey: KUNCI_KLIEN, queryFn: klienApi.daftar, refetchInterval: 60_000 })
 
   const [saring, setSaring] = useState<Saring>(saringAwal)
   const [sheet, setSheet] = useState<ModeSheet | null>(null)
   const [hapus, setHapus] = useState<Item | null>(null)
   const [sedangCek, setSedangCek] = useState<ReadonlySet<string>>(new Set())
   const [hapusAkun, setHapusAkun] = useState(false)
+  // undefined: closed; null: adding a client; a client: editing it
+  const [dialogKlien, setDialogKlien] = useState<Klien | null | undefined>(undefined)
+  const [hapusKlien, setHapusKlien] = useState<Klien | null>(null)
 
-  const segarkan = useCallback(() => qc.invalidateQueries({ queryKey: KUNCI }), [qc])
+  // An asset write changes the clients' figures too, so both lists are refreshed.
+  const segarkan = useCallback(
+    () => Promise.all([qc.invalidateQueries({ queryKey: KUNCI }), qc.invalidateQueries({ queryKey: KUNCI_KLIEN })]),
+    [qc],
+  )
 
   // Dev only: ?buka=tambah[&host=...]|ubah&id=... opens the sheet, for screenshots.
   useEffect(() => {
@@ -126,6 +135,17 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
       void segarkan()
     },
     onError: (err) => toast.dariGalat('Aset tidak dapat dihapus.', err),
+  })
+
+  const hapusKlienM = useMutation({
+    mutationFn: (k: Klien) => klienApi.hapus(k.id),
+    onSuccess: (_, k) => {
+      toast.ok('Klien dihapus.', k.nama)
+      setHapusKlien(null)
+      setSaring((s) => (s.klien === k.id ? { ...s, klien: null } : s))
+      void segarkan()
+    },
+    onError: (err) => toast.dariGalat('Klien tidak dapat dihapus.', err),
   })
 
   const keluarM = useMutation({
@@ -184,6 +204,9 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
       hapus: (item) => setHapus(item),
       cekUlang: (item) => void cekUlang(item),
       sedangCek,
+      tambahKlien: () => setDialogKlien(null),
+      ubahKlien: (k) => setDialogKlien(k),
+      hapusKlien: (k) => setHapusKlien(k),
     }),
     [cekUlang, sedangCek],
   )
@@ -208,13 +231,19 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
   }, [])
 
   const items = q.data ?? []
-  const muat: Muat = q.data
-    ? { status: 'siap' }
-    : q.isError
-      ? { status: 'galat', pesan: pesanGalat(q.error), cobaLagi: () => void q.refetch() }
-      : { status: 'memuat' }
+  const klien = kq.data ?? []
+  const muat: Muat =
+    q.data && kq.data
+      ? { status: 'siap' }
+      : q.isError || kq.isError
+        ? {
+            status: 'galat',
+            pesan: pesanGalat(q.error ?? kq.error),
+            cobaLagi: () => void Promise.all([q.refetch(), kq.refetch()]),
+          }
+        : { status: 'memuat' }
 
-  const props = { items, saring, setSaring, aksi, muat, akun }
+  const props = { items, klien, saring, setSaring, aksi, muat, akun }
 
   return (
     <>
@@ -224,7 +253,7 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           key={sheet.mode === 'ubah' ? sheet.item.id : 'baru'}
           buka={sheet}
           phone={phone}
-          klien={daftarKlien(items).map((k) => k.nama)}
+          klien={klien}
           onClose={() => setSheet(null)}
           onSaved={(it, baru) => {
             setSheet(null)
@@ -244,6 +273,34 @@ function Dasbor({ pengguna, onKeluar }: { pengguna: Pengguna; onKeluar: (pesan: 
           onYa={() => hapusM.mutate(hapus)}
         >
           <b>{hapus.nama}</b> akan dihapus dari daftar dan dari kalender. Tindakan ini tidak dapat dibatalkan.
+        </ConfirmDialog>
+      ) : null}
+      {dialogKlien !== undefined ? (
+        <KlienDialog
+          key={dialogKlien?.id ?? 'baru'}
+          klien={dialogKlien ?? undefined}
+          onClose={() => setDialogKlien(undefined)}
+          onSaved={(k, baru) => {
+            setDialogKlien(undefined)
+            toast.ok(baru ? 'Klien ditambahkan.' : 'Perubahan disimpan.', k.nama)
+            if (baru) setSaring((s) => ({ ...s, klien: k.id }))
+            void segarkan()
+          }}
+        />
+      ) : null}
+      {hapusKlien ? (
+        <ConfirmDialog
+          judul="Hapus klien ini?"
+          tombol="Hapus klien"
+          tombolSedang="Menghapus"
+          sedang={hapusKlienM.isPending}
+          onBatal={() => setHapusKlien(null)}
+          onYa={() => hapusKlienM.mutate(hapusKlien)}
+        >
+          <b>{hapusKlien.nama}</b> akan dihapus.{' '}
+          {hapusKlien.jumlah_aset > 0
+            ? `${hapusKlien.jumlah_aset} asetnya tetap tersimpan, tanpa klien.`
+            : 'Klien ini belum punya aset.'}
         </ConfirmDialog>
       ) : null}
       {hapusAkun ? (

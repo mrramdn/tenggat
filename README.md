@@ -23,6 +23,7 @@ yang punya website atau toko online, dan tim IT kecil.
 - Sertifikat TLS dibaca langsung dari server (port 443) dan dicek ulang berkala; kegagalan cek ikut tercatat.
 - Ekspor kalender `.ics` dengan pengingat 30 dan 7 hari sebelumnya.
 - Filter per status dan klien, ringkasan jumlah per status.
+- Daftar klien sendiri: tambah, ubah, dan hapus klien, lengkap dengan jumlah aset dan biaya perpanjangan 30 hari.
 - Hanya menyimpan nama dan tanggal aset; nilai token atau kata sandi layanan tidak pernah disimpan.
 - Host yang mengarah ke alamat lokal atau privat ditolak, sehingga fitur cek tidak bisa dipakai untuk mengintip
   jaringan internal (SSRF).
@@ -105,7 +106,7 @@ Semua lewat http://localhost:8080 (nginx meneruskan ke `api`). Selain `/health`,
 | `DELETE /api/sesi` | Keluar | 204 |
 | `GET /api/saya` | Akun yang sedang masuk | 200, 401 |
 | `DELETE /api/saya` | Hapus akun beserta semua asetnya | 204, 401 |
-| `GET /api/item?status=&klien=` | Daftar aset, urut tenggat terdekat | 200 |
+| `GET /api/item?status=&klien=&klien_id=` | Daftar aset, urut tenggat terdekat | 200, 422 |
 | `POST /api/item` | Tambah aset; sertifikat dibaca dari server | 201 + `Location`, 400, 422, 429 |
 | `GET /api/item/{id}` | Satu aset | 200, 404 |
 | `PUT /api/item/{id}` | Ubah aset, misalnya setelah diperpanjang | 200, 404, 422 |
@@ -114,6 +115,13 @@ Semua lewat http://localhost:8080 (nginx meneruskan ke `api`). Selain `/health`,
 | `GET /api/sertifikat?host=` | Pratinjau sertifikat sebelum disimpan | 200, 422, 429 |
 | `GET /api/ringkasan` | Jumlah aset per status dan daftar klien | 200 |
 | `GET /api/kalender.ics` | File kalender untuk semua aset | 200 |
+| `GET /api/klien` | Daftar klien dengan jumlah aset, tenggat terdekat, dan biaya 30 hari | 200 |
+| `POST /api/klien` | Tambah klien (`nama`, `catatan`) | 201 + `Location`, 409, 422, 429 |
+| `PUT /api/klien/{id}` | Ubah nama atau catatan klien | 200, 404, 409, 422 |
+| `DELETE /api/klien/{id}` | Hapus klien; asetnya tetap ada, tanpa klien | 204, 404 |
+
+Aset menerima `klien_id` atau `klien` (nama). Nama yang belum ada menjadi klien baru, `""` berarti tanpa klien. Nama
+klien unik per akun tanpa membedakan huruf besar dan kecil.
 
 Contoh dengan curl (cookie sesi disimpan di `sesi.txt`):
 
@@ -127,7 +135,7 @@ curl -i -b sesi.txt -X POST http://localhost:8080/api/item \
   -d '{"jenis":"sertifikat","klien":"Pribadi","host":"example.com"}'
 ```
 
-`GET /api/item` dan `GET /api/ringkasan` membawa header `X-Cache: HIT` atau `MISS` dari Redis.
+`GET /api/item`, `GET /api/ringkasan`, dan `GET /api/klien` membawa header `X-Cache: HIT` atau `MISS` dari Redis.
 
 ## Data dan privasi
 

@@ -2,11 +2,12 @@
 // host; "Ambil dari server" shows what the server sends before saving.
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ApiError, api, type Item, type ItemInput, type Jenis, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
+import { ApiError, api, type Item, type ItemInput, type Jenis, type Klien, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
 import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis } from '../lib/format'
 import { useModal } from '../hooks/useModal'
 import { pesanGalat } from './Toasts'
 import { Icon } from './Icon'
+import { KlienPicker, type PilihanKlien } from './KlienPicker'
 import type { BukaTambah } from './types'
 import { Pill } from './ui'
 
@@ -14,7 +15,7 @@ export type ModeSheet = { mode: 'tambah'; awal: BukaTambah } | { mode: 'ubah'; i
 
 interface Props {
   buka: ModeSheet
-  klien: string[]
+  klien: Klien[]
   phone: boolean
   onClose: () => void
   onSaved: (it: Item, baru: boolean) => void
@@ -155,7 +156,9 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const [host, setHost] = useState(item?.host ?? awal?.host ?? '')
   const [nama, setNama] = useState(item ? item.nama : '')
   const [namaDisentuh, setNamaDisentuh] = useState(!!item && item.nama !== item.host)
-  const [klienNya, setKlien] = useState(item?.klien ?? '')
+  const [klienNya, setKlien] = useState<PilihanKlien>(
+    item ? { id: item.klien_id, nama: item.klien } : { id: awal?.klien?.id ?? null, nama: awal?.klien?.nama ?? '' },
+  )
   const [kedaluwarsa, setKedaluwarsa] = useState(item && item.sumber === 'manual' ? item.kedaluwarsa : '')
   const [biaya, setBiaya] = useState(item?.biaya != null ? String(item.biaya) : '')
   const [hasil, setHasil] = useState<Hasil>(item ? dariItem(item) : { status: 'kosong' })
@@ -163,6 +166,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const [galatUmum, setGalatUmum] = useState<string | null>(null)
 
   const sertifikat = jenis === 'sertifikat'
+  const klienBaru = !klienNya.id && klienNya.nama.trim() !== ''
   // A certificate the server could not read can still be saved with a date typed by hand.
   const cadangan = sertifikat && !!galat.host && host.trim() !== '' && hasil.status !== 'memuat'
   const namaTampil = sertifikat && !namaDisentuh ? host.trim() : nama
@@ -232,7 +236,11 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   function kirim() {
     if (!bisaSimpan) return
     setGalatUmum(null)
-    const dasar = { klien: klienNya.trim(), biaya: biayaAngka, catatan: item?.catatan ?? '' }
+    const dasar = {
+      ...(klienNya.id ? { klien_id: klienNya.id } : { klien: klienNya.nama.trim() }),
+      biaya: biayaAngka,
+      catatan: item?.catatan ?? '',
+    }
     let input: ItemInput
     if (sertifikat && cadangan) {
       input = { ...dasar, jenis: 'lainnya', nama: namaDisentuh && nama.trim() ? nama.trim() : host.trim(), kedaluwarsa }
@@ -415,26 +423,23 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                 <label className="field__label" htmlFor={id('klien')}>
                   Klien
                 </label>
-                <input
+                <KlienPicker
                   id={id('klien')}
-                  className="control is-combo"
-                  list={id('klien-list')}
-                  placeholder="Pilih klien"
-                  autoComplete="off"
+                  klien={klien}
                   value={klienNya}
-                  aria-invalid={!!galat.klien}
-                  aria-describedby={galat.klien ? id('klien-e') : undefined}
-                  onChange={(e) => {
-                    setKlien(e.target.value)
+                  invalid={!!galat.klien}
+                  describedBy={galat.klien ? id('klien-e') : klienBaru ? id('klien-h') : undefined}
+                  onChange={(v) => {
+                    setKlien(v)
                     hapusGalat('klien')
                   }}
                 />
-                <datalist id={id('klien-list')}>
-                  {klien.map((k) => (
-                    <option key={k} value={k} />
-                  ))}
-                </datalist>
                 <FieldError id={id('klien-e')} pesan={galat.klien} />
+                {klienBaru && !galat.klien ? (
+                  <div className="field__hint" id={id('klien-h')}>
+                    Klien baru, dibuat saat aset disimpan.
+                  </div>
+                ) : null}
               </div>
             </div>
 

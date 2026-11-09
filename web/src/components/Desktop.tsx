@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react'
 import type { Item, Jenis, Sumber } from '../lib/api'
 import {
   adaSaring,
-  daftarKlien,
   hitungStatus,
   judul,
   kalimatBiaya,
@@ -25,6 +24,7 @@ import {
 import { AkunSidebar } from './Akun'
 import { EmptyState } from './EmptyState'
 import { Icon, ikonJenis } from './Icon'
+import { KlienKepala } from './KlienKepala'
 import { TautanKalender } from './TautanKalender'
 import { RowMenu } from './RowMenu'
 import { Timeline } from './Timeline'
@@ -44,9 +44,9 @@ export function fokusKlien() {
   }
 }
 
-function Sidebar({ items, saring, setSaring, muat, akun }: LayarProps & { muat: Muat['status'] }) {
+function Sidebar({ items, klien, saring, setSaring, aksi, muat, akun }: LayarProps & { muat: Muat['status'] }) {
   const siap = muat === 'siap'
-  const klien = daftarKlien(items)
+  const adaAset = items.length > 0
   return (
     <aside className="side">
       <div className="wordmark">tenggat</div>
@@ -82,7 +82,7 @@ function Sidebar({ items, saring, setSaring, muat, akun }: LayarProps & { muat: 
           Aset
           <span className="count num">{siap ? items.length : ''}</span>
         </button>
-        <button type="button" className="nav__item" title="Saring menurut klien" onClick={fokusKlien} disabled={!siap || klien.length === 0}>
+        <button type="button" className="nav__item" title="Saring menurut klien" onClick={fokusKlien} disabled={!siap || !adaAset || klien.length === 0}>
           <Icon name="users" />
           Klien
           <span className="count num">{siap ? klien.length : ''}</span>
@@ -101,22 +101,31 @@ function Sidebar({ items, saring, setSaring, muat, akun }: LayarProps & { muat: 
               </div>
             ))
           : null}
-        {siap && klien.length === 0 ? <div className="nav__item is-client is-note">Belum ada klien</div> : null}
+        {siap && klien.length === 0 ? (
+          <p className="side-note">Kelompokkan aset per klien untuk melihat tenggat dan biaya perpanjangan tiap klien.</p>
+        ) : null}
         {klien.map((k) => {
-          const aktif = saring.klien === k.nama
+          const aktif = saring.klien === k.id
           return (
             <button
-              key={k.nama}
+              key={k.id}
               type="button"
               className={aktif ? 'nav__item is-client is-active' : 'nav__item is-client'}
               aria-pressed={aktif}
-              onClick={() => setSaring((s) => ({ ...s, klien: aktif ? null : k.nama }))}
+              title={k.nama}
+              onClick={() => setSaring((s) => ({ ...s, klien: aktif ? null : k.id }))}
             >
               <span>{k.nama}</span>
-              <span className="count num">{k.n}</span>
+              <span className="count num">{k.jumlah_aset}</span>
             </button>
           )
         })}
+        {siap ? (
+          <button type="button" className="nav__item is-client is-add" onClick={aksi.tambahKlien}>
+            <Icon name="plus" />
+            <span>Tambah klien</span>
+          </button>
+        ) : null}
       </nav>
       <div className="side__foot">
         <div className="privacy">
@@ -283,11 +292,11 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
 
 const JENIS_UTAMA: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan']
 
-function List({ items, saring, setSaring, aksi }: LayarProps) {
+function List({ items, klien, saring, setSaring, aksi }: LayarProps) {
   const rows = saringItem(items, saring)
   const perJenis = tanpaSaring(items, saring, 'jenis')
   const jenis = items.some((it) => it.jenis === 'lainnya') ? [...JENIS_UTAMA, 'lainnya' as const] : JENIS_UTAMA
-  const klien = daftarKlien(items)
+  const dipilih = klien.find((k) => k.id === saring.klien)
   const [menu, setMenu] = useState<{ it: Item; el: HTMLElement } | null>(null)
   const tutupMenu = useCallback(
     (kembali: boolean) => {
@@ -301,6 +310,7 @@ function List({ items, saring, setSaring, aksi }: LayarProps) {
 
   return (
     <section className="list" aria-label="Daftar aset">
+      {dipilih ? <KlienKepala klien={dipilih} aksi={aksi} /> : null}
       <div className="toolbar">
         <div className="seg" role="radiogroup" aria-label="Jenis aset">
           <button
@@ -335,7 +345,7 @@ function List({ items, saring, setSaring, aksi }: LayarProps) {
           >
             <option value="">Semua klien</option>
             {klien.map((k) => (
-              <option key={k.nama} value={k.nama}>
+              <option key={k.id} value={k.id}>
                 {k.nama}
               </option>
             ))}
@@ -466,7 +476,7 @@ function Skeleton() {
 }
 
 export function Desktop(props: LayarProps & { muat: Muat }) {
-  const { items, saring, aksi, muat } = props
+  const { items, klien, saring, aksi, muat } = props
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   return (
@@ -479,7 +489,7 @@ export function Desktop(props: LayarProps & { muat: Muat }) {
             {kosong ? null : (
               <>
                 <span>/</span>
-                <span>{saring.klien ?? 'Semua klien'}</span>
+                <span>{klien.find((k) => k.id === saring.klien)?.nama ?? 'Semua klien'}</span>
               </>
             )}
           </div>
