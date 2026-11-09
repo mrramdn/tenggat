@@ -54,6 +54,11 @@ Buka http://localhost:8080, lalu buat akun di halaman Daftar. Untuk mengisi data
 `./scripts/isi-data-contoh.sh` membuat akun `contoh@tenggat.id` dengan kata sandi `contoh-tenggat` (hanya untuk
 mencoba di komputer Anda) dan menambahkan delapan aset.
 
+Image `web` dan `api` juga ada di Docker Hub dengan tag `1.0.0` dan `latest`:
+[mrramdn/tenggat-web](https://hub.docker.com/r/mrramdn/tenggat-web) dan
+[mrramdn/tenggat-api](https://hub.docker.com/r/mrramdn/tenggat-api). Untuk memakainya tanpa build, ganti perintah
+terakhir dengan `docker compose pull web api && docker compose up -d`.
+
 Adminer (opsional): `docker compose --profile tools up -d`, lalu buka http://127.0.0.1:8081. Pilih System
 **PostgreSQL**, server `db`, lalu user, kata sandi, dan database dari `.env`.
 
@@ -156,4 +161,4 @@ docker-compose.yml, .env.example
 - Huruf [Geist dan Geist Mono](https://vercel.com/font) (SIL Open Font License 1.1, `web/src/assets/fonts/OFL.txt`)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
 
-<!-- tautan video, artikel, dan Docker Hub menyusul -->
+<!-- tautan video dan artikel menyusul -->
