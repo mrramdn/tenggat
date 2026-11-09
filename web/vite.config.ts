@@ -8,9 +8,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      // changeOrigin stays false so the API sees the same Host as the browser's Origin;
+      // its same-origin check would refuse sign-in otherwise.
       proxy: {
-        '/api': target,
-        '/health': target,
+        '/api': { target, changeOrigin: false },
+        '/health': { target, changeOrigin: false },
       },
     },
   }
