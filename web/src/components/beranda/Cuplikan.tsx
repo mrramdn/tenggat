@@ -2,7 +2,7 @@
 // Decorative: hidden from assistive tech and never focusable. Dates are relative to today so they never go stale.
 import type { Status } from '../../lib/api'
 import { angka, frasaHari, hariIniIso, keTanggal, kelasStatus, statusDariSisa, tanggal, tanggalPendek } from '../../lib/format'
-import { durasi } from '../../lib/api-laporan'
+import { bagianDurasi, durasi } from '../../lib/api-laporan'
 import { Icon, type IconName } from '../Icon'
 import { IkonLaporan } from '../IkonLaporan'
 import { Days, Pill } from '../ui'
@@ -24,10 +24,10 @@ const KLIEN = [
 ]
 
 const TUGAS = [
-  { judul: 'Perpanjang domain', sub: 'Setiap tahun · Rp 285.000', sisa: 4 },
-  { judul: 'Update plugin WordPress', sub: 'Setiap bulan', sisa: 2 },
-  { judul: 'Backup database', sub: 'Setiap minggu', sisa: 5 },
-  { judul: 'Cek formulir pemesanan', sub: 'Setiap bulan', sisa: 19 },
+  { judul: 'Perpanjang domain', sub: 'Tiap tahun · Rp 285.000', sisa: 4 },
+  { judul: 'Update plugin WordPress', sub: 'Tiap bulan', sisa: 2 },
+  { judul: 'Backup database', sub: 'Tiap minggu', sisa: 5 },
+  { judul: 'Cek formulir pemesanan', sub: 'Tiap bulan', sisa: 19 },
 ]
 
 const AKTIVITAS: { ikon: IconName; teks: string; meta: string; hari: number }[] = [
@@ -74,10 +74,7 @@ export function CuplikanRuang() {
                 <b className="num">4</b> aset
               </li>
               <li>
-                <b className="num">4</b> tugas rutin
-              </li>
-              <li>
-                <b className="num">Rp 285.000</b> jatuh tempo bulan ini
+                <b className="num">Rp 285.000</b> jatuh tempo dalam 30 hari
               </li>
             </ul>
           </div>
@@ -103,7 +100,7 @@ export function CuplikanRuang() {
                 </div>
                 <span className="btn btn--secondary is-sm fa__selesai">
                   <Icon name="tick" />
-                  Selesai
+                  Tandai selesai
                 </span>
               </div>
             ))}
@@ -190,7 +187,15 @@ export function CuplikanLaporan() {
             <span className="fl__u">pekerjaan</span>
           </div>
           <div>
-            <span className="fl__n num">{durasi(total)}</span>
+            <span className="fl__n num is-durasi">
+              {bagianDurasi(total).map(([n, s], i) => (
+                <span key={s}>
+                  {i > 0 ? ' ' : ''}
+                  {n}
+                  <span className="fl__satuan"> {s}</span>
+                </span>
+              ))}
+            </span>
             <span className="fl__u">waktu kerja</span>
           </div>
           <div>

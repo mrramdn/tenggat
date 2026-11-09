@@ -82,10 +82,10 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 		fields["jenis"] = "Pilih jenis: sertifikat, domain, token, langganan, atau lainnya."
 	}
 	if utf8.RuneCountInString(in.Klien) > 80 {
-		fields["klien"] = "Nama klien paling panjang 80 karakter."
+		fields["klien"] = "Nama klien maksimal 80 karakter."
 	}
 	if utf8.RuneCountInString(in.Catatan) > 500 {
-		fields["catatan"] = "Catatan paling panjang 500 karakter."
+		fields["catatan"] = "Catatan maksimal 500 karakter."
 	}
 	if in.Biaya != nil && (*in.Biaya < 0 || *in.Biaya > 1_000_000_000_000) {
 		fields["biaya"] = "Biaya harus angka rupiah 0 atau lebih."
@@ -128,7 +128,7 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 	// A certificate without a valid host has no default name yet; the host
 	// message already explains what to fix.
 	if n := utf8.RuneCountInString(in.Nama); (n < 2 || n > 120) && !(in.Jenis == "sertifikat" && n == 0) {
-		fields["nama"] = "Nama harus 2 sampai 120 karakter."
+		fields["nama"] = "Nama minimal 2 dan maksimal 120 karakter."
 	}
 	if len(fields) > 0 {
 		return in, fields
@@ -252,7 +252,7 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 		defer func() {
 			if v := recover(); v != nil {
 				s.Log.Error("panic", "path", redactPath(r.URL.Path), "nilai", v)
-				writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server.", nil)
+				writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server. Coba lagi sebentar lagi.", nil)
 			}
 		}()
 		next.ServeHTTP(w, r)

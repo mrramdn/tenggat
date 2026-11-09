@@ -333,7 +333,8 @@ function Isi({ klienId }: { klienId: string }) {
               {tautanAktif ? 'Aktif. Klien dapat membuka laporan tanpa masuk.' : 'Belum dibuat.'}
             </span>
             <p className="lk__teks">
-              Klien dapat membuka laporan bulan mana pun lewat tautan ini. Catatan internal tidak ikut ditampilkan.
+              Lewat tautan ini klien juga dapat membuka laporan bulan sebelumnya, sejak klien ini dicatat. Catatan internal
+              tidak ikut ditampilkan.
             </p>
           </div>
         </aside>

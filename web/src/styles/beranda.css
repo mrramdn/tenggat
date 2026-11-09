@@ -181,6 +181,10 @@
 .fl__angka > div { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .fl__n { font-size: var(--fs-24); line-height: 1; letter-spacing: var(--track-title); font-weight: var(--fw-medium); white-space: nowrap; }
 .fl__u { font-size: var(--fs-12); color: var(--muted); line-height: var(--lh-16); }
+/* a duration wraps between "3 jam" and "5 menit" rather than running into the next figure */
+.fl__n.is-durasi { white-space: normal; }
+.fl__n.is-durasi > span { white-space: nowrap; }
+.fl__satuan { font-size: var(--fs-14); font-weight: var(--fw-regular); letter-spacing: 0; color: var(--ink-2); }
 .fl__catatan { margin-top: var(--s-4); font-size: var(--fs-13); line-height: var(--lh-20); color: var(--ink-2); text-wrap: pretty; }
 .fl__bagian { margin-top: var(--s-5); padding-bottom: var(--s-2); font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--ink); border-bottom: var(--bw) solid var(--line); }
 .fl__baris {
@@ -303,7 +307,7 @@
   .b-bagian__layar { padding: var(--s-3); margin: 0 calc(-1 * var(--s-3)); border-radius: var(--r-card); }
   .fa__top, .fa__body { padding-left: var(--s-4); padding-right: var(--s-4); }
   .fa__row { grid-template-columns: var(--s-8) minmax(0, 1fr) auto; column-gap: var(--s-3); }
-  .beranda .fa__selesai, .fa__feed-meta, .fa__fakta li:nth-child(3), .fk__kepala span { display: none; }
+  .beranda .fa__selesai, .fa__feed-meta, .fk__kepala span { display: none; }
   .fa__row .sisa { display: block; }
   .fa__row .sisa .pill { display: none; }
   .fa__tabs { gap: var(--s-4); }

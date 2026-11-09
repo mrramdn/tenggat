@@ -72,14 +72,16 @@ export function HalamanLaporan({ token }: { token: string }) {
       ? `Laporan ${l.klien.nama} ${l.label_bulan} · Tenggat`
       : tidakAda
         ? 'Laporan tidak ditemukan · Tenggat'
-        : 'Laporan · Tenggat'
+        : diLuarRentang
+          ? 'Laporan tidak tersedia · Tenggat'
+          : 'Laporan · Tenggat'
     return () => {
       document.title = lama
     }
-  }, [l, tidakAda])
+  }, [l, tidakAda, diLuarRentang])
 
-  const bisaMaju = bulan < terakhir
-  const bisaMundur = !pertama || bulan > pertama
+  const bisaMaju = !diLuarRentang && bulan < terakhir
+  const bisaMundur = !diLuarRentang && (!pertama || bulan > pertama)
 
   return (
     <div className="hl">

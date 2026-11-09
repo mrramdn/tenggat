@@ -38,6 +38,8 @@
 @media (max-width: 1023px) {
   .dialog.kal { width: calc(100vw - var(--s-4)); padding: var(--s-4) var(--s-4) var(--s-4) var(--s-5); max-height: calc(100dvh - var(--s-4)); overflow-y: auto; }
   .kal__buka { align-self: stretch; }
-  .kal__aksi .btn { flex: 1; }
+  .kal__aksi .btn { flex: 1 1 0; min-width: 0; }
+  /* a text button on its own line ("Isi tanggal sendiri") gets a full touch target */
+  .ganti-sumber .btn-teks { min-height: var(--control-lg); }
   .kal__kelola { font-size: var(--fs-14); }
 }

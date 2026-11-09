@@ -196,8 +196,8 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
           Bagikan laporan
         </h2>
         <p className="dialog__text" id={`${uid}-t`}>
-          Klien membuka laporan {labelBulan(bulan)} lewat tautan ini tanpa masuk, lalu dapat memilih bulan lain di
-          halaman itu.
+          Klien membuka laporan {labelBulan(bulan)} lewat tautan ini tanpa masuk. Di halaman itu klien juga dapat
+          membuka laporan bulan sebelumnya.
         </p>
         <div className="kal__isi" aria-live="polite">
           {isi}

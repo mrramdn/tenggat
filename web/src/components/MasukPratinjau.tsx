@@ -23,7 +23,7 @@ const CONTOH: Contoh[] = [
   { nama: 'Domain kopisenja.com', jenis: 'domain', sub: 'Domain · Rp 210.000', klien: 'Kopi Senja', sisa: 72 },
   { nama: 'Token Cloudflare DNS', jenis: 'token', sub: 'Token API', klien: 'Pribadi', sisa: 181 },
   { nama: 'Google Workspace', jenis: 'langganan', sub: 'Langganan · Rp 1.680.000', klien: 'Studio Arsitek Rana', sisa: 214 },
-  { nama: 'tokokuemawar.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt · R10", klien: 'Toko Kue Mawar', sisa: 238 },
+  { nama: 'tokokuemawar.id', jenis: 'sertifikat', sub: "Sertifikat TLS · Let's Encrypt · R10", klien: 'Toko Kue Mawar', sisa: 87 },
   { nama: 'Domain studiorana.co.id', jenis: 'domain', sub: 'Domain · Rp 320.000', klien: 'Studio Arsitek Rana', sisa: 301 },
 ]
 

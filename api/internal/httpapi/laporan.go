@@ -302,7 +302,7 @@ func (s *Server) putCatatanLaporan(w http.ResponseWriter, r *http.Request, u sto
 		fields["bulan"] = "Tulis bulan dengan format TTTT-BB, misalnya 2026-11."
 	}
 	if utf8.RuneCountInString(teks) > 2000 {
-		fields["teks"] = "Catatan laporan paling panjang 2000 karakter."
+		fields["teks"] = "Catatan laporan maksimal 2.000 karakter."
 	}
 	if len(fields) > 0 {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)

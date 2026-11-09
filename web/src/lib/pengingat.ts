@@ -8,10 +8,10 @@ const sebutanJenis: Record<Jenis, string> = {
   domain: 'domain',
   token: 'token API',
   langganan: 'langganan',
-  lainnya: '',
+  lainnya: 'masa berlaku',
 }
 
-/** "domain contoh.co.id", "sertifikat TLS www.contoh.co.id", "Hosting VPS". A name that already starts with its
+/** "domain contoh.co.id", "sertifikat TLS www.contoh.co.id", "masa berlaku Lisensi font". A name that already starts with its
  *  type word ("Domain contoh.co.id", "Token GitHub deploy") keeps its own words, with the type in lower case, so the
  *  type is never said twice. */
 export function sebutAset(it: Pick<Item, 'nama' | 'jenis'>): string {

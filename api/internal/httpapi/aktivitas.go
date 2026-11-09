@@ -121,7 +121,7 @@ func (s *Server) createAktivitas(w http.ResponseWriter, r *http.Request, u store
 	case n == 0:
 		fields["teks"] = "Isi teksnya."
 	case n > 2000:
-		fields["teks"] = "Teks paling panjang 2000 karakter."
+		fields["teks"] = "Teks maksimal 2.000 karakter."
 	}
 	in.Tanggal = s.workDate(req.Tanggal, fields)
 	validDuration(req.DurasiMenit, fields)

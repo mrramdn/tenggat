@@ -11,7 +11,7 @@ set -eu
 BASE="${1:-http://localhost:8080}"
 EMAIL="${TENGGAT_EMAIL:-contoh@tenggat.id}"
 SANDI="${TENGGAT_SANDI:-contoh-tenggat}"
-NAMA="${TENGGAT_NAMA:-Akun Contoh}"
+NAMA="${TENGGAT_NAMA:-Nadia Putri}"
 JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
 

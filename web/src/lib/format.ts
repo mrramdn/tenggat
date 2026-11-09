@@ -48,10 +48,10 @@ export const rupiah = (n: number) => fmtRupiah.format(n)
 
 /** "Lewat 3 hari", "Hari ini", "Besok", "4 hari lagi" */
 export function sisaHari(n: number): string {
-  if (n < 0) return `Lewat ${-n} hari`
+  if (n < 0) return `Lewat ${angka(-n)} hari`
   if (n === 0) return 'Hari ini'
   if (n === 1) return 'Besok'
-  return `${n} hari lagi`
+  return `${angka(n)} hari lagi`
 }
 
 /** "2 jam yang lalu" from an ISO timestamp. */
@@ -121,9 +121,9 @@ export const satuanHari = (n: number) => (n < 0 ? 'hari lewat' : 'hari lagi')
 
 /** "19 hari lagi", "Lewat 3 hari", "Hari ini" */
 export function frasaHari(n: number): string {
-  if (n < 0) return `Lewat ${-n} hari`
+  if (n < 0) return `Lewat ${angka(-n)} hari`
   if (n === 0) return 'Berakhir hari ini'
-  return `${n} hari lagi`
+  return `${angka(n)} hari lagi`
 }
 
 /** "baru saja", "12 menit lalu", "2 jam lalu", "3 hari lalu" */

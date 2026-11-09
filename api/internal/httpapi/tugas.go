@@ -90,13 +90,13 @@ func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID str
 	klien := strings.TrimSpace(req.Klien)
 	fields := map[string]string{}
 	if n := utf8.RuneCountInString(in.Judul); n < 2 || n > 120 {
-		fields["judul"] = "Judul harus 2 sampai 120 karakter."
+		fields["judul"] = "Judul minimal 2 dan maksimal 120 karakter."
 	}
 	if utf8.RuneCountInString(in.Catatan) > 500 {
-		fields["catatan"] = "Catatan paling panjang 500 karakter."
+		fields["catatan"] = "Catatan maksimal 500 karakter."
 	}
 	if utf8.RuneCountInString(klien) > 80 {
-		fields["klien"] = "Nama klien paling panjang 80 karakter."
+		fields["klien"] = "Nama klien maksimal 80 karakter."
 	}
 	if req.UlangJumlah != nil {
 		in.UlangJumlah = *req.UlangJumlah
@@ -273,7 +273,7 @@ func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.P
 	req.Catatan = strings.TrimSpace(req.Catatan)
 	fields := map[string]string{}
 	if utf8.RuneCountInString(req.Catatan) > 500 {
-		fields["catatan"] = "Catatan paling panjang 500 karakter."
+		fields["catatan"] = "Catatan maksimal 500 karakter."
 	}
 	validDuration(req.DurasiMenit, fields)
 	tanggal := s.workDate(req.Tanggal, fields)

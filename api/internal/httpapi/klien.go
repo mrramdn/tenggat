@@ -63,10 +63,10 @@ func (req klienRequest) validate() (nama, catatan string, fields map[string]stri
 	case n == 0:
 		fields["nama"] = "Isi nama klien."
 	case n > 80:
-		fields["nama"] = "Nama klien paling panjang 80 karakter."
+		fields["nama"] = "Nama klien maksimal 80 karakter."
 	}
 	if utf8.RuneCountInString(catatan) > 500 {
-		fields["catatan"] = "Catatan paling panjang 500 karakter."
+		fields["catatan"] = "Catatan maksimal 500 karakter."
 	}
 	if len(fields) == 0 {
 		fields = nil
