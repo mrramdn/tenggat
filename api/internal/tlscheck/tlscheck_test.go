@@ -161,7 +161,7 @@ func TestCheckReadsExpiredCertificate(t *testing.T) {
 	if !res.NotAfter.Equal(notAfter) {
 		t.Errorf("NotAfter = %v, want %v", res.NotAfter, notAfter)
 	}
-	if res.Issuer != "Tenggat Test expired.test" {
+	if res.Issuer != "Tenggat Test · expired.test" {
 		t.Errorf("Issuer = %q", res.Issuer)
 	}
 }
@@ -223,4 +223,24 @@ func TestCheckLiveHost(t *testing.T) {
 		t.Errorf("unexpected result: %+v", res)
 	}
 	t.Logf("example.com: %s, ends %s, via %s", res.Issuer, res.NotAfter.Format(time.DateOnly), res.Address)
+}
+
+func TestIssuerName(t *testing.T) {
+	for _, c := range []struct{ org, cn, want string }{
+		{"Sectigo Limited", "Sectigo Public Server Authentication CA DV E36", "Sectigo Public Server Authentication CA DV E36"},
+		{"Amazon", "Amazon RSA 2048 M04", "Amazon RSA 2048 M04"},
+		{"Let's Encrypt", "R12", "Let's Encrypt · R12"},
+		{"Google Trust Services", "WE1", "Google Trust Services · WE1"},
+		{"", "Root CA", "Root CA"},
+		{"DigiCert Inc", "", "DigiCert Inc"},
+		{"Same", "Same", "Same"},
+	} {
+		cert := &x509.Certificate{Issuer: pkix.Name{CommonName: c.cn}}
+		if c.org != "" {
+			cert.Issuer.Organization = []string{c.org}
+		}
+		if got := issuerName(cert); got != c.want {
+			t.Errorf("issuerName(%q, %q) = %q, want %q", c.org, c.cn, got, c.want)
+		}
+	}
 }

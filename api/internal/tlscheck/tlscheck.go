@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 )
@@ -209,17 +210,26 @@ func (c *Checker) Check(ctx context.Context, rawHost string) (*Result, error) {
 	return res, nil
 }
 
-// issuerName joins the issuer's organisation and common name, for example
-// "Let's Encrypt R12" or "Google Trust Services WE1".
+// issuerName names the certificate's issuer from its organisation and common
+// name without repeating a word: "Sectigo Limited" and "Sectigo Public Server
+// Authentication CA DV E36" give the common name alone, "Let's Encrypt" and
+// "R12" give "Let's Encrypt · R12".
 func issuerName(cert *x509.Certificate) string {
-	parts := make([]string, 0, 2)
+	cn := strings.TrimSpace(cert.Issuer.CommonName)
+	org := ""
 	if len(cert.Issuer.Organization) > 0 {
-		parts = append(parts, cert.Issuer.Organization[0])
+		org = strings.TrimSpace(cert.Issuer.Organization[0])
 	}
-	if cn := cert.Issuer.CommonName; cn != "" && (len(parts) == 0 || cn != parts[0]) {
-		parts = append(parts, cn)
+	switch {
+	case org == "":
+		return cn
+	case cn == "" || cn == org:
+		return org
 	}
-	return strings.Join(parts, " ")
+	if first := strings.Fields(org); len(first) > 0 && slices.Contains(strings.Fields(strings.ToLower(cn)), strings.ToLower(first[0])) {
+		return cn
+	}
+	return org + " · " + cn
 }
 
 // preferIPv4 picks an IPv4 address when there is one: Docker bridge networks
