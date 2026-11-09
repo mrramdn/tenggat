@@ -123,7 +123,7 @@ services:
 
   # Alat bantu, hanya jalan dengan: docker compose --profile tools up -d
   adminer:
-    image: adminer:5.5.1
+    image: adminer:6.3.0
     profiles:
       - tools
     ports:
