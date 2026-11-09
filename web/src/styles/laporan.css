@@ -61,7 +61,7 @@
 
 /* figures */
 .lap__angka {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr);
+  display: grid; grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.25fr) minmax(0, 0.95fr) minmax(0, 1.5fr);
   border-top: var(--bw) solid var(--line-strong); border-bottom: var(--bw) solid var(--line);
 }
 .lap__fig { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-4) var(--s-4) var(--s-4) var(--s-4); border-left: var(--bw) solid var(--line); min-width: 0; }
@@ -69,6 +69,11 @@
 .lap__fig-label { font-size: var(--fs-12); color: var(--muted); }
 .lap__fig-n { font-size: var(--fs-28); line-height: 1.1; letter-spacing: var(--track-display); font-weight: var(--fw-medium); overflow-wrap: anywhere; }
 .lap__fig-sub { font-size: var(--fs-12); color: var(--muted); }
+.lap__fig-n.is-durasi { white-space: nowrap; }
+.lap__fig-satuan { font-size: var(--fs-14); letter-spacing: 0; color: var(--ink-2); }
+/* A month that has ended: three figures (work, time, renewals). */
+.lap__angka.is-lampau { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lap__catatan-lampau { padding: var(--s-2) 0 var(--s-3); font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted); }
 .lap__status { display: flex; flex-direction: column; gap: var(--s-2); padding-top: var(--s-3); }
 .lap__bar { display: flex; gap: var(--s-0); height: var(--bar-h); border-radius: var(--r-pill); overflow: hidden; }
 .lap__bar-seg { flex: 1 1 0; min-width: var(--s-1); }
@@ -120,7 +125,7 @@
 .lk { display: flex; flex-direction: column; gap: var(--s-5); }
 .lk__alat { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3); }
 .lk__bulan { display: flex; align-items: center; gap: var(--s-2); }
-.lk__bulan select.control { width: var(--select-min-w); }
+.lk__bulan .picker { width: var(--select-min-w); }
 .lk__aksi { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
 .lk__isi { display: grid; grid-template-columns: minmax(0, 1fr) var(--lk-panel-w); gap: var(--s-6); align-items: start; }
 .lk__pratinjau { padding: var(--s-6); border-radius: var(--r-card); background: var(--surface-3); min-width: 0; }
@@ -149,8 +154,12 @@ textarea.control.lk__editor {
 .lk__galat b { font-weight: var(--fw-medium); }
 .lk__galat span { color: var(--muted); font-size: var(--fs-13); }
 
-/* share dialog: the calendar dialog's layout (registri.css) with this text */
+/* share dialog: the calendar dialog's layout (registri.css) with this text, and the 16px side margin of the
+   other dialogs on narrow screens */
 .dialog.kal .kal__url { min-width: 0; }
+@media (max-width: 1023px) {
+  .dialog.kal.lap-bagikan { width: calc(100vw - var(--s-6)); padding: var(--s-5); max-height: calc(100dvh - var(--s-6)); }
+}
 
 /* ---------- public page ---------- */
 .hl { min-height: 100vh; min-height: 100dvh; background: var(--paper); display: flex; flex-direction: column; }
@@ -158,7 +167,7 @@ textarea.control.lk__editor {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
   height: var(--s-9); padding: 0 var(--s-6);
-  background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(8px);
+  background: var(--paper);
   border-bottom: var(--bw) solid var(--line);
 }
 .hl__kepala .wordmark { padding: 0; font-size: var(--fs-20); text-decoration: none; }
@@ -173,10 +182,7 @@ textarea.control.lk__editor {
 .hl__muat { max-width: var(--lap-w); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--lap-py) var(--lap-px); background: var(--surface); border-radius: var(--r-xs); box-shadow: var(--shadow-panel); }
 
 /* ---------- notification settings ---------- */
-.notif { display: flex; flex-direction: column; gap: var(--s-4); max-width: var(--measure-form); }
-.notif__kepala { display: flex; flex-direction: column; gap: var(--s-1); }
-.notif__judul { font-size: var(--fs-16); font-weight: var(--fw-medium); letter-spacing: var(--track-title); line-height: var(--lh-24); }
-.notif__teks { font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted); text-wrap: pretty; }
+.notif { display: flex; flex-direction: column; gap: var(--s-4); }
 .notif__petunjuk li { overflow-wrap: anywhere; }
 .notif__petunjuk { display: flex; flex-direction: column; gap: var(--s-1); list-style: none; font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted); }
 .notif__petunjuk b { color: var(--ink-2); font-weight: var(--fw-medium); }
@@ -209,7 +215,7 @@ textarea.control.lk__editor {
 }
 @media (max-width: 1023px) {
   .lk__alat { flex-direction: column; align-items: stretch; }
-  .lk__bulan select.control { flex: 1; width: auto; min-width: 0; }
+  .lk__bulan .picker { flex: 1; width: auto; min-width: 0; }
   .lk__aksi .btn { flex: 1 1 auto; }
   .lk__aksi .btn--primary { flex-basis: 100%; }
   .lk__pratinjau, .lk__muat { padding: 0; background: none; }

@@ -1,9 +1,11 @@
 // The monthly client report as a document: the same view in the owner's Laporan tab, on the public link and on
 // paper. CetakLaporan puts a copy straight under <body> so the browser prints only the document (laporan.css).
 import { createPortal } from 'react-dom'
-import type { Laporan } from '../lib/api-laporan'
+import { bagianDurasi, durasi, type Laporan } from '../lib/api-laporan'
 import { kelasStatus, labelJenis, labelStatus, rupiahBiasa, sisaHari, tanggal, urutanStatus } from '../lib/format'
 import { Pill } from './ui'
+
+export { durasi }
 import '../styles/laporan.css'
 
 const fmtDibuat = new Intl.DateTimeFormat('id-ID', {
@@ -30,12 +32,20 @@ function periode(bulan: string, label: string): string {
   return `1 sampai ${akhir} ${label}`
 }
 
-/** "45 menit", "2 jam", "1 jam 30 menit" */
-export function durasi(menit: number): string {
-  const j = Math.floor(menit / 60)
-  const m = menit % 60
-  if (j === 0) return `${m} menit`
-  return m === 0 ? `${j} jam` : `${j} jam ${m} menit`
+
+/** A duration as a big figure: the numbers large, "jam" and "menit" in the label size. */
+function DurasiAngka({ menit }: { menit: number }) {
+  return (
+    <>
+      {bagianDurasi(menit).map(([n, s], i) => (
+        <span key={s}>
+          {i > 0 ? ' ' : ''}
+          {n}
+          <span className="lap__fig-satuan"> {s}</span>
+        </span>
+      ))}
+    </>
+  )
 }
 
 const jenisTeks = (j: string) => (j === 'tugas' ? 'Tugas rutin' : (labelJenis as Record<string, string>)[j] ?? j)
@@ -80,6 +90,10 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
   const totalStatus = urutanStatus.reduce((n, s) => n + r.per_status[s], 0)
   const biaya60 = l.jatuh_tempo.reduce((n, j) => n + (j.biaya ?? 0), 0)
   const menitDicatat = l.pekerjaan.reduce((n, p) => n + (p.durasi_menit ?? 0), 0)
+  const entriBerdurasi = l.pekerjaan.filter((p) => p.durasi_menit).length
+  // A month that has ended shows its own work and renewals; assets can only be shown as they are today.
+  const lampau = l.lampau === true
+  const perHariIni = l.per_tanggal ? tanggal(l.per_tanggal) : 'hari ini'
 
   return (
     <article className="lap" aria-label={`Laporan ${l.klien.nama}, ${l.label_bulan}`}>
@@ -123,33 +137,45 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
 
       <section className="lap__bagian" aria-label="Angka bulan ini">
         <S className="sr-only">Angka bulan ini</S>
-        <div className="lap__angka">
+        <div className={lampau ? 'lap__angka is-lampau' : 'lap__angka'}>
           <div className="lap__fig">
             <span className="lap__fig-label">Pekerjaan</span>
             <span className="lap__fig-n num">{r.pekerjaan}</span>
             <span className="lap__fig-sub">entri bulan ini</span>
           </div>
           <div className="lap__fig">
-            <span className="lap__fig-label">{r.menit >= 60 ? 'Jam kerja' : 'Waktu kerja'}</span>
-            <span className="lap__fig-n num">
-              {r.menit >= 60 ? (Math.round(r.menit / 6) / 10).toLocaleString('id-ID') : r.menit}
+            <span className="lap__fig-label">Waktu kerja</span>
+            <span className="lap__fig-n num is-durasi">
+              <DurasiAngka menit={r.menit} />
             </span>
-            <span className="lap__fig-sub">{r.menit >= 60 ? durasi(r.menit) : 'menit tercatat'}</span>
-          </div>
-          <div className="lap__fig">
-            <span className="lap__fig-label">Aset</span>
-            <span className="lap__fig-n num">{r.jumlah_aset}</span>
             <span className="lap__fig-sub">
-              {r.jumlah_aset === 0 ? 'belum ada aset' : perluTindakan === 0 ? 'semua aman' : `${perluTindakan} perlu tindakan`}
+              {r.menit > 0 ? `dari ${entriBerdurasi} entri` : 'tidak ada durasi tercatat'}
             </span>
           </div>
-          <div className="lap__fig">
-            <span className="lap__fig-label">Biaya 30 hari</span>
-            <span className="lap__fig-n num">{rupiahBiasa(r.biaya_30_hari)}</span>
-            <span className="lap__fig-sub">perpanjangan jatuh tempo</span>
-          </div>
+          {lampau ? (
+            <div className="lap__fig">
+              <span className="lap__fig-label">Perpanjangan</span>
+              <span className="lap__fig-n num">{l.perpanjangan.length}</span>
+              <span className="lap__fig-sub">bulan ini</span>
+            </div>
+          ) : (
+            <>
+              <div className="lap__fig">
+                <span className="lap__fig-label">Aset</span>
+                <span className="lap__fig-n num">{r.jumlah_aset}</span>
+                <span className="lap__fig-sub">
+                  {r.jumlah_aset === 0 ? 'belum ada aset' : perluTindakan === 0 ? 'semua aman' : `${perluTindakan} perlu tindakan`}
+                </span>
+              </div>
+              <div className="lap__fig">
+                <span className="lap__fig-label">Biaya 30 hari</span>
+                <span className="lap__fig-n num">{r.biaya_30_hari > 0 ? rupiahBiasa(r.biaya_30_hari) : 'Tidak ada'}</span>
+                <span className="lap__fig-sub">perpanjangan jatuh tempo</span>
+              </div>
+            </>
+          )}
         </div>
-        {totalStatus > 0 ? (
+        {totalStatus > 0 && !lampau ? (
           <div className="lap__status">
             <div className="lap__bar" aria-hidden="true">
               {urutanStatus.map((s) =>
@@ -239,51 +265,58 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
         )}
       </section>
 
-      <section className="lap__bagian">
-        <div className="lap__judul-bagian">
-          <S className="lap__sub">Jatuh tempo 60 hari ke depan</S>
-          {biaya60 > 0 ? <span className="lap__total">Perkiraan biaya {rupiahBiasa(biaya60)}</span> : null}
-        </div>
-        {l.jatuh_tempo.length === 0 ? (
-          <p className="lap__kosong">Tidak ada aset atau tugas yang jatuh tempo dalam 60 hari ke depan.</p>
-        ) : (
-          <table className="lap-tabel t-tempo">
-            <thead>
-              <tr>
-                <th scope="col" className="k-tgl">Tanggal</th>
-                <th scope="col">Aset atau tugas</th>
-                <th scope="col" className="k-sisa">Sisa</th>
-                <th scope="col" className="k-status">Status</th>
-                <th scope="col" className="k-angka">Biaya</th>
-              </tr>
-            </thead>
-            <tbody>
-              {l.jatuh_tempo.map((j, i) => (
-                <tr key={i}>
-                  <td className="k-tgl num">{tanggal(j.tanggal)}</td>
-                  <td className="k-utama">
-                    <span className="lap__teks lap__nama">{j.nama}</span>
-                    <span className="lap__kecil">{jenisTeks(j.jenis)}</span>
-                  </td>
-                  <td className={j.sisa_hari < 0 ? 'k-sisa num is-lewat' : 'k-sisa num'}>{sisaHari(j.sisa_hari)}</td>
-                  <td className="k-status">
-                    <Pill status={j.status} />
-                  </td>
-                  <td className="k-angka num" data-label="Biaya">
-                    {j.biaya != null ? rupiahBiasa(j.biaya) : <span className="k-kosong">-</span>}
-                  </td>
+      {lampau ? null : (
+        <section className="lap__bagian">
+          <div className="lap__judul-bagian">
+            <S className="lap__sub">Jatuh tempo 60 hari ke depan</S>
+            {biaya60 > 0 ? <span className="lap__total">Perkiraan biaya {rupiahBiasa(biaya60)}</span> : null}
+          </div>
+          {l.jatuh_tempo.length === 0 ? (
+            <p className="lap__kosong">Tidak ada aset atau tugas yang jatuh tempo dalam 60 hari ke depan.</p>
+          ) : (
+            <table className="lap-tabel t-tempo">
+              <thead>
+                <tr>
+                  <th scope="col" className="k-tgl">Tanggal</th>
+                  <th scope="col">Aset atau tugas</th>
+                  <th scope="col" className="k-sisa">Sisa</th>
+                  <th scope="col" className="k-status">Status</th>
+                  <th scope="col" className="k-angka">Biaya</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+              </thead>
+              <tbody>
+                {l.jatuh_tempo.map((j, i) => (
+                  <tr key={i}>
+                    <td className="k-tgl num">{tanggal(j.tanggal)}</td>
+                    <td className="k-utama">
+                      <span className="lap__teks lap__nama">{j.nama}</span>
+                      <span className="lap__kecil">{jenisTeks(j.jenis)}</span>
+                    </td>
+                    <td className={j.sisa_hari < 0 ? 'k-sisa num is-lewat' : 'k-sisa num'}>{sisaHari(j.sisa_hari)}</td>
+                    <td className="k-status">
+                      <Pill status={j.status} />
+                    </td>
+                    <td className="k-angka num" data-label="Biaya">
+                      {j.biaya != null ? rupiahBiasa(j.biaya) : <span className="k-kosong">-</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
 
       <section className="lap__bagian">
         <div className="lap__judul-bagian">
-          <S className="lap__sub">Daftar aset</S>
+          <S className="lap__sub">{lampau ? `Daftar aset per ${perHariIni}` : 'Daftar aset'}</S>
           {l.aset.length > 0 ? <span className="lap__total">{l.aset.length} aset</span> : null}
         </div>
+        {lampau && l.aset.length > 0 ? (
+          <p className="lap__catatan-lampau">
+            Tanggal berakhir dan status di daftar ini adalah keadaan {perHariIni}, bukan akhir {l.label_bulan}.
+          </p>
+        ) : null}
         {l.aset.length === 0 ? (
           <p className="lap__kosong">Belum ada aset yang dicatat untuk klien ini.</p>
         ) : (

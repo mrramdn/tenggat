@@ -2,7 +2,7 @@
 // then print it, share a read-only link or send a short message through WhatsApp.
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { KUNCI_KLIEN, klienApi, type Klien } from '../../lib/api'
+import { ApiError, KUNCI_KLIEN, klienApi, type Klien } from '../../lib/api'
 import {
   bulanIni,
   daftarBulan,
@@ -38,14 +38,15 @@ export function teksWhatsApp(l: Laporan, url: string | null): string {
   if (r.pekerjaan > 0) fakta.push(`${r.pekerjaan} pekerjaan${r.menit > 0 ? ` (${durasi(r.menit)})` : ''}`)
   if (l.perpanjangan.length > 0) fakta.push(`${l.perpanjangan.length} perpanjangan`)
   const baris = [`Halo, berikut laporan bulanan ${l.klien.nama} untuk ${l.label_bulan}.`, '']
-  baris.push(fakta.length > 0 ? `Bulan ini tercatat ${gabung(fakta)}.` : 'Bulan ini tidak ada pekerjaan yang dicatat.')
-  if (l.jatuh_tempo.length > 0) {
+  const kapan = l.lampau ? `Pada ${l.label_bulan}` : 'Bulan ini'
+  baris.push(fakta.length > 0 ? `${kapan} tercatat ${gabung(fakta)}.` : `${kapan} tidak ada pekerjaan yang dicatat.`)
+  if (!l.lampau && l.jatuh_tempo.length > 0) {
     const biaya = l.jatuh_tempo.reduce((n, j) => n + (j.biaya ?? 0), 0)
     baris.push(
       `Dalam 60 hari ke depan ada ${l.jatuh_tempo.length} jatuh tempo${biaya > 0 ? ` dengan perkiraan biaya ${rupiahBiasa(biaya)}` : ''}.`,
     )
   }
-  if (r.per_status.lewat > 0) baris.push(`${r.per_status.lewat} aset sudah melewati tanggal berakhir dan perlu segera diperpanjang.`)
+  if (!l.lampau && r.per_status.lewat > 0) baris.push(`${r.per_status.lewat} aset sudah melewati tanggal berakhir dan perlu segera diperpanjang.`)
   baris.push('')
   baris.push(url ? `Laporan lengkap: ${url}` : 'Laporan lengkap saya kirim dalam bentuk PDF.')
   baris.push('', 'Terima kasih.')
@@ -151,10 +152,16 @@ function Isi({ klienId }: { klienId: string }) {
     setBulan(b)
   }
 
-  // ---------- month picker ----------
-  const pilihan = daftarBulan(kini)
+  // ---------- month picker: the client's first month up to this month ----------
+  const batas = useRef<{ pertama?: string; terakhir?: string }>({})
+  if (q.data && !q.isPlaceholderData) batas.current = { pertama: q.data.bulan_pertama, terakhir: q.data.bulan_terakhir }
+  const terakhir = batas.current.terakhir ?? kini
+  const pertama = batas.current.pertama
+  const pilihan = daftarBulan(terakhir, pertama)
   if (!pilihan.includes(bulan)) pilihan.push(bulan)
-  const bisaMaju = bulan < kini
+  const bisaMaju = bulan < terakhir
+  const bisaMundur = !pertama || bulan > pertama
+  const diLuarRentang = q.isError && q.error instanceof ApiError && q.error.status === 422
 
   const l = q.data
   const url = jalur ? `${window.location.origin}${jalur}?bulan=${bulan}` : null
@@ -201,8 +208,9 @@ function Isi({ klienId }: { klienId: string }) {
           <button
             type="button"
             className="btn btn--secondary btn--icon"
-            aria-label={`Bulan sebelumnya, ${labelBulan(geserBulan(bulan, -1))}`}
+            aria-label={bisaMundur ? `Bulan sebelumnya, ${labelBulan(geserBulan(bulan, -1))}` : 'Bulan sebelumnya'}
             onClick={() => pindahBulan(geserBulan(bulan, -1))}
+            disabled={!bisaMundur}
           >
             <IkonLaporan name="chevron-left" />
           </button>
@@ -261,7 +269,15 @@ function Isi({ klienId }: { klienId: string }) {
 
       <div className="lk__isi">
         <div className="lk__pratinjau" aria-busy={q.isFetching}>
-          {q.isError && !l ? (
+          {diLuarRentang && !l ? (
+            <div className="lk__galat" role="alert">
+              <b>Laporan untuk {labelBulan(bulan)} tidak tersedia.</b>
+              <span>{(q.error as ApiError).field.bulan ?? 'Pilih bulan sejak klien ini ditambahkan.'}</span>
+              <button type="button" className="btn btn--secondary" onClick={() => pindahBulan(kini)}>
+                Lihat laporan {labelBulan(kini)}
+              </button>
+            </div>
+          ) : q.isError && !l ? (
             <div className="lk__galat" role="alert">
               <b>Laporan tidak dapat dimuat.</b>
               <span>{pesanGalat(q.error)}</span>

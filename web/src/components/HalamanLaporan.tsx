@@ -1,7 +1,7 @@
 // The public report behind a share link (/laporan/:token?bulan=YYYY-MM): the document only, a quiet header with
 // month navigation and a print button. No sign-in; search engines are asked not to index it.
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../lib/api'
 import { bulanIni, bulanValid, geserBulan, kunciLaporan, labelBulan, laporanApi } from '../lib/api-laporan'
 import { Icon } from './Icon'
@@ -59,16 +59,27 @@ export function HalamanLaporan({ token }: { token: string }) {
 
   const l = q.data
   const tidakAda = q.isError && q.error instanceof ApiError && q.error.status === 404
+  // A month before the client's first or after this one: the API answers 422 with the months it has.
+  const diLuarRentang = q.isError && q.error instanceof ApiError && q.error.status === 422
+  const batas = useRef<{ pertama?: string; terakhir?: string }>({})
+  if (l && !q.isPlaceholderData) batas.current = { pertama: l.bulan_pertama, terakhir: l.bulan_terakhir }
+  const terakhir = batas.current.terakhir ?? kini
+  const pertama = batas.current.pertama
 
   useEffect(() => {
     const lama = document.title
-    document.title = l ? `Laporan ${l.klien.nama} ${l.label_bulan}` : tidakAda ? 'Laporan tidak ditemukan' : 'Laporan'
+    document.title = l
+      ? `Laporan ${l.klien.nama} ${l.label_bulan} · Tenggat`
+      : tidakAda
+        ? 'Laporan tidak ditemukan · Tenggat'
+        : 'Laporan · Tenggat'
     return () => {
       document.title = lama
     }
   }, [l, tidakAda])
 
-  const bisaMaju = bulan < kini
+  const bisaMaju = bulan < terakhir
+  const bisaMundur = !pertama || bulan > pertama
 
   return (
     <div className="hl">
@@ -82,8 +93,9 @@ export function HalamanLaporan({ token }: { token: string }) {
               <button
                 type="button"
                 className="btn btn--ghost btn--icon"
-                aria-label={`Bulan sebelumnya, ${labelBulan(geserBulan(bulan, -1))}`}
+                aria-label={bisaMundur ? `Bulan sebelumnya, ${labelBulan(geserBulan(bulan, -1))}` : 'Bulan sebelumnya'}
                 onClick={() => setBulan(geserBulan(bulan, -1))}
+                disabled={!bisaMundur}
               >
                 <IkonLaporan name="chevron-left" />
               </button>
@@ -124,6 +136,14 @@ export function HalamanLaporan({ token }: { token: string }) {
               Pemilik laporan mungkin sudah mencabut atau mengganti tautannya. Mintalah tautan baru kepada orang yang
               mengirimkannya kepada Anda.
             </p>
+          </div>
+        ) : diLuarRentang && !l ? (
+          <div className="hl__pesan" role="alert">
+            <h1>Laporan untuk {labelBulan(bulan)} tidak tersedia.</h1>
+            <p>{(q.error as ApiError).field.bulan ?? 'Pilih bulan lain lewat tombol di atas.'}</p>
+            <button type="button" className="btn btn--secondary" onClick={() => setBulan(kini)}>
+              Lihat laporan {labelBulan(kini)}
+            </button>
           </div>
         ) : q.isError && !l ? (
           <div className="hl__pesan" role="alert">

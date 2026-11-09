@@ -41,6 +41,14 @@ export interface Laporan {
   penyusun: { nama: string }
   bulan: string // YYYY-MM
   label_bulan: string // "November 2026"
+  /** The months there are reports for: the client's first month up to this month (YYYY-MM). Missing on an API
+   * older than this field. */
+  bulan_pertama?: string
+  bulan_terakhir?: string
+  /** A month that has ended: work and renewals are that month's, the asset list is as of per_tanggal (today) and
+   * the API leaves out the due-soon list and the 30-day cost. */
+  lampau?: boolean
+  per_tanggal?: string // YYYY-MM-DD
   dibuat: string // RFC 3339
   /** The owner's summary for this month; '' when none was written. */
   catatan: string
@@ -108,6 +116,22 @@ export const notifikasiApi = {
   uji: () => request<{ pesan?: string }>('/api/notifikasi/uji', { method: 'POST' }),
 }
 
+/** "45 menit", "2 jam", "1 jam 30 menit": the one way reports (and their preview on the front page) write a
+ * duration. */
+export function durasi(menit: number): string {
+  return bagianDurasi(menit)
+    .map(([n, s]) => `${n} ${s}`)
+    .join(' ')
+}
+
+/** A duration as [number, unit] pairs: [[1, 'jam'], [20, 'menit']]. */
+export function bagianDurasi(menit: number): [number, string][] {
+  const j = Math.floor(menit / 60)
+  const m = menit % 60
+  if (j === 0) return [[m, 'menit']]
+  return m === 0 ? [[j, 'jam']] : [[j, 'jam'], [m, 'menit']]
+}
+
 // ---------- months (Asia/Jakarta) ----------
 
 const fmtBulanJakarta = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' })
@@ -134,7 +158,15 @@ export function labelBulan(bulan: string): string {
 
 export const bulanValid = (s: string | null | undefined): s is string => !!s && /^\d{4}-(0[1-9]|1[0-2])$/.test(s)
 
-/** The months a picker offers: this month and the eleven before it, newest first. */
-export function daftarBulan(sampai = bulanIni(), jumlah = 12): string[] {
-  return Array.from({ length: jumlah }, (_, i) => geserBulan(sampai, -i))
+/** The months a picker offers, newest first: from `sampai` back to `dari` (the client's first month) when known,
+ * otherwise the twelve months up to `sampai`. */
+export function daftarBulan(sampai = bulanIni(), dari?: string): string[] {
+  const jumlah = dari && bulanValid(dari) && dari <= sampai ? selisihBulan(dari, sampai) + 1 : 12
+  return Array.from({ length: Math.min(jumlah, 120) }, (_, i) => geserBulan(sampai, -i))
+}
+
+function selisihBulan(a: string, b: string): number {
+  const [ya, ma] = a.split('-').map(Number)
+  const [yb, mb] = b.split('-').map(Number)
+  return (yb - ya) * 12 + (mb - ma)
 }
