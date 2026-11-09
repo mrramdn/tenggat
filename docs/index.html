@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tenggat: one list for every expiry date, in five containers</title>
-<meta name="description" content="How I built Tenggat, an expiry-date tracker for domains, TLS certificates, API tokens and subscriptions, as five containers under Docker Compose.">
+<meta name="description" content="How I built Tenggat, an expiry-date tracker, as five containers under Docker Compose.">
 <meta name="author" content="Rifki Ramdani">
 <link rel="canonical" href="https://www.mrramdn.com/en/blog/tenggat">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Tenggat: one list for every expiry date, in five containers">
-<meta property="og:description" content="How I built Tenggat, an expiry-date tracker for domains, TLS certificates, API tokens and subscriptions, as five containers under Docker Compose.">
+<meta property="og:description" content="How I built Tenggat, an expiry-date tracker, as five containers under Docker Compose.">
 <meta property="og:url" content="https://mrramdn.github.io/tenggat/">
 <meta property="og:image" content="https://mrramdn.github.io/tenggat/img/dasbor.png">
 <meta property="article:published_time" content="2026-11-10">
@@ -26,33 +26,30 @@
   <p class="kicker"><time datetime="2026-11-10">10 November 2026</time></p>
   <h1>Tenggat: one list for every expiry date, in five containers</h1>
   <p class="byline">Rifki Ramdani</p>
-<p>Small web projects often die a quiet death: a domain renewal email lands in a folder nobody reads, a TLS certificate
-stops renewing, or an API token expires on a Friday night. The dates exist, but they are scattered across registrar
-emails, cloud dashboards and notes. I look after my own VPS, domains, API tokens and client websites, so I built
-<strong>Tenggat</strong> (Indonesian for "deadline"): one list of expiry dates, with certificate dates read straight from the
-servers.</p>
+<p>A domain renewal email lands in a folder nobody reads, a TLS certificate stops renewing, an API token expires on a
+Friday night. The dates exist, but they sit in registrar emails, cloud dashboards and notes. I look after my own VPS,
+domains, API tokens and client websites, so I built <strong>Tenggat</strong> (Indonesian for "deadline"): one list of expiry
+dates, read from the source where possible.</p>
 <figure><img src="dasbor.png" fetchpriority="high" alt="Tenggat dashboard: status summary, 90-day timeline and the asset list"></figure>
 
 <h2>What it does</h2>
-<p>You add an asset: a domain, a TLS certificate, an API token or a subscription. For a certificate you only type the
-host; the API connects on port 443, reads the real end date and re-checks it every six hours. Each item gets a status
-from the days left (Lewat, 7 hari, 30 hari, Aman), and a calendar export (.ics) puts reminders on your phone. Every
-user has an account and sees only their own assets. Tenggat stores names and dates, never secret values, and keeps
-passwords as Argon2id hashes.</p>
+<p>You add a domain, a TLS certificate, an API token or a subscription. For a domain Tenggat asks the registry over RDAP;
+for a certificate it connects to the host on port 443. Both are re-checked every six hours. Each item gets a status
+from the days left, and a calendar feed puts reminders on your phone. Every user sees only their own assets, and
+Tenggat never stores secret values.</p>
 <h2>Architecture</h2>
 <figure><img src="arsitektur.png" alt="Architecture: five containers, the edge and data networks, the db_data volume" loading="lazy"></figure>
 
 <p>Five containers run under Docker Compose:</p>
 <ul>
-<li><strong>web</strong>: nginx serving the React build and proxying <code>/api</code>; the only container with a host port (<code>127.0.0.1:8080</code>).</li>
-<li><strong>api</strong>: Go on a distroless image; the only container that reaches the internet, to read certificates.</li>
-<li><strong>db</strong>: PostgreSQL 18 with its data on a named volume.</li>
-<li><strong>cache</strong>: Redis 8 as a pure cache for reads, certificate lookups and rate limits.</li>
-<li><strong>adminer</strong>: a database UI that only starts with <code>--profile tools</code>.</li>
+<li><strong>web</strong>: nginx serving the React build and proxying <code>/api</code>; the only one with a host port (<code>127.0.0.1:8080</code>).</li>
+<li><strong>api</strong>: Go on distroless; the only one that reaches the internet, for certificates and registry dates.</li>
+<li><strong>db</strong>: PostgreSQL 18 on a named volume.</li>
+<li><strong>cache</strong>: Redis 8 for cached reads, lookups and rate limits.</li>
+<li><strong>adminer</strong>: a database UI behind <code>--profile tools</code>.</li>
 </ul>
-<p>Two user-defined networks separate them. <code>edge</code> connects web, api and the outside world; <code>data</code> is marked
-<code>internal: true</code>, so the database and Redis have no route to the internet and no published port. The API sits on both
-and reaches its neighbours by service name (<code>db</code>, <code>cache</code>), never by IP.</p>
+<p>The <code>data</code> network is <code>internal: true</code>, so the database and Redis have no route out and no published port. The API
+also sits on <code>edge</code> and reaches its neighbours by service name (<code>db</code>, <code>cache</code>), never by IP.</p>
 <h2>The Dockerfile</h2>
 <pre><code class="language-dockerfile">FROM golang:1.27.3-alpine3.24 AS build
 WORKDIR /src
@@ -70,10 +67,9 @@ USER nonroot:nonroot
 HEALTHCHECK CMD [&quot;/app/server&quot;, &quot;healthcheck&quot;]
 ENTRYPOINT [&quot;/app/server&quot;]
 </code></pre>
-<p>The dependency files are copied before the source, so changing code does not re-download modules. The build stage is
-808 MB; the image that ships is <strong>25 MB</strong>, because only the static binary crosses into the runtime stage. Distroless
-has no shell and no curl, so the binary checks its own health with a <code>healthcheck</code> subcommand, and it has no version
-tags, so it is pinned by digest.</p>
+<p>Dependency files are copied before the source, so code changes do not re-download modules. The build stage is 808 MB;
+the image that ships is <strong>26 MB</strong>, because only the static binary reaches the runtime stage. Distroless has no shell
+and no version tags, so the binary checks its own health and the base is pinned by digest.</p>
 <h2>Compose: start in the right order</h2>
 <pre><code class="language-yaml">api:
   build: ./api
@@ -96,35 +92,32 @@ db:
     test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB&quot;]
   networks: [data]
 </code></pre>
-<p><code>condition: service_healthy</code> waits until PostgreSQL accepts connections, not just until its container has started.
-<code>${VAR:?message}</code> stops Compose with a clear message when <code>.env</code> is missing, instead of starting a database with an
-empty password.</p>
+<p><code>condition: service_healthy</code> waits until PostgreSQL accepts connections, not just until its container starts.
+<code>${VAR:?message}</code> stops Compose when <code>.env</code> is missing instead of starting a database with an empty password.</p>
 <h2>Run it</h2>
 <pre><code class="language-bash">git clone https://github.com/mrramdn/tenggat.git &amp;&amp; cd tenggat
 cp .env.example .env
 docker compose up -d --build
 </code></pre>
-<p>Open http://localhost:8080. <code>docker compose down</code> keeps the data in the <code>tenggat_db_data</code> volume; <code>docker compose down
--v</code> deletes it.</p>
+<p>Open http://localhost:8080. <code>docker compose down</code> keeps the data in the <code>tenggat_db_data</code> volume; <code>down -v</code> deletes it.</p>
 <figure><img src="compose-ps.png" alt="docker compose ps: every service running and healthy" loading="lazy"></figure>
 
 <h2>Redis earns its place</h2>
-<p>Certificate lookups are cached per host for an hour, so a repeat lookup dropped from 257 ms to 6 ms. List and summary
-reads carry an <code>X-Cache: HIT/MISS</code> header, and every write bumps a version number so stale entries are never read.
-Writes are limited to 30 a minute per client; the next one gets <code>429</code> with <code>Retry-After</code>.</p>
+<p>Lookups are cached, so a repeated certificate check dropped from 509 ms to 5 ms. List reads carry an
+<code>X-Cache: HIT/MISS</code> header, and every write bumps a version number so stale entries are never served. Writes are
+limited to 30 a minute per client; the next one gets <code>429</code> with <code>Retry-After</code>.</p>
 <h2>What I learned</h2>
 <ul>
-<li><strong>PostgreSQL 18 moved its data directory.</strong> The official image stores data under <code>/var/lib/postgresql</code>; mounting
-  the volume at the old <code>/var/lib/postgresql/data</code> path is a trap.</li>
-<li><strong>nginx resolves upstream names once.</strong> Docker's DNS (<code>resolver 127.0.0.11</code>) with a variable upstream lets nginx
-  find the API again after its container is recreated.</li>
-<li><strong>Accounts change the privacy story.</strong> With names and emails stored, the app falls under Indonesia's personal data
-  law (UU 27/2022): data minimisation, a working "delete account", hashed passwords, and a 3×24-hour breach notice.</li>
-<li><strong>User input that triggers network calls is an attack surface.</strong> The certificate check refuses loopback, private
-  and link-local addresses, so it cannot probe the internal Docker network (SSRF).</li>
+<li><strong>PostgreSQL 18 moved its data directory</strong> to <code>/var/lib/postgresql</code>; mounting the old <code>.../data</code> path is a trap.</li>
+<li><strong>nginx resolves upstream names once.</strong> Docker's DNS (<code>resolver 127.0.0.11</code>) with a variable upstream lets it find
+  a recreated API container.</li>
+<li><strong>Accounts bring Indonesia's personal data law (UU 27/2022)</strong>: data minimisation, a working "delete account",
+  hashed passwords and a 3×24-hour breach notice.</li>
+<li><strong>User input that triggers network calls is an attack surface.</strong> Lookups refuse loopback and private addresses, so
+  they cannot probe the Docker network (SSRF).</li>
 </ul>
-<p>The code is on GitHub: <a href="https://github.com/mrramdn/tenggat">github.com/mrramdn/tenggat</a>, the images on Docker Hub
-(<code>mrramdn/tenggat-api</code>, <code>mrramdn/tenggat-web</code>), and a public instance at <a href="https://tenggat.mrramdn.com">tenggat.mrramdn.com</a>.</p>
+<p>The code is on GitHub: <a href="https://github.com/mrramdn/tenggat">github.com/mrramdn/tenggat</a>, and the images are on Docker
+Hub (<code>mrramdn/tenggat-api</code>, <code>mrramdn/tenggat-web</code>).</p>
 </article>
 </main>
 <footer class="foot">
