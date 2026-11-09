@@ -301,14 +301,14 @@ function Separuh({ jenis, sibuk, host, hasil }: SeparuhProps) {
             <dt>Domain</dt>
             <dd>{hasil.domain.domain}</dd>
             <dt>Registrar</dt>
-            <dd>{hasil.domain.registrar || 'Tidak dicantumkan'}</dd>
+            <dd>{hasil.domain.registrar || 'Tidak tercantum'}</dd>
           </>
         ) : hasil.sertifikat ? (
           <>
             <dt>Host</dt>
             <dd>{hasil.host}</dd>
             <dt>Penerbit</dt>
-            <dd>{hasil.sertifikat.penerbit || 'Tidak dicantumkan'}</dd>
+            <dd>{hasil.sertifikat.penerbit || 'Tidak tercantum'}</dd>
           </>
         ) : null}
       </dl>

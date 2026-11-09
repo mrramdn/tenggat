@@ -310,7 +310,7 @@ function Isi({ klienId }: { klienId: string }) {
                 value={teks}
                 maxLength={BATAS_TEKS}
                 aria-describedby={`${uid}-teks-hint ${uid}-teks-status`}
-                placeholder="Contoh: Sertifikat dan domain diperpanjang tepat waktu. Kami menyarankan pembaruan PHP ke versi 8.3 pada bulan Desember."
+                placeholder="Contoh: Sertifikat dan domain diperpanjang tepat waktu. Saya menyarankan pembaruan PHP ke versi 8.3 pada bulan Desember."
                 onChange={(e) => setTeks(e.target.value)}
                 onBlur={simpanSekarang}
               />

@@ -236,7 +236,7 @@ const ACARA: { teks: string; sisa: number }[] = [
   { teks: 'Update plugin Mawar', sisa: 2 },
   { teks: 'Domain Mawar', sisa: 4 },
   { teks: 'Token Cloudflare', sisa: 9 },
-  { teks: 'SSL Kopi Senja', sisa: 13 },
+  { teks: 'TLS Kopi Senja', sisa: 13 },
   { teks: 'VPS 2 vCPU', sisa: 22 },
   { teks: 'Workspace Rana', sisa: 27 },
 ]

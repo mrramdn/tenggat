@@ -117,7 +117,7 @@ export function Beranda({ sudahMasuk }: { sudahMasuk: boolean }) {
           </h2>
           <dl className="b-lain__daftar">
             <div>
-              <dt>Ringkasan pagi</dt>
+              <dt>Ringkasan harian</dt>
               <dd>
                 Pukul 08.00 WIB, aset dan tugas yang lewat atau jatuh tempo dalam 7 hari dikirim ke Slack, Discord, atau
                 Telegram lewat webhook milik Anda. Bila tidak ada yang perlu dikerjakan, tidak ada kiriman.

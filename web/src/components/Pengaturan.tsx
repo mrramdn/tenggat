@@ -35,7 +35,7 @@ export function Pengaturan({ akun, phone = false }: { akun: Akun; phone?: boolea
       <Bagian
         id="set-notifikasi"
         judul="Notifikasi"
-        teks="Setiap pukul 08.00 WIB Tenggat mengirim ringkasan ke Slack, Discord, atau Telegram bila ada aset atau tugas yang sudah lewat atau jatuh tempo dalam 7 hari. Pada hari tanpa tenggat dekat, tidak ada pesan. URL webhook disimpan hanya untuk mengirim pesan ini."
+        teks="Ringkasan harian pukul 08.00 WIB ke Slack, Discord, atau Telegram, hanya bila ada aset atau tugas yang lewat atau jatuh tempo dalam 7 hari. URL webhook hanya dipakai untuk pesan ini."
       >
         <PengaturanNotifikasi />
       </Bagian>
