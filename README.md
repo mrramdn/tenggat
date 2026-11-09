@@ -202,6 +202,23 @@ docker-compose.yml, .env.example
 - Ikon dari [Lucide](https://lucide.dev) (ISC)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
 
+## AI Usage Declaration
+
+- **Alat:** Claude (Anthropic), lewat Claude Code.
+- **Bagian yang dibantu:**
+  1. Brainstorming dan perluasan ide: memilih topik yang benar-benar terpakai, lalu mengembangkan Tenggat dari daftar
+     tanggal berakhir menjadi halaman per klien dengan tugas, aktivitas, dan laporan.
+  2. Pembuatan kode: membantu menulis kode api, web, Dockerfile, dan docker-compose.yml. Keputusan akhir dan
+     penjelasan setiap baris Dockerfile dan docker-compose.yml di video adalah milik saya.
+  3. Penyusunan laporan: membantu menyusun draf laporan, README, dan artikel.
+- **Contoh prompt utama:**
+  - "Dari masalah yang aku alami sendiri: klien banyak dan datanya berantakan, sering lupa perpanjang domain,
+    sertifikat, dan langganan. Bantu cari ide aplikasi web untuk UTS ini yang benar-benar kepakai."
+  - "Fiturnya masih terlalu dasar. Kembangkan jadi halaman per klien: aset, tugas maintenance rutin, catatan
+    pekerjaan, dan laporan bulanan untuk klien. Bantu juga Dockerfile dan docker-compose.yml-nya, sekalian jelaskan
+    tiap barisnya."
+  - "Susun draf laporan dan README dari hasil kerja dan bukti yang sudah ada. Bahasanya formal tapi tidak kaku."
+
 ## Tautan
 
 - Artikel: https://www.mrramdn.com/en/blog/tenggat (salinan: https://mrramdn.github.io/tenggat/)
