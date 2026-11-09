@@ -59,15 +59,16 @@ type Cache interface {
 type Server struct {
 	Store   Store
 	Checker Checker
-	// Registry reads domain expiry dates over RDAP; nil turns registry lookups off.
-	Registry Registry
-	Cache    Cache
-	Now      func() time.Time
-	Log      *slog.Logger
+	Cache   Cache
+	Now     func() time.Time
+	Log     *slog.Logger
 	// LimitPerMinute caps writes and certificate lookups per client; 0 means 30.
 	LimitPerMinute int
 	// CookieSecure marks the session cookie Secure; set it when the site is served over HTTPS.
 	CookieSecure bool
+
+	// Registry reads domain expiry dates over RDAP; nil turns registry lookups off.
+	Registry Registry
 }
 
 // Routes returns the API handler with request logging, panic recovery and the

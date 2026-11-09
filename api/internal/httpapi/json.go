@@ -19,23 +19,25 @@ import (
 
 // itemJSON is the API form of an item, with the days left and status worked out.
 type itemJSON struct {
-	ID            string              `json:"id"`
-	Nama          string              `json:"nama"`
-	Jenis         string              `json:"jenis"`
-	Klien         string              `json:"klien"`
-	Host          *string             `json:"host"`
-	Kedaluwarsa   string              `json:"kedaluwarsa"`
-	SisaHari      int                 `json:"sisa_hari"`
-	Status        expiry.Status       `json:"status"`
-	Sumber        string              `json:"sumber"`
-	Biaya         *int64              `json:"biaya"`
-	Catatan       string              `json:"catatan"`
-	TLS           *store.TLSInfo      `json:"tls"`
-	Registri      *store.RegistryInfo `json:"registri"`
-	TerakhirDicek *time.Time          `json:"terakhir_dicek"`
-	GalatCek      *string             `json:"galat_cek"`
-	Dibuat        time.Time           `json:"dibuat"`
-	Diubah        time.Time           `json:"diubah"`
+	ID            string         `json:"id"`
+	Nama          string         `json:"nama"`
+	Jenis         string         `json:"jenis"`
+	Klien         string         `json:"klien"`
+	Host          *string        `json:"host"`
+	Kedaluwarsa   string         `json:"kedaluwarsa"`
+	SisaHari      int            `json:"sisa_hari"`
+	Status        expiry.Status  `json:"status"`
+	Sumber        string         `json:"sumber"`
+	Biaya         *int64         `json:"biaya"`
+	Catatan       string         `json:"catatan"`
+	TLS           *store.TLSInfo `json:"tls"`
+	TerakhirDicek *time.Time     `json:"terakhir_dicek"`
+	GalatCek      *string        `json:"galat_cek"`
+	Dibuat        time.Time      `json:"dibuat"`
+	Diubah        time.Time      `json:"diubah"`
+
+	// Registri is what the last registry lookup said; null unless sumber is "registri".
+	Registri *store.RegistryInfo `json:"registri"`
 }
 
 func toJSON(it store.Item, now time.Time) itemJSON {
