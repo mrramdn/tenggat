@@ -1,0 +1,123 @@
+name: tenggat
+
+# Batas ukuran log yang sama untuk semua service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Frontend: nginx menyajikan build React dan meneruskan /api ke service api.
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    logging: *logging
+
+  # Backend: REST API Go. Terhubung ke database lewat nama service "db".
+  api:
+    build: ./api
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:?Salin .env.example ke .env}
+      PGUSER: ${POSTGRES_USER:?Salin .env.example ke .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Salin .env.example ke .env}
+      PGSSLMODE: disable
+      CEK_INTERVAL: ${CEK_INTERVAL:-6h}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "/app/server", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
+  # Database: PostgreSQL dengan data di named volume.
+  db:
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Salin .env.example ke .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Salin .env.example ke .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Salin .env.example ke .env}
+    volumes:
+      # Mulai versi 18, image postgres menyimpan data di bawah /var/lib/postgresql.
+      - db_data:/var/lib/postgresql
+    networks:
+      - data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
+  # Alat bantu, hanya jalan dengan: docker compose --profile tools up -d
+  adminer:
+    image: adminer:5.5.1
+    profiles:
+      - tools
+    ports:
+      - "127.0.0.1:${ADMINER_PORT:-8081}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    restart: unless-stopped
+    logging: *logging
+
+networks:
+  # Jaringan yang boleh ke luar: web dipublikasikan ke host, api perlu internet untuk cek TLS.
+  edge:
+  # Jaringan internal: tidak ada jalan ke internet dan tidak ada port ke host.
+  data:
+    internal: true
+
+volumes:
+  db_data:
