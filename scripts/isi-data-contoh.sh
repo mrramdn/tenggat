@@ -4,7 +4,8 @@
 #
 # Pemakaian: ./scripts/isi-data-contoh.sh [alamat]   (bawaan http://localhost:8080)
 # Akun bisa diganti lewat env: TENGGAT_EMAIL, TENGGAT_SANDI, TENGGAT_NAMA.
-# Nama klien dan aset manual di sini fiktif; sertifikat dibaca dari situs publik.
+# Klien dan aset manual di sini fiktif. Klien Pribadi memakai domain penulis (mrramdn.com), supaya tanggal domain
+# dibaca dari registri dan tanggal sertifikat dari servernya.
 set -eu
 
 BASE="${1:-http://localhost:8080}"
@@ -43,8 +44,8 @@ kirim "{\"nama\":\"Langganan VPS 2 vCPU\",\"jenis\":\"langganan\",\"klien\":\"Pr
 kirim "{\"nama\":\"Domain kopisenja.com\",\"jenis\":\"domain\",\"klien\":\"Kopi Senja\",\"host\":\"kopisenja.com\",\"kedaluwarsa\":\"$(hari_lagi +72)\",\"biaya\":210000}" "Domain kopisenja.com"
 kirim "{\"nama\":\"Token Cloudflare DNS\",\"jenis\":\"token\",\"klien\":\"Pribadi\",\"kedaluwarsa\":\"$(hari_lagi +181)\"}" "Token Cloudflare DNS"
 kirim "{\"nama\":\"Lisensi font editorial\",\"jenis\":\"lainnya\",\"klien\":\"Studio Arsitek Rana\",\"kedaluwarsa\":\"$(hari_lagi -3)\",\"biaya\":450000}" "Lisensi font (sudah lewat)"
-kirim '{"jenis":"sertifikat","klien":"Contoh publik","host":"example.com"}' "Sertifikat example.com"
-kirim '{"jenis":"sertifikat","klien":"Contoh publik","host":"wikipedia.org"}' "Sertifikat wikipedia.org"
+kirim '{"jenis":"domain","klien":"Pribadi","host":"mrramdn.com"}' "Domain mrramdn.com (registri)"
+kirim '{"jenis":"sertifikat","klien":"Pribadi","host":"tenggat.mrramdn.com"}' "Sertifikat tenggat.mrramdn.com"
 
 # Tugas maintenance berulang per klien. Jawabannya memuat klien_id, yang dipakai untuk catatan pekerjaan di bawah.
 tugas() {
@@ -61,7 +62,7 @@ id_tugas() {
 
 tugas "{\"klien\":\"Toko Kue Mawar\",\"judul\":\"Cek backup situs\",\"ulang_jumlah\":1,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi -2)\"}" "Tugas cek backup"
 tugas "{\"klien\":\"Toko Kue Mawar\",\"judul\":\"Update plugin, tema, dan core\",\"ulang_jumlah\":1,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi +12)\"}" "Tugas update plugin"
-tugas "{\"klien\":\"Kopi Senja\",\"judul\":\"Tinjau uptime dan sertifikat SSL\",\"ulang_jumlah\":3,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi +40)\"}" "Tugas tinjau uptime"
+tugas "{\"klien\":\"Kopi Senja\",\"judul\":\"Tinjau uptime dan sertifikat TLS\",\"ulang_jumlah\":3,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi +40)\"}" "Tugas tinjau uptime"
 tugas "{\"klien\":\"Studio Arsitek Rana\",\"judul\":\"Tagih perpanjangan hosting dan domain\",\"ulang_jumlah\":1,\"ulang_satuan\":\"tahun\",\"jatuh_tempo\":\"$(hari_lagi +9)\",\"biaya\":1250000}" "Tugas tagih perpanjangan"
 
 MAWAR=$(id_klien 'Toko Kue Mawar')
@@ -79,5 +80,5 @@ if [ -n "$MAWAR" ]; then
     -d '{"catatan":"Backup terakhir lengkap dan berhasil dipulihkan di staging.","durasi_menit":25}'
   printf 'Ringkasan laporan bulan ini -> '
   curl -sS -b "$JAR" -o /dev/null -w '%{http_code}\n' -X PUT "$BASE/api/klien/$MAWAR/laporan/catatan" -H 'Content-Type: application/json' \
-    -d "{\"bulan\":\"$(date +%Y-%m)\",\"teks\":\"Situs berjalan normal bulan ini. Domain tokokuemawar.id perlu diperpanjang minggu ini; tagihannya sudah kami kirim.\"}"
+    -d "{\"bulan\":\"$(date +%Y-%m)\",\"teks\":\"Situs berjalan normal bulan ini. Domain tokokuemawar.id perlu diperpanjang minggu ini, dan tagihannya sudah saya kirim.\"}"
 fi
