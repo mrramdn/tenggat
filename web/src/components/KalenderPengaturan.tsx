@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
 import { Icon } from './Icon'
+import { TombolKelola } from './klien/BagikanLaporanDialog'
 import { useToast } from './Toasts'
 
 const KUNCI_AKTIF = ['kalender', 'aktif'] as const
@@ -49,9 +50,9 @@ export function KalenderPengaturan() {
     onSuccess: () => {
       setJalur(null)
       setKonfirmasi(null)
-      toast.ok('Tautan kalender dihapus.', 'Aplikasi kalender tidak lagi menerima pembaruan.')
+      toast.ok('Tautan kalender dicabut.', 'Aplikasi kalender tidak lagi menerima pembaruan.')
     },
-    onError: (err) => toast.dariGalat('Tautan kalender tidak dapat dihapus.', err),
+    onError: (err) => toast.dariGalat('Tautan kalender tidak dapat dicabut.', err),
     onSettled: () => qc.invalidateQueries({ queryKey: KUNCI_AKTIF }),
   })
 
@@ -120,7 +121,7 @@ export function KalenderPengaturan() {
           ) : (
             <button type="button" className="btn btn--danger" onClick={() => hapus.mutate()} disabled={sibuk} aria-busy={hapus.isPending}>
               <Icon name={hapus.isPending ? 'loader' : 'trash'} className={hapus.isPending ? 'spin' : undefined} />
-              {hapus.isPending ? 'Menghapus' : 'Hapus tautan'}
+              {hapus.isPending ? 'Mencabut' : 'Cabut tautan'}
             </button>
           )}
         </div>
@@ -154,14 +155,7 @@ export function KalenderPengaturan() {
           <Icon name="external-link" />
           Buka di aplikasi Kalender
         </a>
-        <div className="kal__kelola">
-          <button type="button" className="btn-teks" onClick={() => setKonfirmasi('ganti')}>
-            Ganti tautan
-          </button>
-          <button type="button" className="btn-teks is-danger" onClick={() => setKonfirmasi('hapus')}>
-            Hapus tautan
-          </button>
-        </div>
+        <TombolKelola onCabut={() => setKonfirmasi('hapus')} onGanti={() => setKonfirmasi('ganti')} />
       </>
     )
   } else if (aktif.data) {
@@ -174,16 +168,7 @@ export function KalenderPengaturan() {
             ganti dengan tautan baru. Tautan lama lalu berhenti bekerja.
           </span>
         </div>
-        <div className="kal__aksi">
-          <button type="button" className="btn btn--secondary" onClick={() => setKonfirmasi('hapus')}>
-            <Icon name="trash" />
-            Hapus tautan
-          </button>
-          <button type="button" className="btn btn--primary" onClick={() => setKonfirmasi('ganti')}>
-            <Icon name="refresh" />
-            Ganti tautan
-          </button>
-        </div>
+        <TombolKelola onCabut={() => setKonfirmasi('hapus')} onGanti={() => setKonfirmasi('ganti')} />
       </>
     )
   } else {

@@ -153,14 +153,7 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
           <Icon name="external-link" />
           Buka laporan
         </a>
-        <div className="kal__kelola">
-          <button type="button" className="btn-teks" onClick={() => setKonfirmasi('ganti')}>
-            Ganti tautan
-          </button>
-          <button type="button" className="btn-teks is-danger" onClick={() => setKonfirmasi('cabut')}>
-            Cabut tautan
-          </button>
-        </div>
+        <TombolKelola onCabut={() => setKonfirmasi('cabut')} onGanti={() => setKonfirmasi('ganti')} />
       </>
     )
   } else if (aktif) {
@@ -173,16 +166,7 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
             ganti dengan tautan baru. Tautan lama lalu berhenti bekerja.
           </span>
         </div>
-        <div className="kal__aksi">
-          <button type="button" className="btn btn--secondary" onClick={() => setKonfirmasi('cabut')}>
-            <Icon name="trash" />
-            Cabut tautan
-          </button>
-          <button type="button" className="btn btn--primary" onClick={() => setKonfirmasi('ganti')} data-autofocus="">
-            <Icon name="refresh" />
-            Ganti tautan
-          </button>
-        </div>
+        <TombolKelola onCabut={() => setKonfirmasi('cabut')} onGanti={() => setKonfirmasi('ganti')} fokus />
       </>
     )
   } else {
@@ -201,21 +185,16 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
       <div className="scrim" onClick={onClose} aria-hidden="true" />
       <div
         ref={ref}
-        className="dialog kal"
+        className="dialog kal lap-bagikan"
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${uid}-j`}
         aria-describedby={`${uid}-t`}
         tabIndex={-1}
       >
-        <div className="kal__head">
-          <h2 className="dialog__title" id={`${uid}-j`}>
-            Bagikan laporan
-          </h2>
-          <button type="button" className="btn btn--ghost btn--icon" aria-label="Tutup" onClick={onClose}>
-            <Icon name="x" />
-          </button>
-        </div>
+        <h2 className="dialog__title" id={`${uid}-j`}>
+          Bagikan laporan
+        </h2>
         <p className="dialog__text" id={`${uid}-t`}>
           Klien membuka laporan {labelBulan(bulan)} lewat tautan ini tanpa masuk, lalu dapat memilih bulan lain di
           halaman itu.
@@ -237,5 +216,22 @@ export function BagikanLaporanDialog({ klienId, bulan, aktif, onClose }: Props) 
         </div>
       </div>
     </>
+  )
+}
+
+/** Cabut and Ganti for a link that exists, the same buttons whether it was made just now or earlier (and the same
+ * as the calendar link in Pengaturan). */
+export function TombolKelola({ onCabut, onGanti, fokus = false }: { onCabut: () => void; onGanti: () => void; fokus?: boolean }) {
+  return (
+    <div className="kal__aksi">
+      <button type="button" className="btn btn--secondary is-danger" onClick={onCabut}>
+        <Icon name="trash" />
+        Cabut tautan
+      </button>
+      <button type="button" className="btn btn--secondary" onClick={onGanti} data-autofocus={fokus ? '' : undefined}>
+        <Icon name="refresh" />
+        Ganti tautan
+      </button>
+    </div>
   )
 }
