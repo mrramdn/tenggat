@@ -1,0 +1,20 @@
+# Konfigurasi lokal (rahasia tidak pernah di-commit)
+.env
+.env.*
+!.env.example
+
+# Go
+api/bin/
+*.test
+*.out
+
+# Web
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+
+# OS dan editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
