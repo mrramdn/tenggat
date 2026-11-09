@@ -1,0 +1,8 @@
+# Yang tidak dibutuhkan untuk build tidak ikut dikirim ke Docker.
+.env
+.env.*
+**/*_test.go
+*.md
+bin/
+Dockerfile
+.dockerignore

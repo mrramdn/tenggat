@@ -1,0 +1,8 @@
+# Yang tidak dibutuhkan untuk build tidak ikut dikirim ke Docker.
+node_modules
+dist
+.env
+.env.*
+*.md
+Dockerfile
+.dockerignore
