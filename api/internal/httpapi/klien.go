@@ -23,18 +23,20 @@ type KlienStore interface {
 
 // klienJSON is the API form of a client with figures over its assets.
 type klienJSON struct {
-	ID          string  `json:"id"`
-	Nama        string  `json:"nama"`
-	Catatan     string  `json:"catatan"`
-	Status      string  `json:"status"` // aktif, jeda or selesai
-	JumlahAset  int     `json:"jumlah_aset"`
-	Terdekat    *string `json:"terdekat"`      // TTTT-BB-HH, null without assets
-	Biaya30Hari int64   `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
+	ID      string `json:"id"`
+	Nama    string `json:"nama"`
+	Catatan string `json:"catatan"`
+	Status  string `json:"status"` // aktif, jeda or selesai
+	// LaporanAktif is true while the client's report has a read-only link.
+	LaporanAktif bool    `json:"laporan_aktif"`
+	JumlahAset   int     `json:"jumlah_aset"`
+	Terdekat     *string `json:"terdekat"`      // TTTT-BB-HH, null without assets
+	Biaya30Hari  int64   `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
 }
 
 func toKlienJSON(k store.KlienRingkas) klienJSON {
-	out := klienJSON{ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, JumlahAset: k.JumlahAset,
-		Biaya30Hari: k.Biaya30Hari}
+	out := klienJSON{ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, LaporanAktif: k.LaporanAktif,
+		JumlahAset: k.JumlahAset, Biaya30Hari: k.Biaya30Hari}
 	if k.Terdekat != nil {
 		d := k.Terdekat.Format(time.DateOnly)
 		out.Terdekat = &d

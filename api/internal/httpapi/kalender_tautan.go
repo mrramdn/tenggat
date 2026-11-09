@@ -99,11 +99,14 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	}{accountJSON{Pengguna: u}, active})
 }
 
-// redactPath hides a calendar token before a path is written to the log: the
-// token works like a password for the feed.
+// redactPath hides a calendar or report link token before a path is written to
+// the log: the token works like a password for the feed or the report.
 func redactPath(p string) string {
 	if rest, ok := strings.CutPrefix(p, calendarPrefix); ok && strings.HasSuffix(rest, ".ics") {
 		return calendarPrefix + "…" + ".ics"
+	}
+	if strings.HasPrefix(p, reportPrefix) {
+		return reportPrefix + "…"
 	}
 	return p
 }

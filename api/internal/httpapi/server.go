@@ -40,6 +40,7 @@ type Store interface {
 	KlienStore
 	TugasStore
 	AktivitasStore
+	LaporanStore
 }
 
 // Checker reads a host's certificate.
@@ -112,6 +113,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/aktivitas", s.user(s.listAktivitas))
 	mux.HandleFunc("POST /api/aktivitas", s.limit(s.user(s.createAktivitas)))
 	mux.HandleFunc("DELETE /api/aktivitas/{id}", s.limit(s.user(s.deleteAktivitas)))
+	mux.HandleFunc("GET /api/klien/{id}/laporan", s.user(s.getLaporan))
+	mux.HandleFunc("PUT /api/klien/{id}/laporan/catatan", s.limit(s.user(s.putCatatanLaporan)))
+	mux.HandleFunc("POST /api/klien/{id}/laporan/tautan", s.limit(s.user(s.createReportLink)))
+	mux.HandleFunc("DELETE /api/klien/{id}/laporan/tautan", s.limit(s.user(s.deleteReportLink)))
+	mux.HandleFunc("GET /api/laporan/{token}", s.limitTo("laporan", reportPerMinute, s.publicReport))
+	mux.HandleFunc("GET /api/publik/cek", s.limitTo("publik", publicCheckPerMinute, s.publicCheck))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
@@ -369,8 +376,14 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request, u store.Penggun
 	})
 }
 
+// calendar downloads the user's calendar, or one client's with ?klien_id=.
 func (s *Server) calendar(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
-	items, err := s.Store.List(r.Context(), u.ID, store.Filter{}, s.Now())
+	f := store.Filter{KlienID: r.URL.Query().Get("klien_id")}
+	if f.KlienID != "" && !uuidPattern.MatchString(f.KlienID) {
+		writeError(w, http.StatusUnprocessableEntity, "Klien tidak dikenal.", map[string]string{"klien_id": "Klien tidak ditemukan."})
+		return
+	}
+	items, err := s.Store.List(r.Context(), u.ID, f, s.Now())
 	if err != nil {
 		s.internal(w, r, err)
 		return

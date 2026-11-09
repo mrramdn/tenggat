@@ -251,7 +251,7 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if v := recover(); v != nil {
-				s.Log.Error("panic", "path", r.URL.Path, "nilai", v)
+				s.Log.Error("panic", "path", redactPath(r.URL.Path), "nilai", v)
 				writeError(w, http.StatusInternalServerError, "Terjadi kesalahan di server.", nil)
 			}
 		}()

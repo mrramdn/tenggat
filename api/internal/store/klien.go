@@ -22,6 +22,8 @@ type Klien struct {
 	Catatan    string
 	Status     string // aktif, jeda or selesai
 	Dibuat     time.Time
+	// LaporanAktif is true while the client's report has a read-only link.
+	LaporanAktif bool
 }
 
 // KlienRingkas is a client with figures over its assets.
@@ -32,11 +34,11 @@ type KlienRingkas struct {
 	Biaya30Hari int64      // the summed cost of assets due within 30 days, overdue ones included
 }
 
-const klienColumns = `id, pengguna_id, nama, catatan, status, dibuat`
+const klienColumns = `id, pengguna_id, nama, catatan, status, dibuat, hash_token_laporan IS NOT NULL`
 
 func scanKlien(row pgx.Row) (Klien, error) {
 	var k Klien
-	err := row.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat)
+	err := row.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat, &k.LaporanAktif)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return k, ErrNotFound
 	}
@@ -52,6 +54,7 @@ func scanKlien(row pgx.Row) (Klien, error) {
 // dashboard's renewal sentence. "Today" is the date in Jakarta, as in Summary.
 func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]KlienRingkas, error) {
 	rows, err := s.pool.Query(ctx, `SELECT k.id, k.pengguna_id, k.nama, k.catatan, k.status, k.dibuat,
+		k.hash_token_laporan IS NOT NULL,
 		count(i.id), min(i.kedaluwarsa),
 		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa <= $2::date + 30), 0)
 		FROM klien AS k LEFT JOIN item AS i ON i.klien_id = k.id
@@ -65,7 +68,7 @@ func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]
 	out := []KlienRingkas{}
 	for rows.Next() {
 		var k KlienRingkas
-		if err := rows.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat,
+		if err := rows.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat, &k.LaporanAktif,
 			&k.JumlahAset, &k.Terdekat, &k.Biaya30Hari); err != nil {
 			return nil, err
 		}
