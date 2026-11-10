@@ -105,7 +105,7 @@ docker compose up -d --build
 <figure><img src="compose-ps.png" alt="docker compose ps: every service running and healthy" loading="lazy"></figure>
 
 <h2>Redis earns its place</h2>
-<p>Lookups are cached, so a repeated certificate check dropped from 257 ms to 10 ms. List reads carry an
+<p>Lookups are cached, so a repeated certificate check dropped from 367 ms to 5 ms. List reads carry an
 <code>X-Cache: HIT/MISS</code> header, and every write bumps a version number so stale entries are never served. Writes are
 limited to 30 a minute per client; the next one gets <code>429</code> with <code>Retry-After</code>.</p>
 <h2>What I learned</h2>
