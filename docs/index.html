@@ -37,6 +37,8 @@ dates, read from the source where possible.</p>
 for a certificate it connects to the host on port 443. Both are re-checked every six hours. Each item gets a status
 from the days left, and a calendar feed puts reminders on your phone. Every user sees only their own assets, and
 Tenggat stores only names and dates, never the tokens or passwords it tracks.</p>
+<p>Each client also gets its own page: recurring maintenance tasks, a log of the work done, and a monthly report I can
+print, share as a read-only link, or send over WhatsApp.</p>
 <h2>Architecture</h2>
 <figure><img src="arsitektur.png" alt="Architecture: five containers, the edge and data networks, the db_data volume" loading="lazy"></figure>
 
@@ -67,7 +69,7 @@ USER nonroot:nonroot
 HEALTHCHECK CMD [&quot;/app/server&quot;, &quot;healthcheck&quot;]
 ENTRYPOINT [&quot;/app/server&quot;]
 </code></pre>
-<p>Dependency files are copied before the source, so code changes do not re-download modules. The build stage is 808 MB;
+<p>Dependency files are copied before the source, so code changes do not re-download modules. The build stage is 826 MB;
 the image that ships is <strong>26 MB</strong>, because only the static binary reaches the runtime stage. Distroless has no shell
 and no version tags, so the binary checks its own health and the base is pinned by digest.</p>
 <h2>Compose: start in the right order</h2>
@@ -103,7 +105,7 @@ docker compose up -d --build
 <figure><img src="compose-ps.png" alt="docker compose ps: every service running and healthy" loading="lazy"></figure>
 
 <h2>Redis earns its place</h2>
-<p>Lookups are cached, so a repeated certificate check dropped from 509 ms to 5 ms. List reads carry an
+<p>Lookups are cached, so a repeated certificate check dropped from 257 ms to 10 ms. List reads carry an
 <code>X-Cache: HIT/MISS</code> header, and every write bumps a version number so stale entries are never served. Writes are
 limited to 30 a minute per client; the next one gets <code>429</code> with <code>Retry-After</code>.</p>
 <h2>What I learned</h2>
