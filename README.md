@@ -236,6 +236,6 @@ docker-compose.yml, .env.example
 ## Tautan
 
 - Artikel: https://www.mrramdn.com/en/blog/tenggat (salinan: https://mrramdn.github.io/tenggat/)
-- Video demo: menyusul
+- Video demo: https://youtu.be/I8MUjNdjYa8
 - Docker Hub: https://hub.docker.com/r/mrramdn/tenggat-api dan https://hub.docker.com/r/mrramdn/tenggat-web
 - Versi online: https://tenggat.mrramdn.com
