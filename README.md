@@ -197,7 +197,8 @@ docker-compose.yml, .env.example
 
 - [pgx](https://github.com/jackc/pgx), [go-redis](https://github.com/redis/go-redis), [x/crypto](https://pkg.go.dev/golang.org/x/crypto) (Argon2id), [x/net](https://pkg.go.dev/golang.org/x/net) (publicsuffix, idna)
 - Data bootstrap RDAP dari [IANA](https://data.iana.org/rdap/dns.json), disalin ke `api/internal/rdap/dns.json`
-- [React](https://react.dev), [Vite](https://vite.dev), [TanStack Query](https://tanstack.com/query)
+- [React](https://react.dev), [TypeScript](https://www.typescriptlang.org), [Vite](https://vite.dev) dengan
+  [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react), [TanStack Query](https://tanstack.com/query)
 - Huruf [Geist dan Geist Mono](https://vercel.com/font) (SIL Open Font License 1.1, `web/src/assets/fonts/OFL.txt`)
 - Ikon dari [Lucide](https://lucide.dev) (ISC)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
@@ -205,12 +206,17 @@ docker-compose.yml, .env.example
 ## AI Usage Declaration
 
 - **Alat:** Claude (Anthropic), lewat Claude Code.
-- **Bagian yang dibantu:**
-  1. Brainstorming dan perluasan ide: memilih topik yang benar-benar terpakai, lalu mengembangkan Tenggat dari daftar
-     tanggal berakhir menjadi halaman per klien dengan tugas, aktivitas, dan laporan.
-  2. Pembuatan kode: membantu menulis kode api, web, Dockerfile, dan docker-compose.yml. Keputusan akhir dan
-     penjelasan setiap baris Dockerfile dan docker-compose.yml di video adalah milik saya.
-  3. Penyusunan laporan: membantu menyusun draf laporan, README, dan artikel.
+- **Bagian yang dibantu dan hasilnya:**
+  1. **Brainstorming dan perluasan ide.** AI memberi beberapa usulan topik dari masalah saya sendiri, lalu saya memilih
+     Tenggat: pengingat tanggal berakhir domain, sertifikat, token, dan langganan. Setelah versi pertama terasa terlalu
+     dasar, AI mengusulkan pengembangannya menjadi halaman per klien dengan tugas maintenance, catatan pekerjaan,
+     laporan bulanan, dan pengingat.
+  2. **Pembuatan kode.** AI membantu membuat draf kode api dalam Go (status, cek sertifikat dan RDAP, endpoint, akun,
+     cache Redis), web dalam React dan TypeScript, Dockerfile, docker-compose.yml, nginx.conf, dan skrip data contoh,
+     lalu memperbaikinya dari hasil pengujian. AI juga membuat beberapa mockup tampilan, dan saya yang memilih arahnya.
+     Keputusan akhir dan penjelasan setiap baris Dockerfile dan docker-compose.yml di video adalah milik saya.
+  3. **Penyusunan laporan.** AI membantu menyusun draf jawaban Soal 1 dan 2, README, artikel, naskah video, dan catatan
+     arti setiap baris Dockerfile dan docker-compose.yml yang saya pakai untuk belajar.
 - **Contoh prompt utama:**
   - "Dari masalah yang aku alami sendiri: klien banyak dan datanya berantakan, sering lupa perpanjang domain,
     sertifikat, dan langganan. Bantu cari ide aplikasi web untuk UTS ini yang benar-benar kepakai."
