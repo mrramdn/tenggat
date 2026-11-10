@@ -18,6 +18,9 @@ layanan ditangguhkan. Bagi yang menjual paket maintenance bulanan, ada pekerjaan
 cek keamanan) dan laporan yang dikirim ke klien tiap bulan, biasanya lewat WhatsApp atau PDF. Tenggat menyatukan
 keduanya per klien.
 
+Saya sendiri mengurus VPS, domain, dan beberapa situs klien sebagai freelancer, dan ingin mendalami peran Cloud/DevOps.
+Tenggat adalah alat yang saya pakai sendiri untuk masalah ini.
+
 ## Fitur
 
 - **Halaman depan** dengan cek langsung: ketik alamat situs, lalu lihat tanggal berakhir domain (registri) dan
@@ -202,6 +205,8 @@ docker-compose.yml, .env.example
 - Huruf [Geist dan Geist Mono](https://vercel.com/font) (SIL Open Font License 1.1, `web/src/assets/fonts/OFL.txt`)
 - Ikon dari [Lucide](https://lucide.dev) (ISC)
 - Image dasar resmi: golang, node, nginxinc/nginx-unprivileged, gcr.io/distroless/static, postgres, redis, adminer
+- Definisi tipe dari [DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped) (`@types/react`, `@types/react-dom`)
+- Tanpa starter resmi: kerangka `api/` dan `web/` ditulis sendiri sejak commit pertama (`5362979`).
 
 ## AI Usage Declaration
 
@@ -217,6 +222,9 @@ docker-compose.yml, .env.example
      Keputusan akhir dan penjelasan setiap baris Dockerfile dan docker-compose.yml di video adalah milik saya.
   3. **Penyusunan laporan.** AI membantu menyusun draf jawaban Soal 1 dan 2, README, artikel, naskah video, dan catatan
      arti setiap baris Dockerfile dan docker-compose.yml yang saya pakai untuk belajar.
+- **Yang saya kerjakan sendiri:** menentukan masalah, topik, dan batasannya (tanpa API key, Go untuk api, React
+  terpisah, Redis dan Docker Hub untuk bonus), memilih arah desain, meninjau hasil dan meminta perbaikan, menyiapkan
+  akun Docker Hub serta DNS dan sertifikat untuk versi online, lalu merekam dan menarasikan video.
 - **Contoh prompt utama:**
   - "Dari masalah yang aku alami sendiri: klien banyak dan datanya berantakan, sering lupa perpanjang domain,
     sertifikat, dan langganan. Bantu cari ide aplikasi web untuk UTS ini yang benar-benar kepakai."
