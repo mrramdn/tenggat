@@ -32,9 +32,9 @@ func (m *memStore) ListKlien(_ context.Context, userID string, now time.Time) ([
 		if k.PenggunaID != userID {
 			continue
 		}
-		r := store.KlienRingkas{Klien: k}
+		r := store.KlienRingkas{Klien: k, Biaya30HariPer: map[string]int64{}}
 		for _, it := range m.items {
-			if deref(it.KlienID) != k.ID {
+			if deref(it.KlienID) != k.ID || it.SelesaiPada != nil {
 				continue
 			}
 			r.JumlahAset++
@@ -43,7 +43,14 @@ func (m *memStore) ListKlien(_ context.Context, userID string, now time.Time) ([
 				r.Terdekat = &d
 			}
 			if expiry.DaysLeft(it.Kedaluwarsa, now) <= 30 && it.Biaya != nil {
-				r.Biaya30Hari += *it.Biaya
+				mu := it.MataUang
+				if mu == "" {
+					mu = "IDR"
+				}
+				r.Biaya30HariPer[mu] += *it.Biaya
+				if mu == "IDR" {
+					r.Biaya30Hari += *it.Biaya
+				}
 			}
 		}
 		out = append(out, r)

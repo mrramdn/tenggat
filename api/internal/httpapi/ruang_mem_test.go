@@ -45,14 +45,19 @@ func (m *memStore) ListTugas(_ context.Context, userID string, f store.TugasFilt
 	defer m.mu.Unlock()
 	out := []store.Tugas{}
 	for _, t := range m.ruang().tugas {
-		if t.PenggunaID != userID || (f.KlienID != "" && deref(t.KlienID) != f.KlienID) ||
+		if t.PenggunaID != userID || (t.SelesaiPada != nil) != f.Selesai ||
+			(f.KlienID != "" && deref(t.KlienID) != f.KlienID) ||
 			(f.Sampai != nil && t.JatuhTempo.After(*f.Sampai)) {
 			continue
 		}
 		t.Klien = m.klienName(t.KlienID)
 		out = append(out, t)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].JatuhTempo.Before(out[j].JatuhTempo) })
+	if f.Selesai {
+		sort.Slice(out, func(i, j int) bool { return out[i].SelesaiPada.After(*out[j].SelesaiPada) })
+	} else {
+		sort.Slice(out, func(i, j int) bool { return out[i].JatuhTempo.Before(out[j].JatuhTempo) })
+	}
 	return out, nil
 }
 
@@ -68,8 +73,12 @@ func (m *memStore) GetTugas(_ context.Context, userID, id string) (store.Tugas, 
 }
 
 func (m *memStore) putTugas(t store.Tugas, in store.TugasInput) store.Tugas {
-	t.KlienID, t.Judul, t.Catatan, t.UlangJumlah, t.UlangSatuan, t.JatuhTempo, t.Biaya =
-		in.KlienID, in.Judul, in.Catatan, in.UlangJumlah, in.UlangSatuan, in.JatuhTempo, in.Biaya
+	mu := in.MataUang
+	if mu == "" {
+		mu = "IDR"
+	}
+	t.KlienID, t.Judul, t.Catatan, t.UlangJumlah, t.UlangSatuan, t.JatuhTempo, t.Biaya, t.MataUang =
+		in.KlienID, in.Judul, in.Catatan, in.UlangJumlah, in.UlangSatuan, in.JatuhTempo, in.Biaya, mu
 	t.Diubah = testNow
 	m.ruang().tugas[t.ID] = t
 	t.Klien = m.klienName(t.KlienID)
@@ -86,7 +95,7 @@ func (m *memStore) UpdateTugas(_ context.Context, userID, id string, in store.Tu
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	t, ok := m.ruang().tugas[id]
-	if !ok || t.PenggunaID != userID {
+	if !ok || t.PenggunaID != userID || t.SelesaiPada != nil {
 		return store.Tugas{}, store.ErrNotFound
 	}
 	return m.putTugas(t, in), nil
@@ -96,7 +105,7 @@ func (m *memStore) CompleteTugas(_ context.Context, userID, id string, from, nex
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	t, ok := m.ruang().tugas[id]
-	if !ok || t.PenggunaID != userID || !t.JatuhTempo.Equal(from) {
+	if !ok || t.PenggunaID != userID || !t.JatuhTempo.Equal(from) || t.SelesaiPada != nil {
 		return store.Tugas{}, store.ErrNotFound
 	}
 	t.JatuhTempo, t.TerakhirSelesai = next, &at
@@ -161,7 +170,8 @@ func (m *memStore) AddAktivitas(_ context.Context, userID string, in store.Aktiv
 	}
 	r.seq++
 	a := store.Aktivitas{ID: m.newID(), PenggunaID: userID, KlienID: in.KlienID, ItemID: in.ItemID, TugasID: in.TugasID,
-		Jenis: in.Jenis, Teks: in.Teks, Tanggal: in.Tanggal, DurasiMenit: in.DurasiMenit, Data: in.Data,
+		Jenis: in.Jenis, Teks: in.Teks, Tanggal: in.Tanggal, DurasiMenit: in.DurasiMenit,
+		Jumlah: in.Jumlah, MataUang: in.MataUang, Data: in.Data,
 		Dibuat: testNow.Add(time.Duration(r.seq) * time.Millisecond)}
 	r.aktivitas = append(r.aktivitas, a)
 	a.Klien = m.klienName(a.KlienID)

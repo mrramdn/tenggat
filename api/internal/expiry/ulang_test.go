@@ -42,6 +42,30 @@ func TestNextDue(t *testing.T) {
 	}
 }
 
+func TestAddInterval(t *testing.T) {
+	for _, c := range []struct {
+		from string
+		n    int
+		unit string
+		want string
+	}{
+		{"2026-11-09", 1, "hari", "2026-11-10"},
+		{"2026-11-09", 10, "hari", "2026-11-19"},
+		{"2026-11-09", 1, "minggu", "2026-11-16"},
+		{"2026-11-09", 2, "minggu", "2026-11-23"},
+		{"2026-01-31", 1, "bulan", "2026-02-28"},
+		{"2028-01-31", 1, "bulan", "2028-02-29"},
+		{"2026-08-31", 1, "bulan", "2026-09-30"},
+		{"2026-11-30", 3, "bulan", "2027-02-28"},
+		{"2024-02-29", 1, "tahun", "2025-02-28"},
+		{"2024-02-29", 4, "tahun", "2028-02-29"},
+	} {
+		if got := AddInterval(date(c.from), c.n, c.unit).Format(time.DateOnly); got != c.want {
+			t.Errorf("AddInterval(%s, %d, %s) = %s, want %s", c.from, c.n, c.unit, got, c.want)
+		}
+	}
+}
+
 func TestAddMonths(t *testing.T) {
 	for _, c := range []struct {
 		from   string

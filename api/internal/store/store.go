@@ -38,6 +38,10 @@ type Item struct {
 	Kedaluwarsa   time.Time // a calendar date at midnight UTC
 	Sumber        string
 	Biaya         *int64
+	MataUang      string
+	UlangJumlah   int
+	UlangSatuan   string
+	SelesaiPada   *time.Time
 	Catatan       string
 	InfoTLS       *TLSInfo
 	InfoRegistri  *RegistryInfo
@@ -57,10 +61,22 @@ type Input struct {
 	Kedaluwarsa time.Time
 	Sumber      string
 	Biaya       *int64
+	MataUang    string
+	UlangJumlah int
+	UlangSatuan string
 	Catatan     string
 	InfoTLS     *TLSInfo
 	Registri    *RegistryInfo
 	Dicek       *time.Time // set when the date was just read from the server
+}
+
+// Perpanjangan describes one payment or renewal of an active item.
+type Perpanjangan struct {
+	Dari      time.Time
+	Sampai    *time.Time
+	Lunas     bool
+	At        time.Time
+	Aktivitas AktivitasInput
 }
 
 // Filter narrows a listing. Empty fields mean no filter.
@@ -68,6 +84,7 @@ type Filter struct {
 	Status  expiry.Status
 	Klien   string // a client's name, matched without regard to case
 	KlienID string
+	Selesai bool // false lists active items, true lists closed ones
 }
 
 // Summary counts items per status and lists the names of the user's clients.
@@ -109,7 +126,8 @@ func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 // columns are read from item AS i joined with its client AS k (see fromItem and
 // returning), so every query hands back the client's current name.
 const columns = `i.id, i.pengguna_id, i.nama, i.jenis, COALESCE(k.nama, ''), i.klien_id, i.host, i.kedaluwarsa,
-	i.sumber, i.biaya, i.catatan, i.info_tls, i.terakhir_dicek, i.galat_cek, i.dibuat, i.diubah,
+	i.sumber, i.biaya, i.mata_uang, COALESCE(i.ulang_jumlah, 0), COALESCE(i.ulang_satuan, ''), i.selesai_pada,
+	i.catatan, i.info_tls, i.terakhir_dicek, i.galat_cek, i.dibuat, i.diubah,
 	i.info_registri`
 
 const fromItem = `item AS i LEFT JOIN klien AS k ON k.id = i.klien_id`
@@ -121,7 +139,8 @@ const returning = `RETURNING *) SELECT ` + columns + ` FROM i LEFT JOIN klien AS
 func scanItem(row pgx.Row) (Item, error) {
 	var it Item
 	err := row.Scan(&it.ID, &it.PenggunaID, &it.Nama, &it.Jenis, &it.Klien, &it.KlienID, &it.Host, &it.Kedaluwarsa, &it.Sumber,
-		&it.Biaya, &it.Catatan, &it.InfoTLS, &it.TerakhirDicek, &it.GalatCek, &it.Dibuat, &it.Diubah,
+		&it.Biaya, &it.MataUang, &it.UlangJumlah, &it.UlangSatuan, &it.SelesaiPada,
+		&it.Catatan, &it.InfoTLS, &it.TerakhirDicek, &it.GalatCek, &it.Dibuat, &it.Diubah,
 		&it.InfoRegistri)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return it, ErrNotFound
@@ -157,11 +176,12 @@ func (s *Store) List(ctx context.Context, userID string, f Filter, now time.Time
 	}
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM `+fromItem+`
 		WHERE i.pengguna_id = $4
+		  AND (i.selesai_pada IS NOT NULL) = $6
 		  AND ($1::date IS NULL OR i.kedaluwarsa >= $1)
 		  AND ($2::date IS NULL OR i.kedaluwarsa <= $2)
 		  AND ($3::text IS NULL OR lower(k.nama) = lower($3))
 		  AND ($5::uuid IS NULL OR i.klien_id = $5)
-		ORDER BY i.kedaluwarsa, i.nama`, from, to, klien, userID, klienID)
+		ORDER BY i.kedaluwarsa, i.nama`, from, to, klien, userID, klienID, f.Selesai)
 	if err != nil {
 		return nil, err
 	}
@@ -186,25 +206,56 @@ func (s *Store) Get(ctx context.Context, userID, id string) (Item, error) {
 func (s *Store) Create(ctx context.Context, userID string, in Input) (Item, error) {
 	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (INSERT INTO item
 		(pengguna_id, nama, jenis, klien_id, host, kedaluwarsa, sumber, biaya, catatan, info_tls, terakhir_dicek,
-		 info_registri)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		 info_registri, mata_uang, ulang_jumlah, ulang_satuan)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE(NULLIF($13, ''), 'IDR'), NULLIF($14, 0), NULLIF($15, ''))
 		`+returning,
 		userID, in.Nama, in.Jenis, in.KlienID, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek,
-		in.Registri))
+		in.Registri, in.MataUang, in.UlangJumlah, in.UlangSatuan))
 }
 
-// Update replaces the editable fields of one of a user's items.
+// Update replaces the editable fields of one of a user's active items.
 func (s *Store) Update(ctx context.Context, userID, id string, in Input) (Item, error) {
 	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET
 		nama = $2, jenis = $3, klien_id = $4, host = $5, kedaluwarsa = $6, sumber = $7, biaya = $8,
 		catatan = $9, info_tls = $10, info_registri = $13,
+		mata_uang = COALESCE(NULLIF($14, ''), 'IDR'), ulang_jumlah = NULLIF($15, 0), ulang_satuan = NULLIF($16, ''),
 		terakhir_dicek = COALESCE($11, terakhir_dicek),
 		galat_cek = CASE WHEN $11::timestamptz IS NULL AND $7 <> 'manual' THEN galat_cek END,
 		diubah = now()
-		WHERE id = $1 AND pengguna_id = $12
+		WHERE id = $1 AND pengguna_id = $12 AND selesai_pada IS NULL
 		`+returning,
 		id, in.Nama, in.Jenis, in.KlienID, in.Host, in.Kedaluwarsa, in.Sumber, in.Biaya, in.Catatan, in.InfoTLS, in.Dicek, userID,
-		in.Registri))
+		in.Registri, in.MataUang, in.UlangJumlah, in.UlangSatuan))
+}
+
+// PerpanjangItem advances an active item's date from p.Dari to p.Sampai (or
+// closes it at p.At when p.Lunas is set) and records p.Aktivitas in a single
+// statement. If the item is missing, belongs to another user, is already
+// closed, or no longer has kedaluwarsa = p.Dari, nothing is written and
+// ErrNotFound is returned.
+func (s *Store) PerpanjangItem(ctx context.Context, userID, id string, p Perpanjangan) (Item, error) {
+	var data []byte
+	if p.Aktivitas.Data != nil {
+		data = p.Aktivitas.Data
+	}
+	tgl := p.Aktivitas.Tanggal
+	if tgl.IsZero() {
+		tgl = expiry.DateOf(p.At)
+	}
+	return scanItem(s.pool.QueryRow(ctx, `WITH i AS (UPDATE item SET
+		kedaluwarsa = COALESCE($4, kedaluwarsa),
+		selesai_pada = CASE WHEN $5 THEN $6::timestamptz END,
+		diubah = now()
+		WHERE id = $1 AND pengguna_id = $2 AND kedaluwarsa = $3 AND selesai_pada IS NULL
+		RETURNING *),
+		a AS (INSERT INTO aktivitas
+			(pengguna_id, klien_id, item_id, jenis, teks, tanggal, durasi_menit, jumlah, mata_uang, data)
+			SELECT i.pengguna_id, COALESCE($7::uuid, i.klien_id), i.id, $8, $9, $10, $11, $12, $13, $14
+			FROM i)
+		SELECT `+columns+` FROM i LEFT JOIN klien AS k ON k.id = i.klien_id`,
+		id, userID, p.Dari, p.Sampai, p.Lunas, p.At,
+		p.Aktivitas.KlienID, p.Aktivitas.Jenis, p.Aktivitas.Teks, tgl,
+		p.Aktivitas.DurasiMenit, p.Aktivitas.Jumlah, p.Aktivitas.MataUang, data))
 }
 
 // Delete removes one of a user's items.
@@ -234,10 +285,12 @@ func (s *Store) SaveCheckError(ctx context.Context, id, message string, at time.
 		`+returning, id, at, message))
 }
 
-// DueForCheck lists certificates and registry domains not checked since the given time.
+// DueForCheck lists active certificates and registry domains not checked since the given time.
 func (s *Store) DueForCheck(ctx context.Context, before time.Time) ([]Item, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM `+fromItem+`
-		WHERE (i.jenis = 'sertifikat' OR i.sumber = 'registri') AND (i.terakhir_dicek IS NULL OR i.terakhir_dicek < $1)
+		WHERE i.selesai_pada IS NULL
+		  AND (i.jenis = 'sertifikat' OR i.sumber = 'registri')
+		  AND (i.terakhir_dicek IS NULL OR i.terakhir_dicek < $1)
 		ORDER BY i.terakhir_dicek NULLS FIRST`, before)
 	if err != nil {
 		return nil, err
@@ -254,7 +307,7 @@ func (s *Store) DueForCheck(ctx context.Context, before time.Time) ([]Item, erro
 	return items, rows.Err()
 }
 
-// Summary counts a user's items per status for today and lists the user's clients.
+// Summary counts a user's active items per status for today and lists the user's clients.
 func (s *Store) Summary(ctx context.Context, userID string, now time.Time) (Summary, error) {
 	var sum Summary
 	today := expiry.DateOf(now)
@@ -264,7 +317,7 @@ func (s *Store) Summary(ctx context.Context, userID string, now time.Time) (Summ
 		count(*) FILTER (WHERE kedaluwarsa BETWEEN $1::date + 8 AND $1::date + 30),
 		count(*) FILTER (WHERE kedaluwarsa > $1::date + 30),
 		count(*)
-		FROM item WHERE pengguna_id = $2`, today, userID).Scan(&sum.Lewat, &sum.Kritis, &sum.Segera, &sum.Aman, &sum.Total)
+		FROM item WHERE pengguna_id = $2 AND selesai_pada IS NULL`, today, userID).Scan(&sum.Lewat, &sum.Kritis, &sum.Segera, &sum.Aman, &sum.Total)
 	if err != nil {
 		return sum, fmt.Errorf("count: %w", err)
 	}

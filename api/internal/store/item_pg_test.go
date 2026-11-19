@@ -481,3 +481,199 @@ func TestItemConstraintsThroughStore(t *testing.T) {
 		t.Errorf("%d rows written by refused creates", n)
 	}
 }
+
+func TestItemV2ColumnsAndPerpanjang(t *testing.T) {
+	t.Parallel()
+	s := storeSiap(t)
+	ctx := t.Context()
+	u := penggunaUji(t, s, "Rana")
+	other := penggunaUji(t, s, "Budi")
+	k := klienUji(t, s, u.ID, "Toko Kue Mawar")
+	now := time.Date(2026, 11, 19, 7, 0, 0, 0, time.UTC)
+
+	// Recurring USD bill.
+	due1 := tanggal(2026, 11, 20)
+	due2 := tanggal(2026, 12, 20)
+	bill, err := s.Create(ctx, u.ID, Input{
+		Nama:        "Claude Pro",
+		Jenis:       "tagihan",
+		KlienID:     &k.ID,
+		Kedaluwarsa: due1,
+		Sumber:      "manual",
+		Biaya:       ptr[int64](2000),
+		MataUang:    "USD",
+		UlangJumlah: 1,
+		UlangSatuan: "bulan",
+	})
+	if err != nil {
+		t.Fatalf("Create(tagihan USD): %v", err)
+	}
+	if bill.MataUang != "USD" || bill.UlangJumlah != 1 || bill.UlangSatuan != "bulan" || bill.SelesaiPada != nil {
+		t.Errorf("Create(tagihan USD) = %+v", bill)
+	}
+
+	// One-off IDR bill (empty MataUang defaults to IDR, zero recurrence stored as NULL).
+	onceDue := tanggal(2026, 11, 25)
+	once, err := s.Create(ctx, u.ID, Input{
+		Nama:        "Pelunasan Desain",
+		Jenis:       "tagihan",
+		KlienID:     &k.ID,
+		Kedaluwarsa: onceDue,
+		Sumber:      "manual",
+		Biaya:       ptr[int64](1500000),
+	})
+	if err != nil {
+		t.Fatalf("Create(one-off tagihan): %v", err)
+	}
+	if once.MataUang != "IDR" || once.UlangJumlah != 0 || once.UlangSatuan != "" || once.SelesaiPada != nil {
+		t.Errorf("Create(one-off tagihan) = %+v", once)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM item WHERE id = $1 AND ulang_jumlah IS NULL AND ulang_satuan IS NULL`, once.ID); n != 1 {
+		t.Errorf("one-off item recurrence not stored as NULL in SQL")
+	}
+
+	// Wrong Dari or another user writes nothing and no activity row.
+	badP := Perpanjangan{
+		Dari:   tanggal(2026, 11, 19),
+		Sampai: &due2,
+		At:     now,
+		Aktivitas: AktivitasInput{
+			KlienID:  &k.ID,
+			Jenis:    "tagihan_dibayar",
+			Teks:     "Tidak boleh tercatat",
+			Tanggal:  tanggal(2026, 11, 19),
+			Jumlah:   ptr[int64](2000),
+			MataUang: ptr("USD"),
+		},
+	}
+	if _, err := s.PerpanjangItem(ctx, u.ID, bill.ID, badP); !errors.Is(err, ErrNotFound) {
+		t.Errorf("PerpanjangItem(wrong Dari) err = %v, want ErrNotFound", err)
+	}
+	badP.Dari = due1
+	if _, err := s.PerpanjangItem(ctx, other.ID, bill.ID, badP); !errors.Is(err, ErrNotFound) {
+		t.Errorf("PerpanjangItem(other user) err = %v, want ErrNotFound", err)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM aktivitas`); n != 0 {
+		t.Errorf("failed PerpanjangItem wrote %d activity rows, want 0", n)
+	}
+
+	// Matching Dari moves the date once and writes the activity row atomically.
+	pay1 := Perpanjangan{
+		Dari:   due1,
+		Sampai: &due2,
+		At:     now,
+		Aktivitas: AktivitasInput{
+			KlienID:  &k.ID,
+			Jenis:    "tagihan_dibayar",
+			Teks:     "Tagihan Claude Pro dibayar US$20.00",
+			Tanggal:  tanggal(2026, 11, 19),
+			Jumlah:   ptr[int64](2000),
+			MataUang: ptr("USD"),
+		},
+	}
+	moved, err := s.PerpanjangItem(ctx, u.ID, bill.ID, pay1)
+	if err != nil {
+		t.Fatalf("PerpanjangItem: %v", err)
+	}
+	if !moved.Kedaluwarsa.Equal(due2) || moved.SelesaiPada != nil || moved.Klien != k.Nama {
+		t.Errorf("PerpanjangItem = %+v", moved)
+	}
+	// Repeating the same PerpanjangItem with the old Dari fails and does not write a second activity row.
+	if _, err := s.PerpanjangItem(ctx, u.ID, bill.ID, pay1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("second PerpanjangItem(old Dari) err = %v, want ErrNotFound", err)
+	}
+	feed, err := s.ListAktivitas(ctx, u.ID, AktivitasFilter{})
+	if err != nil || len(feed) != 1 || feed[0].Jenis != "tagihan_dibayar" ||
+		feed[0].ItemID == nil || *feed[0].ItemID != bill.ID ||
+		feed[0].Jumlah == nil || *feed[0].Jumlah != 2000 ||
+		feed[0].MataUang == nil || *feed[0].MataUang != "USD" {
+		t.Errorf("ListAktivitas after PerpanjangItem = %+v, %v", feed, err)
+	}
+
+	// Lunas=true closes the one-off bill, sets selesai_pada = At, and records payment.
+	closeAt := now.Add(time.Hour)
+	closed, err := s.PerpanjangItem(ctx, u.ID, once.ID, Perpanjangan{
+		Dari:  onceDue,
+		Lunas: true,
+		At:    closeAt,
+		Aktivitas: AktivitasInput{
+			Jenis:    "tagihan_dibayar",
+			Teks:     "Tagihan Pelunasan Desain lunas Rp 1.500.000",
+			Tanggal:  tanggal(2026, 11, 19),
+			Jumlah:   ptr[int64](1500000),
+			MataUang: ptr("IDR"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("PerpanjangItem(Lunas): %v", err)
+	}
+	if !closed.Kedaluwarsa.Equal(onceDue) || !sama(closed.SelesaiPada, &closeAt) {
+		t.Errorf("PerpanjangItem(Lunas) = %+v", closed)
+	}
+
+	// Closed item cannot be extended again or updated.
+	if _, err := s.PerpanjangItem(ctx, u.ID, once.ID, Perpanjangan{
+		Dari:  onceDue,
+		Lunas: true,
+		At:    closeAt.Add(time.Minute),
+		Aktivitas: AktivitasInput{
+			Jenis:   "tagihan_dibayar",
+			Teks:    "Bayar dua kali",
+			Tanggal: tanggal(2026, 11, 19),
+		},
+	}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("PerpanjangItem(already closed) err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.Update(ctx, u.ID, once.ID, Input{
+		Nama:        "Diubah setelah lunas",
+		Jenis:       "tagihan",
+		Kedaluwarsa: onceDue,
+		Sumber:      "manual",
+	}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Update(closed item) err = %v, want ErrNotFound", err)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM aktivitas`); n != 2 {
+		t.Errorf("aktivitas has %d rows, want 2", n)
+	}
+
+	// Filter.Selesai, Summary, and DueForCheck respect selesai_pada.
+	reg, err := s.Create(ctx, u.ID, Input{
+		Nama:        "habis.id",
+		Jenis:       "domain",
+		Host:        ptr("habis.id"),
+		Kedaluwarsa: tanggal(2026, 11, 22),
+		Sumber:      "registri",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PerpanjangItem(ctx, u.ID, reg.ID, Perpanjangan{
+		Dari:  tanggal(2026, 11, 22),
+		Lunas: true,
+		At:    closeAt,
+		Aktivitas: AktivitasInput{
+			Jenis:   "catatan",
+			Teks:    "Ditutup",
+			Tanggal: tanggal(2026, 11, 19),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	active, err := s.List(ctx, u.ID, Filter{Selesai: false}, now)
+	if err != nil || !slices.Equal(idItem(active), []string{bill.ID}) {
+		t.Errorf("List(Selesai=false) = %v, %v; want [%s]", idItem(active), err, bill.ID)
+	}
+	doneList, err := s.List(ctx, u.ID, Filter{Selesai: true}, now)
+	if err != nil || !slices.Equal(idItem(doneList), []string{reg.ID, once.ID}) {
+		t.Errorf("List(Selesai=true) = %v, %v; want [%s %s]", idItem(doneList), err, reg.ID, once.ID)
+	}
+	sum, err := s.Summary(ctx, u.ID, now)
+	if err != nil || sum.Total != 1 || sum.Aman != 1 {
+		t.Errorf("Summary with closed items = %+v, %v; want Total=1, Aman=1", sum, err)
+	}
+	dueCheck, err := s.DueForCheck(ctx, now.Add(time.Hour))
+	if err != nil || len(dueCheck) != 0 {
+		t.Errorf("DueForCheck with closed registry domain = %+v, %v; want empty", dueCheck, err)
+	}
+}

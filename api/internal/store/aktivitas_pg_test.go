@@ -62,14 +62,22 @@ func TestAktivitasRoundTripAndDelete(t *testing.T) {
 
 	// Automatic entries cannot be deleted by the user (ErrAktivitasOtomatis), and another user gets ErrNotFound.
 	otomatisKinds := []string{"aset_baru", "aset_diperpanjang", "aset_dihapus", "cek_diperbarui", "cek_gagal",
-		"tugas_baru", "tugas_selesai", "tugas_dihapus", "laporan_dibagikan"}
+		"tugas_baru", "tugas_selesai", "tugas_dihapus", "laporan_dibagikan", "tagihan_dibayar"}
 	var firstAuto Aktivitas
 	for i, jenis := range otomatisKinds {
-		a, err := s.AddAktivitas(ctx, u.ID, AktivitasInput{KlienID: &k.ID, ItemID: &it.ID, Jenis: jenis,
+		in := AktivitasInput{KlienID: &k.ID, ItemID: &it.ID, Jenis: jenis,
 			Teks: "Otomatis " + jenis, Tanggal: tanggal(2026, 11, 10),
-			Data: json.RawMessage(`{"jenis":"` + jenis + `"}`)})
+			Data: json.RawMessage(`{"jenis":"` + jenis + `"}`)}
+		if jenis == "tagihan_dibayar" {
+			in.Jumlah = ptr[int64](2050)
+			in.MataUang = ptr("USD")
+		}
+		a, err := s.AddAktivitas(ctx, u.ID, in)
 		if err != nil {
 			t.Fatalf("AddAktivitas(%s): %v", jenis, err)
+		}
+		if jenis == "tagihan_dibayar" && (a.Jumlah == nil || *a.Jumlah != 2050 || a.MataUang == nil || *a.MataUang != "USD") {
+			t.Errorf("AddAktivitas(tagihan_dibayar) = %+v", a)
 		}
 		if i == 0 {
 			firstAuto = a
@@ -248,4 +256,16 @@ func TestAktivitasConstraints(t *testing.T) {
 	mustCheckViolation(t, err, "aktivitas_durasi_menit_check")
 	_, err = s.AddAktivitas(ctx, u.ID, AktivitasInput{Jenis: "pekerjaan", Teks: "Kerja", Tanggal: tgl, DurasiMenit: ptr(1441)})
 	mustCheckViolation(t, err, "aktivitas_durasi_menit_check")
+	_, err = s.AddAktivitas(ctx, u.ID, AktivitasInput{Jenis: "tagihan_dibayar", Teks: "Bayar", Tanggal: tgl,
+		Jumlah: ptr[int64](-1), MataUang: ptr("IDR")})
+	mustCheckViolation(t, err, "aktivitas_jumlah_check")
+	_, err = s.AddAktivitas(ctx, u.ID, AktivitasInput{Jenis: "tagihan_dibayar", Teks: "Bayar", Tanggal: tgl,
+		Jumlah: ptr[int64](1000)})
+	mustCheckViolation(t, err, "aktivitas_uang_lengkap")
+	_, err = s.AddAktivitas(ctx, u.ID, AktivitasInput{Jenis: "tagihan_dibayar", Teks: "Bayar", Tanggal: tgl,
+		MataUang: ptr("IDR")})
+	mustCheckViolation(t, err, "aktivitas_uang_lengkap")
+	_, err = s.AddAktivitas(ctx, u.ID, AktivitasInput{Jenis: "tagihan_dibayar", Teks: "Bayar", Tanggal: tgl,
+		Jumlah: ptr[int64](1000), MataUang: ptr("EUR")})
+	mustCheckViolation(t, err, "aktivitas_uang_lengkap")
 }
