@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import type { Klien } from '../lib/api'
 import { biaya30, judul, saringAwal, saringItem, statusTerburuk, tanpaSaring } from '../lib/derive'
-import { hariIniIso, kelasStatus, keteranganStatus, labelStatus, rupiahBiasa, tanggalPanjang, urutanStatus } from '../lib/format'
+import { daftarUang, hariIniIso, kelasStatus, keteranganStatus, labelStatus, tanggalPanjang, urutanStatus } from '../lib/format'
 import { jalurKlien, Tautan } from '../lib/rute'
 import { useModal } from '../hooks/useModal'
 import { DaftarAsetPhone } from './DaftarAsetPhone'
@@ -80,6 +80,7 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
   const perStatus = tanpaSaring(items, sp, 'status')
   const j = judul(items)
   const b = biaya30(items)
+  const biayaDaftar = daftarUang(b.perMataUang)
   const urut = [...items].sort((a, c) => a.sisa_hari - c.sisa_hari)
   return (
     <main>
@@ -90,9 +91,15 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
           {j.sunyi ? <span className="quiet"> {j.sunyi}</span> : null}
         </h1>
         <p className="lede">
-          {b.total > 0 ? (
+          {biayaDaftar.length > 0 ? (
             <>
-              <b className="num">{rupiahBiasa(b.total)}</b> jatuh tempo dalam 30 hari ke depan.
+              {biayaDaftar.map((teks, i) => (
+                <span key={teks}>
+                  {i > 0 ? ' dan ' : null}
+                  <b className="num">{teks}</b>
+                </span>
+              ))}{' '}
+              jatuh tempo dalam 30 hari ke depan.
             </>
           ) : (
             'Tidak ada biaya perpanjangan dalam 30 hari ke depan.'

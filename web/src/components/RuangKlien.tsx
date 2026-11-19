@@ -2,7 +2,7 @@
 // Aset, Tugas, Aktivitas and Laporan, each its own URL.
 import type { Item, Klien } from '../lib/api'
 import { saringItem, type Saring } from '../lib/derive'
-import { rupiahBiasa, tanggal } from '../lib/format'
+import { daftarUang, tanggal } from '../lib/format'
 import { jalurKlien, Tautan, type TabKlien } from '../lib/rute'
 import { DaftarAset } from './DaftarAset'
 import { DaftarAsetPhone } from './DaftarAsetPhone'
@@ -30,6 +30,7 @@ interface Props {
 }
 
 function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: boolean }) {
+  const biayaDaftar = daftarUang(k.biaya_30_hari_per_mata_uang, k.biaya_30_hari)
   return (
     <header className={phone ? 'rk is-phone' : 'rk'}>
       <div className="rk__teks">
@@ -43,9 +44,15 @@ function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: bo
             <b className="num">{k.jumlah_aset}</b> aset
           </li>
           <li>
-            {k.biaya_30_hari > 0 ? (
+            {biayaDaftar.length > 0 ? (
               <>
-                <b className="num">{rupiahBiasa(k.biaya_30_hari)}</b> jatuh tempo dalam 30 hari
+                {biayaDaftar.map((teks, i) => (
+                  <span key={teks}>
+                    {i > 0 ? ' dan ' : null}
+                    <b className="num">{teks}</b>
+                  </span>
+                ))}{' '}
+                jatuh tempo dalam 30 hari
               </>
             ) : (
               'Tidak ada biaya dalam 30 hari'
@@ -105,7 +112,7 @@ export function RuangKlien({ klien: k, items, semuaKlien, tab, saring, setSaring
             milik.length === 0 ? (
               <div className="ph-empty">
                 <b>Klien ini belum punya aset.</b>
-                <span>Tambahkan domain, sertifikat, token, atau langganan milik klien ini.</span>
+                <span>Tambahkan domain, sertifikat, token, langganan, atau tagihan milik klien ini.</span>
               </div>
             ) : (
               <DaftarAsetPhone rows={saringItem(milik, { ...saring, cari: '', jenis: null, sumber: null, status: null, klien: null })} aksi={aksi} tampilKlien={false} />

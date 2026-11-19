@@ -24,12 +24,14 @@ interface MenuProps {
 
 export function RowMenu({
   anchor,
+  tagihan = false,
   onUbah,
   onPengingat,
   onHapus,
   onClose,
 }: {
   anchor: HTMLElement
+  tagihan?: boolean
   onUbah: () => void
   /** Opens a WhatsApp message to the client about this asset. */
   onPengingat: () => void
@@ -39,7 +41,7 @@ export function RowMenu({
   return (
     <Menu
       anchor={anchor}
-      label="Tindakan aset"
+      label={tagihan ? 'Tindakan tagihan' : 'Tindakan aset'}
       onClose={onClose}
       items={[
         { label: 'Ubah', icon: 'pencil', onPilih: onUbah },

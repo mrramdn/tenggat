@@ -3,15 +3,73 @@
 // works the same way with "Ambil dari registri", or takes a date typed by hand.
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ApiError, api, type Item, type ItemInput, type Jenis, type Klien, type PratinjauDomain, type PratinjauSertifikat, type Status, type TLSInfo } from '../lib/api'
-import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis } from '../lib/format'
+import {
+  ApiError,
+  api,
+  type Item,
+  type ItemInput,
+  type Jenis,
+  type Klien,
+  type MataUang,
+  type PratinjauDomain,
+  type PratinjauSertifikat,
+  type SatuanUlang,
+  type Status,
+  type TLSInfo,
+} from '../lib/api'
+import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis, urutanMataUang } from '../lib/format'
 import { useModal } from '../hooks/useModal'
 import { tautanPengingat } from '../lib/pengingat'
 import { pesanGalat } from './Toasts'
 import { Icon } from './Icon'
 import { KlienPicker, type PilihanKlien } from './KlienPicker'
+import { Pilihan } from './Pilihan'
 import type { BukaTambah } from './types'
 import { Pill } from './ui'
+
+const OPSI_SATUAN: { nilai: SatuanUlang; label: string }[] = [
+  { nilai: 'hari', label: 'hari' },
+  { nilai: 'minggu', label: 'minggu' },
+  { nilai: 'bulan', label: 'bulan' },
+  { nilai: 'tahun', label: 'tahun' },
+]
+
+/** Sanitizes a USD input string, allowing either comma or dot as decimal separator and at most 2 decimals. */
+function bersihkanUsd(raw: string): string {
+  let sep = ''
+  let bulat = ''
+  let des = ''
+  for (const ch of raw) {
+    if (ch >= '0' && ch <= '9') {
+      if (!sep) {
+        if (bulat.length < 12) bulat += ch
+      } else if (des.length < 2) {
+        des += ch
+      }
+    } else if ((ch === '.' || ch === ',') && !sep) {
+      sep = ch
+    }
+  }
+  bulat = bulat.replace(/^0+(?=\d)/, '')
+  if (!sep) return bulat
+  return `${bulat || '0'}${sep}${des}`
+}
+
+function biayaAwal(item: Item | null): string {
+  if (item?.biaya == null) return ''
+  if (item.mata_uang === 'USD') {
+    return Number.isInteger(item.biaya) ? String(item.biaya) : item.biaya.toFixed(2)
+  }
+  return String(Math.round(item.biaya))
+}
+
+function parseBiaya(raw: string, mataUang: MataUang): number | null {
+  if (!raw) return null
+  if (mataUang === 'IDR') return Number(raw)
+  const n = Number(raw.replace(',', '.'))
+  if (!Number.isFinite(n)) return null
+  return Math.round(n * 100) / 100
+}
 
 export type ModeSheet = { mode: 'tambah'; awal: BukaTambah } | { mode: 'ubah'; item: Item; fokus?: 'kedaluwarsa' }
 
@@ -224,7 +282,7 @@ function ResultDomain({ hasil }: { hasil: Extract<Hasil, { jenis: 'domain'; stat
   )
 }
 
-export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Props) {
+export function AssetSheet({ buka, klien, onClose, onSaved, onHapus }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   useModal(ref, onClose)
   const uid = useId()
@@ -242,7 +300,12 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const [kedaluwarsa, setKedaluwarsa] = useState(item && item.sumber === 'manual' ? item.kedaluwarsa : '')
   // A domain is read from the registry unless the user chose to type its date.
   const [tanggalSendiri, setTanggalSendiri] = useState(!!item && item.jenis === 'domain' && item.sumber === 'manual')
-  const [biaya, setBiaya] = useState(item?.biaya != null ? String(item.biaya) : '')
+  const [mataUang, setMataUang] = useState<MataUang>(item?.mata_uang === 'USD' ? 'USD' : 'IDR')
+  const [biaya, setBiaya] = useState(() => biayaAwal(item))
+  const [berulang, setBerulang] = useState(!!(item?.ulang_jumlah && item?.ulang_satuan))
+  const [ulangJumlah, setUlangJumlah] = useState(String(item?.ulang_jumlah ?? 1))
+  const [ulangSatuan, setUlangSatuan] = useState<SatuanUlang>(item?.ulang_satuan ?? 'bulan')
+  const [catatan, setCatatan] = useState(item?.catatan ?? '')
   const [hasil, setHasil] = useState<Hasil>(item ? dariItem(item) : { status: 'kosong' })
   const [galat, setGalat] = useState<Record<string, string>>({})
   const [galatUmum, setGalatUmum] = useState<string | null>(null)
@@ -250,6 +313,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   const sertifikat = jenis === 'sertifikat'
   const klienBaru = !klienNya.id && klienNya.nama.trim() !== ''
   const domain = jenis === 'domain'
+  const tagihan = jenis === 'tagihan'
   const pakaiHost = sertifikat || domain
   const gagalBaca = pakaiHost && !!galat.host && host.trim() !== '' && hasil.status !== 'memuat'
   // A certificate the server could not read can still be saved with a date typed by hand.
@@ -257,6 +321,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
   // The same for a domain the registry could not answer; it then stays a domain with a manual date.
   const domainManual = domain && (tanggalSendiri || gagalBaca)
   const dariRegistri = domain && !domainManual
+  const bisaBerulang = !pakaiHost || cadangan || domainManual
   const hasilDomain = hasil.status === 'ok' && hasil.jenis === 'domain' ? hasil : null
   const namaTampil = namaDisentuh || !pakaiHost ? nama : (hasilDomain?.domain ?? host.trim())
 
@@ -317,7 +382,17 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
     onError: (err) => {
       if (err instanceof ApiError && Object.keys(err.field).length > 0) {
         const tanggalTampil = !pakaiHost || cadangan || domainManual
-        const tampil = new Set(['nama', 'klien', 'biaya', 'jenis', ...(pakaiHost ? ['host'] : []), ...(tanggalTampil ? ['kedaluwarsa'] : [])])
+        const tampil = new Set([
+          'nama',
+          'klien',
+          'biaya',
+          'mata_uang',
+          'catatan',
+          'jenis',
+          ...(pakaiHost ? ['host'] : []),
+          ...(tanggalTampil ? ['kedaluwarsa'] : []),
+          ...(bisaBerulang && berulang ? ['ulang_jumlah', 'ulang_satuan'] : []),
+        ])
         const lain = Object.entries(err.field).filter(([k]) => !tampil.has(k))
         setGalat(err.field)
         setGalatUmum(lain.length ? lain.map(([, v]) => v).join(' ') : null)
@@ -328,7 +403,8 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
     },
   })
 
-  const biayaAngka = biaya ? Number(biaya) : null
+  const biayaAngka = parseBiaya(biaya, mataUang)
+  const ulangJumlahNum = Number(ulangJumlah)
   const bisaSimpan =
     !simpan.isPending &&
     hasil.status !== 'memuat' &&
@@ -338,13 +414,34 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
         ? host.trim() !== '' && !galat.host
         : namaTampil.trim() !== '' && kedaluwarsa !== '')
 
+  function gantiMataUang(mu: MataUang) {
+    if (mu === mataUang) return
+    setMataUang(mu)
+    if (mu === 'IDR' && biaya) {
+      setBiaya(biaya.split(/[.,]/)[0].replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 13))
+    }
+    hapusGalat('biaya', 'mata_uang')
+  }
+
   function kirim() {
     if (!bisaSimpan) return
+    if (bisaBerulang && berulang && !(ulangJumlahNum >= 1 && ulangJumlahNum <= 365)) {
+      setGalat((g) => ({ ...g, ulang_jumlah: 'Isi angka 1 sampai 365.' }))
+      return
+    }
     setGalatUmum(null)
-    const dasar = {
+    const dasar: Omit<ItemInput, 'jenis'> = {
       ...(klienNya.id ? { klien_id: klienNya.id } : { klien: klienNya.nama.trim() }),
       biaya: biayaAngka,
-      catatan: item?.catatan ?? '',
+      mata_uang: mataUang,
+      catatan: catatan.trim(),
+    }
+    if (bisaBerulang && berulang) {
+      dasar.ulang_jumlah = ulangJumlahNum
+      dasar.ulang_satuan = ulangSatuan
+    } else if (item && item.ulang_satuan != null) {
+      // Explicit empty string tells PUT /api/item/{id} to remove the stored recurrence.
+      dasar.ulang_satuan = ''
     }
     let input: ItemInput
     if (sertifikat && cadangan) {
@@ -355,6 +452,8 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
     } else if (domain) {
       input = { ...dasar, jenis, nama: namaTampil.trim(), kedaluwarsa }
       if (host.trim()) input.host = host.trim()
+    } else if (tagihan) {
+      input = { ...dasar, jenis: 'tagihan', nama: nama.trim(), kedaluwarsa }
     } else {
       input = { ...dasar, jenis, nama: nama.trim(), kedaluwarsa }
       if (item?.host && item.jenis !== 'sertifikat') input.host = item.host
@@ -364,12 +463,12 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
 
   const fokusTanggal = buka.mode === 'ubah' && buka.fokus === 'kedaluwarsa'
   const fokusHost = !fokusTanggal && (sertifikat || dariRegistri)
-  const judul = item ? 'Ubah aset' : 'Tambah aset'
+  const judul = item ? (tagihan ? 'Ubah tagihan' : 'Ubah aset') : tagihan ? 'Tambah tagihan' : 'Tambah aset'
 
   const fieldTanggal = (hint: ReactNode) => (
     <div className="field">
       <label className="field__label" htmlFor={id('tgl')}>
-        Tanggal berakhir
+        {tagihan ? 'Jatuh tempo' : 'Tanggal berakhir'}
       </label>
       <label className="input-icon">
         <Icon name="calendar" />
@@ -395,6 +494,205 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
           {hint}
         </div>
       ) : null}
+    </div>
+  )
+
+  const fieldNama = (
+    <div className="field">
+      <label className="field__label" htmlFor={id('nama')}>
+        Nama
+      </label>
+      <input
+        id={id('nama')}
+        className="control"
+        placeholder={sertifikat ? 'Sama dengan host' : domain ? 'Sama dengan domain' : tagihan ? 'Contoh: Hosting bulanan' : 'Nama aset'}
+        autoComplete="off"
+        maxLength={120}
+        value={namaTampil}
+        data-autofocus={!fokusTanggal && !sertifikat && !dariRegistri ? '' : undefined}
+        aria-invalid={!!galat.nama}
+        aria-describedby={galat.nama ? id('nama-e') : undefined}
+        onChange={(e) => {
+          setNama(e.target.value)
+          setNamaDisentuh(true)
+          hapusGalat('nama')
+        }}
+      />
+      <FieldError id={id('nama-e')} pesan={galat.nama} />
+    </div>
+  )
+
+  const fieldKlien = (
+    <div className="field">
+      <label className="field__label" htmlFor={id('klien')}>
+        Klien
+      </label>
+      <KlienPicker
+        id={id('klien')}
+        klien={klien}
+        value={klienNya}
+        invalid={!!galat.klien}
+        describedBy={galat.klien ? id('klien-e') : klienBaru ? id('klien-h') : undefined}
+        onChange={(v) => {
+          setKlien(v)
+          hapusGalat('klien')
+        }}
+      />
+      <FieldError id={id('klien-e')} pesan={galat.klien} />
+      {klienBaru && !galat.klien ? (
+        <div className="field__hint" id={id('klien-h')}>
+          Klien baru, dibuat saat {tagihan ? 'tagihan' : 'aset'} disimpan.
+        </div>
+      ) : null}
+    </div>
+  )
+
+  const galatBiaya = galat.biaya || galat.mata_uang
+  const fieldBiaya = (
+    <div className="field">
+      <label className="field__label" htmlFor={id('biaya')}>
+        {tagihan ? 'Jumlah' : 'Biaya'} <span>Opsional</span>
+      </label>
+      <div className="biaya-row">
+        <div className={mataUang === 'USD' ? 'input-affix is-usd' : 'input-affix'}>
+          <span className="affix">{mataUang === 'USD' ? 'US$' : 'Rp'}</span>
+          <input
+            id={id('biaya')}
+            className="control num"
+            inputMode={mataUang === 'USD' ? 'decimal' : 'numeric'}
+            placeholder={mataUang === 'USD' ? '0.00' : '0'}
+            autoComplete="off"
+            value={mataUang === 'USD' ? biaya : biaya ? angka(Number(biaya)) : ''}
+            aria-invalid={!!galatBiaya}
+            aria-describedby={galatBiaya ? id('biaya-e') : undefined}
+            onChange={(e) => {
+              if (mataUang === 'USD') {
+                setBiaya(bersihkanUsd(e.target.value))
+              } else {
+                setBiaya(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 13))
+              }
+              hapusGalat('biaya', 'mata_uang')
+            }}
+          />
+        </div>
+        <div className="seg biaya-row__mu" role="radiogroup" aria-label="Mata uang">
+          {urutanMataUang.map((mu) => (
+            <button
+              key={mu}
+              type="button"
+              className="seg__item"
+              role="radio"
+              aria-checked={mataUang === mu}
+              onClick={() => gantiMataUang(mu)}
+            >
+              {mu}
+            </button>
+          ))}
+        </div>
+      </div>
+      <FieldError id={id('biaya-e')} pesan={galatBiaya} />
+    </div>
+  )
+
+  const galatUlang = galat.ulang_jumlah || galat.ulang_satuan
+  const fieldBerulang = bisaBerulang ? (
+    <div className="field">
+      <span className="field__label" id={id('ulang-l')}>
+        Berulang
+      </span>
+      <div className="seg is-full" role="radiogroup" aria-labelledby={id('ulang-l')}>
+        <button
+          type="button"
+          className="seg__item"
+          role="radio"
+          aria-checked={!berulang}
+          onClick={() => {
+            setBerulang(false)
+            hapusGalat('ulang_jumlah', 'ulang_satuan')
+          }}
+        >
+          Tidak
+        </button>
+        <button
+          type="button"
+          className="seg__item"
+          role="radio"
+          aria-checked={berulang}
+          onClick={() => {
+            setBerulang(true)
+            if (!ulangJumlah) setUlangJumlah('1')
+            hapusGalat('ulang_jumlah', 'ulang_satuan')
+          }}
+        >
+          Berulang
+        </button>
+      </div>
+      {berulang ? (
+        <div className="as-ulang" role="group" aria-label="Interval pengulangan">
+          <span className="as-ulang__tiap" aria-hidden="true">
+            Tiap
+          </span>
+          <input
+            className="control num"
+            inputMode="numeric"
+            aria-label="Jumlah"
+            autoComplete="off"
+            value={ulangJumlah}
+            aria-invalid={!!galatUlang}
+            aria-describedby={galatUlang ? id('ulang-e') : id('ulang-h')}
+            onChange={(e) => {
+              setUlangJumlah(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 3))
+              hapusGalat('ulang_jumlah', 'ulang_satuan')
+            }}
+          />
+          <Pilihan
+            label="Satuan"
+            nilai={ulangSatuan}
+            opsi={OPSI_SATUAN}
+            onPilih={(v) => {
+              setUlangSatuan(v)
+              hapusGalat('ulang_satuan')
+            }}
+          />
+        </div>
+      ) : null}
+      <FieldError id={id('ulang-e')} pesan={galatUlang} />
+      {!galatUlang ? (
+        berulang && ulangJumlahNum >= 1 && ulangJumlahNum <= 365 ? (
+          <div className="field__hint" id={id('ulang-h')}>
+            {tagihan
+              ? `Setelah ditandai dibayar, jatuh tempo maju ${ulangJumlahNum} ${ulangSatuan}.`
+              : `Setelah diperpanjang, tanggal berakhir maju ${ulangJumlahNum} ${ulangSatuan}.`}
+          </div>
+        ) : !berulang && tagihan ? (
+          <div className="field__hint" id={id('ulang-h')}>
+            Tagihan sekali bayar akan ditutup setelah ditandai dibayar.
+          </div>
+        ) : null
+      ) : null}
+    </div>
+  ) : null
+
+  const fieldCatatan = (
+    <div className="field">
+      <label className="field__label" htmlFor={id('catatan')}>
+        Catatan <span>Opsional</span>
+      </label>
+      <textarea
+        id={id('catatan')}
+        className="control as-textarea"
+        placeholder={tagihan ? 'Nomor faktur, rekening tujuan, atau keterangan lain' : 'Keterangan tambahan untuk diingat'}
+        rows={2}
+        maxLength={500}
+        value={catatan}
+        aria-invalid={!!galat.catatan}
+        aria-describedby={galat.catatan ? id('catatan-e') : undefined}
+        onChange={(e) => {
+          setCatatan(e.target.value)
+          hapusGalat('catatan')
+        }}
+      />
+      <FieldError id={id('catatan-e')} pesan={galat.catatan} />
     </div>
   )
 
@@ -443,7 +741,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
               <span className="field__label" id={id('jenis')}>
                 Jenis
               </span>
-              <div className={galat.jenis ? 'seg is-full is-error' : 'seg is-full'} role="radiogroup" aria-labelledby={id('jenis')}>
+              <div className={galat.jenis ? 'seg is-full seg--jenis is-error' : 'seg is-full seg--jenis'} role="radiogroup" aria-labelledby={id('jenis')}>
                 {urutanJenis.map((j) => (
                   <button
                     key={j}
@@ -454,7 +752,7 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                     aria-label={labelJenis[j]}
                     onClick={() => {
                       setJenis(j)
-                      hapusGalat('jenis', 'kedaluwarsa', 'host', 'nama')
+                      hapusGalat('jenis', 'kedaluwarsa', 'host', 'nama', 'ulang_jumlah', 'ulang_satuan')
                       // A certificate answer means nothing for a domain, and the other way round.
                       if (hasil.status !== 'kosong' && hasil.jenis !== j) {
                         permintaan.current++
@@ -462,171 +760,123 @@ export function AssetSheet({ buka, klien, phone, onClose, onSaved, onHapus }: Pr
                       }
                     }}
                   >
-                    {phone ? labelJenisPendek[j] : labelJenis[j]}
+                    {labelJenisPendek[j]}
                   </button>
                 ))}
               </div>
               <FieldError id={id('jenis-e')} pesan={galat.jenis} />
             </div>
 
-            {pakaiHost ? (
+            {tagihan ? (
               <>
-                <div className="field">
-                  <label className="field__label" htmlFor={id('host')}>
-                    {domain ? 'Domain' : 'Host'}
-                    {tanggalSendiri && !galat.host ? <span>Opsional</span> : null}
-                  </label>
-                  <div className="field-row">
-                    <label className="input-icon">
-                      <Icon name="globe" />
-                      <input
-                        id={id('host')}
-                        className="control"
-                        placeholder="misalnya mrramdn.com"
-                        autoComplete="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        inputMode="url"
-                        value={host}
-                        data-autofocus={fokusHost ? '' : undefined}
-                        aria-invalid={!!galat.host}
-                        aria-describedby={galat.host ? id('host-e') : undefined}
-                        onChange={(e) => {
-                          setHost(e.target.value)
-                          hapusGalat('host')
-                          if (hasil.status === 'ok' && hasil.host !== e.target.value.trim()) setHasil({ status: 'kosong' })
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            void ambil()
-                          }
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      onClick={() => void ambil()}
-                      aria-busy={hasil.status === 'memuat'}
-                      disabled={hasil.status === 'memuat'}
-                    >
-                      <Icon
-                        name={hasil.status === 'memuat' ? 'loader' : domain ? 'database' : 'server'}
-                        className={hasil.status === 'memuat' ? 'spin' : undefined}
-                      />
-                      {domain ? 'Ambil dari registri' : 'Ambil dari server'}
-                    </button>
-                  </div>
-                  <FieldError id={id('host-e')} pesan={galat.host} />
-                </div>
-                {cadangan ? (
-                  fieldTanggal('Isi tanggal berakhirnya sendiri. Aset ini disimpan dengan jenis Lainnya dan tidak dicek ulang otomatis.')
-                ) : domainManual ? (
-                  fieldTanggal(
-                    tanggalSendiri && !gagalBaca
-                      ? 'Tanggal ini tidak dicek ulang otomatis. Untuk kembali ke registri, pilih Ambil dari registri.'
-                      : 'Isi tanggal berakhirnya sendiri. Domain ini tidak dicek ulang otomatis.',
-                  )
-                ) : (
-                  <div aria-live="polite">
-                    <Result hasil={hasil} />
-                  </div>
-                )}
-                {dariRegistri && hasil.status !== 'memuat' ? (
-                  <div className="ganti-sumber">
-                    {hasilDomain ? null : <span>Tanggal dibaca dari registri saat Anda menyimpan.</span>}
-                    <button
-                      type="button"
-                      className="btn-teks"
-                      onClick={() => {
-                        setTanggalSendiri(true)
-                        if (hasilDomain) setKedaluwarsa(hasilDomain.kedaluwarsa)
-                      }}
-                    >
-                      Isi tanggal sendiri
-                    </button>
-                  </div>
-                ) : null}
+                {fieldNama}
+                {fieldTanggal(null)}
+                {fieldBiaya}
+                {fieldBerulang}
+                {fieldKlien}
+                {fieldCatatan}
               </>
-            ) : null}
-
-            <div className="field-grid">
-              <div className="field">
-                <label className="field__label" htmlFor={id('nama')}>
-                  Nama
-                </label>
-                <input
-                  id={id('nama')}
-                  className="control"
-                  placeholder={sertifikat ? 'Sama dengan host' : domain ? 'Sama dengan domain' : 'Nama aset'}
-                  autoComplete="off"
-                  value={namaTampil}
-                  data-autofocus={!fokusTanggal && !sertifikat && !dariRegistri ? '' : undefined}
-                  aria-invalid={!!galat.nama}
-                  aria-describedby={galat.nama ? id('nama-e') : undefined}
-                  onChange={(e) => {
-                    setNama(e.target.value)
-                    setNamaDisentuh(true)
-                    hapusGalat('nama')
-                  }}
-                />
-                <FieldError id={id('nama-e')} pesan={galat.nama} />
-              </div>
-              <div className="field">
-                <label className="field__label" htmlFor={id('klien')}>
-                  Klien
-                </label>
-                <KlienPicker
-                  id={id('klien')}
-                  klien={klien}
-                  value={klienNya}
-                  invalid={!!galat.klien}
-                  describedBy={galat.klien ? id('klien-e') : klienBaru ? id('klien-h') : undefined}
-                  onChange={(v) => {
-                    setKlien(v)
-                    hapusGalat('klien')
-                  }}
-                />
-                <FieldError id={id('klien-e')} pesan={galat.klien} />
-                {klienBaru && !galat.klien ? (
-                  <div className="field__hint" id={id('klien-h')}>
-                    Klien baru, dibuat saat aset disimpan.
-                  </div>
+            ) : (
+              <>
+                {pakaiHost ? (
+                  <>
+                    <div className="field">
+                      <label className="field__label" htmlFor={id('host')}>
+                        {domain ? 'Domain' : 'Host'}
+                        {tanggalSendiri && !galat.host ? <span>Opsional</span> : null}
+                      </label>
+                      <div className="field-row">
+                        <label className="input-icon">
+                          <Icon name="globe" />
+                          <input
+                            id={id('host')}
+                            className="control"
+                            placeholder="misalnya mrramdn.com"
+                            autoComplete="off"
+                            autoCapitalize="off"
+                            spellCheck={false}
+                            inputMode="url"
+                            value={host}
+                            data-autofocus={fokusHost ? '' : undefined}
+                            aria-invalid={!!galat.host}
+                            aria-describedby={galat.host ? id('host-e') : undefined}
+                            onChange={(e) => {
+                              setHost(e.target.value)
+                              hapusGalat('host')
+                              if (hasil.status === 'ok' && hasil.host !== e.target.value.trim()) setHasil({ status: 'kosong' })
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                void ambil()
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn--secondary"
+                          onClick={() => void ambil()}
+                          aria-busy={hasil.status === 'memuat'}
+                          disabled={hasil.status === 'memuat'}
+                        >
+                          <Icon
+                            name={hasil.status === 'memuat' ? 'loader' : domain ? 'database' : 'server'}
+                            className={hasil.status === 'memuat' ? 'spin' : undefined}
+                          />
+                          {domain ? 'Ambil dari registri' : 'Ambil dari server'}
+                        </button>
+                      </div>
+                      <FieldError id={id('host-e')} pesan={galat.host} />
+                    </div>
+                    {cadangan ? (
+                      fieldTanggal('Isi tanggal berakhirnya sendiri. Aset ini disimpan dengan jenis Lainnya dan tidak dicek ulang otomatis.')
+                    ) : domainManual ? (
+                      fieldTanggal(
+                        tanggalSendiri && !gagalBaca
+                          ? 'Tanggal ini tidak dicek ulang otomatis. Untuk kembali ke registri, pilih Ambil dari registri.'
+                          : 'Isi tanggal berakhirnya sendiri. Domain ini tidak dicek ulang otomatis.',
+                      )
+                    ) : (
+                      <div aria-live="polite">
+                        <Result hasil={hasil} />
+                      </div>
+                    )}
+                    {dariRegistri && hasil.status !== 'memuat' ? (
+                      <div className="ganti-sumber">
+                        {hasilDomain ? null : <span>Tanggal dibaca dari registri saat Anda menyimpan.</span>}
+                        <button
+                          type="button"
+                          className="btn-teks"
+                          onClick={() => {
+                            setTanggalSendiri(true)
+                            if (hasilDomain) setKedaluwarsa(hasilDomain.kedaluwarsa)
+                          }}
+                        >
+                          Isi tanggal sendiri
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
-              </div>
-            </div>
 
-            {pakaiHost ? null : fieldTanggal(null)}
+                <div className="field-grid">
+                  {fieldNama}
+                  {fieldKlien}
+                </div>
 
-            <div className="field">
-              <label className="field__label" htmlFor={id('biaya')}>
-                Biaya <span>Opsional</span>
-              </label>
-              <div className="input-affix">
-                <span className="affix">Rp</span>
-                <input
-                  id={id('biaya')}
-                  className="control num"
-                  inputMode="numeric"
-                  placeholder="0"
-                  autoComplete="off"
-                  value={biaya ? angka(Number(biaya)) : ''}
-                  aria-invalid={!!galat.biaya}
-                  aria-describedby={galat.biaya ? id('biaya-e') : undefined}
-                  onChange={(e) => {
-                    setBiaya(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 13))
-                    hapusGalat('biaya')
-                  }}
-                />
-              </div>
-              <FieldError id={id('biaya-e')} pesan={galat.biaya} />
-            </div>
+                {pakaiHost ? null : fieldTanggal(null)}
 
-            <div className="note">
-              <Icon name="shield" />
-              <span>Tulis nama dan tanggalnya saja, bukan nilai token atau kata sandi.</span>
-            </div>
+                {fieldBiaya}
+                {fieldBerulang}
+                {fieldCatatan}
+
+                <div className="note">
+                  <Icon name="shield" />
+                  <span>Tulis nama dan tanggalnya saja, bukan nilai token atau kata sandi.</span>
+                </div>
+              </>
+            )}
           </div>
           <div className="sheet__foot">
             {item ? (

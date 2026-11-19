@@ -1,7 +1,7 @@
 // Numbers and sentences computed from the item list. Every screen reads from
 // here, so the headline, the cards, the timeline and the list always agree.
-import type { Item, Jenis, Status, Sumber } from './api'
-import { bulan, bulanTahun, gabung, keTanggal, rupiahBiasa, tanggal, tanggalPendek } from './format'
+import type { BiayaPerMataUang, Item, Jenis, Status, Sumber } from './api'
+import { bulan, bulanTahun, daftarUang, gabung, kelompokBiaya, keTanggal, tanggal, tanggalPendek } from './format'
 
 export interface Saring {
   cari: string
@@ -89,7 +89,7 @@ export function judul(items: Item[], hariIni = new Date()): { utama: string; sun
 
 /** Name as it reads inside a sentence: "domain tokokuemawar.id", "VPS 2 vCPU". */
 export function namaDalamKalimat(it: Item): string {
-  const m = /^(Domain|Token|Langganan)\s+(.+)$/.exec(it.nama)
+  const m = /^(Domain|Token|Langganan|Tagihan)\s+(.+)$/.exec(it.nama)
   if (!m) return it.nama
   if (m[1] === 'Langganan') return m[2]
   return `${m[1].toLowerCase()} ${m[2]}`
@@ -97,22 +97,23 @@ export function namaDalamKalimat(it: Item): string {
 
 /** Short label for a point on the timeline. */
 export function labelTitik(it: Item): string {
-  let s = it.jenis === 'sertifikat' && it.host ? it.host : it.nama.replace(/^(Domain|Token|Langganan)\s+/, '')
+  let s = it.jenis === 'sertifikat' && it.host ? it.host : it.nama.replace(/^(Domain|Token|Langganan|Tagihan)\s+/, '')
   if (s.length > 24) s = `${s.slice(0, 23).trimEnd()}…`
   return s
 }
 
-/** Renewal cost of everything that ends within 30 days, overdue included. */
-export function biaya30(items: Item[]): { total: number; nama: string[] } {
+/** Renewal cost of everything that ends within 30 days, overdue included, grouped by currency. */
+export function biaya30(items: Item[]): { perMataUang: BiayaPerMataUang; nama: string[] } {
   const kena = items.filter((it) => it.sisa_hari <= 30 && (it.biaya ?? 0) > 0).sort((a, b) => a.sisa_hari - b.sisa_hari)
-  return { total: kena.reduce((t, it) => t + (it.biaya ?? 0), 0), nama: kena.map(namaDalamKalimat) }
+  return { perMataUang: kelompokBiaya(kena), nama: kena.map(namaDalamKalimat) }
 }
 
-export function kalimatBiaya(items: Item[]): { pre: string; jumlah: string | null; post: string } {
+export function kalimatBiaya(items: Item[]): { pre: string; jumlah: string[]; post: string } {
   const b = biaya30(items)
-  if (b.total === 0) return { pre: 'Tidak ada biaya perpanjangan dalam 30 hari ke depan.', jumlah: null, post: '' }
+  const jumlah = daftarUang(b.perMataUang)
+  if (jumlah.length === 0) return { pre: 'Tidak ada biaya perpanjangan dalam 30 hari ke depan.', jumlah: [], post: '' }
   const dari = b.nama.length > 3 ? `${b.nama.length} aset` : gabung(b.nama)
-  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah: rupiahBiasa(b.total), post: `, untuk ${dari}.` }
+  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah, post: `, untuk ${dari}.` }
 }
 
 const BOBOT: Record<Status, number> = { lewat: 0, kritis: 1, segera: 2, aman: 3 }
