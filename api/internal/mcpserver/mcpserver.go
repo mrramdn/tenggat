@@ -234,9 +234,15 @@ func mapResponse(status int, raw []byte, summarize func(map[string]any) string) 
 		if summarize != nil {
 			text = singleLine(summarize(data))
 		}
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: text}},
-		}, data, nil
+		// Some clients show the model only the text, not the structured content,
+		// so the data goes in the text as well, after the one-line summary.
+		content := []mcp.Content{&mcp.TextContent{Text: text}}
+		if len(data) > 0 {
+			if compact, err := json.Marshal(data); err == nil {
+				content = append(content, &mcp.TextContent{Text: string(compact)})
+			}
+		}
+		return &mcp.CallToolResult{Content: content}, data, nil
 	}
 	if status >= 500 {
 		return nil, nil, statusErr(status, raw)
