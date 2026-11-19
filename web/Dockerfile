@@ -1,6 +1,8 @@
 # ---------- Stage 1: build ----------
 # Node lengkap hanya dipakai untuk memasang dependency dan membangun aset statis.
-FROM node:24.22.2-alpine3.23 AS build
+# Hasil build hanya file statis, sama untuk semua arsitektur, jadi tahap ini
+# selalu jalan di arsitektur mesin yang membangun.
+FROM --platform=$BUILDPLATFORM node:24.22.2-alpine3.23 AS build
 
 WORKDIR /app
 
