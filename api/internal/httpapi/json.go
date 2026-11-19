@@ -15,6 +15,7 @@ import (
 	"github.com/mrramdn/tenggat/api/internal/rdap"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
+	"github.com/mrramdn/tenggat/api/internal/uang"
 )
 
 // itemJSON is the API form of an item, with the days left and status worked out.
@@ -29,7 +30,11 @@ type itemJSON struct {
 	SisaHari      int            `json:"sisa_hari"`
 	Status        expiry.Status  `json:"status"`
 	Sumber        string         `json:"sumber"`
-	Biaya         *int64         `json:"biaya"`
+	Biaya         *json.Number   `json:"biaya"`
+	MataUang      string         `json:"mata_uang"`
+	UlangJumlah   *int           `json:"ulang_jumlah"`
+	UlangSatuan   *string        `json:"ulang_satuan"`
+	SelesaiPada   *time.Time     `json:"selesai_pada"`
 	Catatan       string         `json:"catatan"`
 	TLS           *store.TLSInfo `json:"tls"`
 	TerakhirDicek *time.Time     `json:"terakhir_dicek"`
@@ -41,45 +46,80 @@ type itemJSON struct {
 	Registri *store.RegistryInfo `json:"registri"`
 }
 
+func uangJSON(minor *int64, mu string) *json.Number {
+	if minor == nil {
+		return nil
+	}
+	if mu == "" {
+		mu = "IDR"
+	}
+	n := uang.JSON(*minor, mu)
+	return &n
+}
+
 func toJSON(it store.Item, now time.Time) itemJSON {
 	days := expiry.DaysLeft(it.Kedaluwarsa, now)
+	mu := it.MataUang
+	if mu == "" {
+		mu = "IDR"
+	}
+	var ulangJumlah *int
+	var ulangSatuan *string
+	if it.UlangJumlah > 0 && it.UlangSatuan != "" {
+		n, u := it.UlangJumlah, it.UlangSatuan
+		ulangJumlah, ulangSatuan = &n, &u
+	}
 	return itemJSON{
 		ID: it.ID, Nama: it.Nama, Jenis: it.Jenis, Klien: it.Klien, KlienID: it.KlienID, Host: it.Host,
 		Kedaluwarsa: it.Kedaluwarsa.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days),
-		Sumber: it.Sumber, Biaya: it.Biaya, Catatan: it.Catatan, TLS: it.InfoTLS, Registri: it.InfoRegistri,
+		Sumber: it.Sumber, Biaya: uangJSON(it.Biaya, mu), MataUang: mu,
+		UlangJumlah: ulangJumlah, UlangSatuan: ulangSatuan, SelesaiPada: it.SelesaiPada,
+		Catatan: it.Catatan, TLS: it.InfoTLS, Registri: it.InfoRegistri,
 		TerakhirDicek: it.TerakhirDicek, GalatCek: it.GalatCek, Dibuat: it.Dibuat, Diubah: it.Diubah,
 	}
 }
 
 // itemRequest is the body of POST /api/item and PUT /api/item/{id}.
 type itemRequest struct {
-	Nama        string  `json:"nama"`
-	Jenis       string  `json:"jenis"`
-	Klien       string  `json:"klien"`    // a client's name; ignored when klien_id is set
-	KlienID     *string `json:"klien_id"` // one of the user's clients
-	Host        string  `json:"host"`
-	Kedaluwarsa string  `json:"kedaluwarsa"`
-	Biaya       *int64  `json:"biaya"`
-	Catatan     string  `json:"catatan"`
+	Nama        string       `json:"nama"`
+	Jenis       string       `json:"jenis"`
+	Klien       string       `json:"klien"`    // a client's name; ignored when klien_id is set
+	KlienID     *string      `json:"klien_id"` // one of the user's clients
+	Host        string       `json:"host"`
+	Kedaluwarsa string       `json:"kedaluwarsa"`
+	Biaya       *json.Number `json:"biaya"`
+	MataUang    *string      `json:"mata_uang"`
+	UlangJumlah *int         `json:"ulang_jumlah"`
+	UlangSatuan *string      `json:"ulang_satuan"`
+	Catatan     string       `json:"catatan"`
 }
 
-var jenisValid = map[string]bool{"sertifikat": true, "domain": true, "token": true, "langganan": true, "lainnya": true}
+var jenisValid = map[string]bool{
+	"sertifikat": true, "domain": true, "token": true, "langganan": true, "tagihan": true, "lainnya": true,
+}
 
 // prepare validates a request and, for a certificate, reads its date from the
-// server. It returns field messages when the request cannot be stored.
-func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map[string]string) {
+// server. On PUT, old carries the stored item so omitted currency and
+// recurrence fields keep their existing values.
+func (s *Server) prepare(ctx context.Context, req itemRequest, old *store.Item) (store.Input, map[string]string) {
 	fields := map[string]string{}
 	in := store.Input{
-		Nama:    strings.TrimSpace(req.Nama),
-		Jenis:   strings.TrimSpace(req.Jenis),
-		Klien:   strings.TrimSpace(req.Klien),
-		Catatan: strings.TrimSpace(req.Catatan),
-		Biaya:   req.Biaya,
-		Sumber:  "manual",
+		Nama:     strings.TrimSpace(req.Nama),
+		Jenis:    strings.TrimSpace(req.Jenis),
+		Klien:    strings.TrimSpace(req.Klien),
+		Catatan:  strings.TrimSpace(req.Catatan),
+		MataUang: "IDR",
+		Sumber:   "manual",
+	}
+	if old != nil && old.MataUang != "" {
+		in.MataUang = old.MataUang
+	}
+	if req.MataUang != nil && strings.TrimSpace(*req.MataUang) != "" {
+		in.MataUang = strings.TrimSpace(*req.MataUang)
 	}
 
 	if !jenisValid[in.Jenis] {
-		fields["jenis"] = "Pilih jenis: sertifikat, domain, token, langganan, atau lainnya."
+		fields["jenis"] = "Pilih jenis: sertifikat, domain, token, langganan, tagihan, atau lainnya."
 	}
 	if utf8.RuneCountInString(in.Klien) > 80 {
 		fields["klien"] = "Nama klien maksimal 80 karakter."
@@ -87,8 +127,18 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 	if utf8.RuneCountInString(in.Catatan) > 500 {
 		fields["catatan"] = "Catatan maksimal 500 karakter."
 	}
-	if in.Biaya != nil && (*in.Biaya < 0 || *in.Biaya > 1_000_000_000_000) {
-		fields["biaya"] = "Biaya harus angka rupiah 0 atau lebih."
+	parseMu := in.MataUang
+	if !uang.Valid(in.MataUang) {
+		fields["mata_uang"] = "Pilih IDR atau USD."
+		parseMu = "IDR"
+	}
+	if req.Biaya != nil {
+		minor, err := uang.Parse(*req.Biaya, parseMu)
+		if err != nil {
+			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
+		} else {
+			in.Biaya = &minor
+		}
 	}
 
 	var host string
@@ -96,7 +146,11 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 	if in.Jenis == "domain" {
 		rawHost = rdap.ToASCII(rawHost) // a domain may be typed in Unicode
 	}
-	if strings.TrimSpace(rawHost) != "" || in.Jenis == "sertifikat" {
+	if in.Jenis == "tagihan" {
+		if strings.TrimSpace(rawHost) != "" {
+			fields["host"] = "Tagihan tidak memakai host."
+		}
+	} else if strings.TrimSpace(rawHost) != "" || in.Jenis == "sertifikat" {
 		h, err := tlscheck.NormalizeHost(rawHost)
 		if err != nil {
 			fields["host"] = sentence(err.Error())
@@ -125,6 +179,34 @@ func (s *Server) prepare(ctx context.Context, req itemRequest) (store.Input, map
 			in.Kedaluwarsa = d
 		}
 	}
+
+	autoDate := in.Jenis == "sertifikat" || fromRegistry
+	switch {
+	case req.UlangJumlah == nil && req.UlangSatuan == nil:
+		if old != nil && !autoDate {
+			in.UlangJumlah, in.UlangSatuan = old.UlangJumlah, old.UlangSatuan
+		}
+	case req.UlangSatuan != nil && strings.TrimSpace(*req.UlangSatuan) == "" && (req.UlangJumlah == nil || *req.UlangJumlah == 0):
+		// An empty ulang_satuan clears recurrence.
+	case autoDate:
+		fields["ulang_satuan"] = "Tanggal sertifikat dan domain dari registri dibaca otomatis, jadi tidak diulang."
+	default:
+		if req.UlangJumlah == nil || *req.UlangJumlah < 1 || *req.UlangJumlah > 365 {
+			fields["ulang_jumlah"] = "Isi angka 1 sampai 365."
+		} else {
+			in.UlangJumlah = *req.UlangJumlah
+		}
+		satuan := ""
+		if req.UlangSatuan != nil {
+			satuan = strings.TrimSpace(*req.UlangSatuan)
+		}
+		if !expiry.Units[satuan] {
+			fields["ulang_satuan"] = "Pilih satuan: hari, minggu, bulan, atau tahun."
+		} else {
+			in.UlangSatuan = satuan
+		}
+	}
+
 	// A certificate without a valid host has no default name yet; the host
 	// message already explains what to fix.
 	if n := utf8.RuneCountInString(in.Nama); (n < 2 || n > 120) && !(in.Jenis == "sertifikat" && n == 0) {

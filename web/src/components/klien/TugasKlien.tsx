@@ -2,7 +2,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { kunciTugas, labelUlang, tugasApi, useSegarkan, type Tugas } from '../../lib/api-tugas'
-import { frasaHari, rupiahBiasa, tanggal } from '../../lib/format'
+import { frasaHari, tanggal, uang } from '../../lib/format'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Icon } from '../Icon'
 import { Menu } from '../RowMenu'
@@ -199,7 +199,8 @@ export function TugasKlien({ klienId }: { klienId: string }) {
           onSaved={(t) => {
             setDialog(null)
             segarkan()
-            toast.ok('Tugas selesai.', `Jatuh tempo berikutnya ${tanggal(t.jatuh_tempo)}.`)
+            if (t.sekali) toast.ok('Selesai.', t.judul)
+            else toast.ok('Tugas selesai.', `Jatuh tempo berikutnya ${tanggal(t.jatuh_tempo)}.`)
           }}
         />
       ) : null}
@@ -230,16 +231,20 @@ function Baris({ t, menuTerbuka, onSelesai, bukaMenu }: { t: Tugas; menuTerbuka:
       <div className="tg-main">
         <div className="asset__name">{t.judul}</div>
         <div className="asset__sub">
-          <Icon name="repeat" />
-          <span>{labelUlang(t.ulang_jumlah, t.ulang_satuan)}</span>
+          <Icon name={t.sekali ? 'calendar' : 'repeat'} />
+          <span>{t.sekali ? 'Sekali' : labelUlang(t.ulang_jumlah, t.ulang_satuan)}</span>
           <span className="tg-sub-tgl tg-dot num">{tanggal(t.jatuh_tempo)}</span>
-          {t.biaya != null ? <span className="tg-dot num">{rupiahBiasa(t.biaya)}</span> : null}
+          {t.biaya != null ? <span className="tg-dot num">{uang(t.biaya, t.mata_uang)}</span> : null}
         </div>
         {t.catatan ? <div className="tg-note">{t.catatan}</div> : null}
-        <div className="tg-sub-last">{terakhir ? `Terakhir selesai ${terakhir}` : 'Belum pernah ditandai selesai'}</div>
+        {t.sekali ? null : (
+          <div className="tg-sub-last">{terakhir ? `Terakhir selesai ${terakhir}` : 'Belum pernah ditandai selesai'}</div>
+        )}
       </div>
       <div className="cell col-date num">{tanggal(t.jatuh_tempo)}</div>
-      <div className={terakhir ? 'cell col-last num' : 'cell col-last tg-belum'}>{terakhir ?? 'Belum pernah'}</div>
+      <div className={terakhir && !t.sekali ? 'cell col-last num' : 'cell col-last tg-belum'}>
+        {t.sekali ? '—' : (terakhir ?? 'Belum pernah')}
+      </div>
       <div className="actions">
         <button type="button" className="btn btn--secondary is-sm btn--fixed tg-selesai" onClick={onSelesai} aria-label={`Tandai selesai: ${t.judul}`}>
           Tandai selesai

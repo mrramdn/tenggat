@@ -12,7 +12,7 @@ import {
   laporanApi,
   type Laporan,
 } from '../../lib/api-laporan'
-import { gabung, rupiahBiasa } from '../../lib/format'
+import { gabung, kelompokBiaya, teksUang } from '../../lib/format'
 import { Icon } from '../Icon'
 import { IkonLaporan } from '../IkonLaporan'
 import { CetakLaporan, LaporanDokumen, cetak, durasi } from '../LaporanDokumen'
@@ -41,9 +41,9 @@ export function teksWhatsApp(l: Laporan, url: string | null): string {
   const kapan = l.lampau ? `Pada ${l.label_bulan}` : 'Bulan ini'
   baris.push(fakta.length > 0 ? `${kapan} tercatat ${gabung(fakta)}.` : `${kapan} tidak ada pekerjaan yang dicatat.`)
   if (!l.lampau && l.jatuh_tempo.length > 0) {
-    const biaya = l.jatuh_tempo.reduce((n, j) => n + (j.biaya ?? 0), 0)
+    const biaya = teksUang(kelompokBiaya(l.jatuh_tempo))
     baris.push(
-      `Dalam 60 hari ke depan ada ${l.jatuh_tempo.length} aset atau tugas yang jatuh tempo${biaya > 0 ? `, dengan perkiraan biaya ${rupiahBiasa(biaya)}` : ''}.`,
+      `Dalam 60 hari ke depan ada ${l.jatuh_tempo.length} aset atau tugas yang jatuh tempo${biaya ? `, dengan perkiraan biaya ${biaya}` : ''}.`,
     )
   }
   if (!l.lampau && r.per_status.lewat > 0) baris.push(`${r.per_status.lewat} aset sudah berakhir dan perlu segera diperpanjang.`)

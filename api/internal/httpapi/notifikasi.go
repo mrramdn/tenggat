@@ -17,6 +17,7 @@ import (
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
 	"github.com/mrramdn/tenggat/api/internal/store"
+	"github.com/mrramdn/tenggat/api/internal/uang"
 )
 
 // NotifikasiStore is the part of Store that keeps each user's own webhook.
@@ -283,66 +284,54 @@ func (s *Server) logWebhookError(userID string, t webhookTarget, err error) {
 	s.Log.Error("webhook gagal", "pengguna", userID, "layanan", t.Layanan, "tujuan", t.Tujuan, "galat", detail)
 }
 
-// digestText lists a user's assets and tasks that are overdue or due within
-// seven days, most urgent first, or returns "" when there are none.
+// digestText lists a user's assets, bills and tasks that are overdue or due
+// within seven days, most urgent first, or returns "" when there are none.
 func (s *Server) digestText(ctx context.Context, userID string, now time.Time) (string, error) {
-	today := expiry.DateOf(now)
-	type line struct {
-		date time.Time
-		text string
-	}
-	var overdue, soon []line
-	add := func(nama, klien string, date time.Time) {
-		days := expiry.DaysLeft(date, now)
-		if days > digestDays {
-			return
-		}
-		label := nama
-		if klien != "" {
-			label += " (" + klien + ")"
-		}
-		switch {
-		case days < 0:
-			overdue = append(overdue, line{date, "- " + label + ": lewat " + strconv.Itoa(-days) + " hari, " + tanggalID(date)})
-		case days == 0:
-			soon = append(soon, line{date, "- " + label + ": hari ini"})
-		case days == 1:
-			soon = append(soon, line{date, "- " + label + ": besok, " + tanggalID(date)})
-		default:
-			soon = append(soon, line{date, "- " + label + ": " + strconv.Itoa(days) + " hari lagi, " + tanggalID(date)})
-		}
-	}
-	items, err := s.Store.List(ctx, userID, store.Filter{}, now)
+	days := digestDays
+	rows, _, err := s.buildAgenda(ctx, userID, now, agendaFilter{DalamHari: &days})
 	if err != nil {
 		return "", err
 	}
-	for _, it := range items {
-		add(it.Nama, it.Klien, it.Kedaluwarsa)
-	}
-	limit := today.AddDate(0, 0, digestDays)
-	tasks, err := s.Store.ListTugas(ctx, userID, store.TugasFilter{Sampai: &limit})
-	if err != nil {
-		return "", err
-	}
-	for _, t := range tasks {
-		add("Tugas "+t.Judul, t.Klien, t.JatuhTempo)
-	}
-	if len(overdue)+len(soon) == 0 {
+	if len(rows) == 0 {
 		return "", nil
 	}
-	byDate := func(l []line) {
-		for i := 1; i < len(l); i++ {
-			for j := i; j > 0 && l[j].date.Before(l[j-1].date); j-- {
-				l[j], l[j-1] = l[j-1], l[j]
-			}
+	var overdue, soon []string
+	for _, r := range rows {
+		label := r.Judul
+		switch {
+		case r.Asal == "tugas":
+			label = "Tugas " + r.Judul
+		case r.Jenis == "tagihan":
+			label = denganJenis("Tagihan", r.Judul)
+		}
+		if r.Klien != "" {
+			label += " (" + r.Klien + ")"
+		}
+		var text string
+		switch {
+		case r.SisaHari < 0:
+			text = "- " + label + ": lewat " + strconv.Itoa(-r.SisaHari) + " hari, " + tanggalID(r.date)
+		case r.SisaHari == 0:
+			text = "- " + label + ": hari ini"
+		case r.SisaHari == 1:
+			text = "- " + label + ": besok, " + tanggalID(r.date)
+		default:
+			text = "- " + label + ": " + strconv.Itoa(r.SisaHari) + " hari lagi, " + tanggalID(r.date)
+		}
+		if r.Jenis == "tagihan" && r.biayaRaw != nil {
+			text += ", " + uang.Format(*r.biayaRaw, r.MataUang)
+		}
+		if r.SisaHari < 0 {
+			overdue = append(overdue, text)
+		} else {
+			soon = append(soon, text)
 		}
 	}
-	byDate(overdue)
-	byDate(soon)
+	today := expiry.DateOf(now)
 	var b strings.Builder
 	b.WriteString("Ringkasan harian Tenggat, " + tanggalID(today))
 	written, total := 0, len(overdue)+len(soon)
-	section := func(title string, l []line) {
+	section := func(title string, l []string) {
 		if len(l) == 0 || written >= digestMaxLines {
 			return
 		}
@@ -351,7 +340,7 @@ func (s *Server) digestText(ctx context.Context, userID string, now time.Time) (
 			if written >= digestMaxLines {
 				break
 			}
-			b.WriteString("\n" + x.text)
+			b.WriteString("\n" + x)
 			written++
 		}
 	}

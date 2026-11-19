@@ -12,7 +12,7 @@ import {
   type AktivitasInput,
   type JenisAktivitas,
 } from '../../lib/api-tugas'
-import { hariIniIso, keTanggal, tanggalPanjang } from '../../lib/format'
+import { hariIniIso, keTanggal, tanggalPanjang, uang } from '../../lib/format'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Icon } from '../Icon'
 import { pesanGalat, useToast } from '../Toasts'
@@ -33,6 +33,7 @@ const labelJenis: Record<JenisAktivitas, string> = {
   tugas_selesai: 'Tugas',
   tugas_dihapus: 'Tugas',
   laporan_dibagikan: 'Laporan',
+  tagihan_dibayar: 'Tagihan dibayar',
 }
 
 const nada: Partial<Record<JenisAktivitas, string>> = {
@@ -41,6 +42,7 @@ const nada: Partial<Record<JenisAktivitas, string>> = {
   cek_gagal: 'is-galat',
   aset_diperpanjang: 'is-ok',
   cek_diperbarui: 'is-ok',
+  tagihan_dibayar: 'is-ok',
 }
 
 const isoLokal = (d: Date) => hariIniIso(d)
@@ -216,6 +218,7 @@ function Entri({ a, onHapus }: { a: Aktivitas; onHapus: () => void }) {
         <p className="ak-item__meta num">
           <span className={a.jenis === 'catatan' ? 'ak-tag is-internal' : 'ak-tag'}>{labelJenis[a.jenis]}</span>
           <span>{waktu(a)}</span>
+          {a.jumlah != null ? <span className="ak-item__jumlah">{uang(a.jumlah, a.mata_uang)}</span> : null}
           {a.durasi_menit ? (
             <span className="ak-item__dur">
               <Ikon name="clock" />

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
@@ -42,6 +43,8 @@ type Store interface {
 	AktivitasStore
 	LaporanStore
 	NotifikasiStore
+	PerpanjangStore
+	TokenStore
 }
 
 // Checker reads a host's certificate.
@@ -81,6 +84,11 @@ type Server struct {
 	// AppURL is the site's address without a trailing slash, for links in
 	// notifications; empty leaves the links out.
 	AppURL string
+
+	// MCP mounts the Model Context Protocol endpoint at /mcp.
+	MCP bool
+	// MCPResourceMetadataURL is the OAuth resource metadata URL advertised on 401 responses; empty leaves it out.
+	MCPResourceMetadataURL string
 }
 
 // Routes returns the API handler with request logging, panic recovery and the
@@ -101,10 +109,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/item/{id}", s.limit(s.user(s.updateItem)))
 	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.user(s.deleteItem)))
 	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.user(s.recheckItem)))
+	mux.HandleFunc("POST /api/item/{id}/perpanjang", s.limit(s.user(s.perpanjangItem)))
 	mux.HandleFunc("GET /api/sertifikat", s.limit(s.user(s.previewCertificate)))
 	mux.HandleFunc("GET /api/domain", s.limit(s.user(s.previewDomain)))
 	mux.HandleFunc("GET /api/item.csv", s.user(s.exportCSV))
 	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
+	mux.HandleFunc("GET /api/agenda", s.user(s.getAgenda))
 	mux.HandleFunc("GET /api/klien", s.user(s.listKlien))
 	mux.HandleFunc("POST /api/klien", s.limit(s.user(s.createKlien)))
 	mux.HandleFunc("PUT /api/klien/{id}", s.limit(s.user(s.updateKlien)))
@@ -115,9 +125,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/kalender/{berkas}", s.limitTo("kalender", calendarPerMinute, s.subscribedCalendar))
 	mux.HandleFunc("GET /api/tugas", s.user(s.listTugas))
 	mux.HandleFunc("POST /api/tugas", s.limit(s.user(s.createTugas)))
+	mux.HandleFunc("GET /api/tugas/{id}", s.user(s.getTugas))
 	mux.HandleFunc("PUT /api/tugas/{id}", s.limit(s.user(s.updateTugas)))
 	mux.HandleFunc("DELETE /api/tugas/{id}", s.limit(s.user(s.deleteTugas)))
 	mux.HandleFunc("POST /api/tugas/{id}/selesai", s.limit(s.user(s.completeTugas)))
+	mux.HandleFunc("GET /api/token", s.user(s.listTokens))
+	mux.HandleFunc("POST /api/token", s.limit(s.user(s.createToken)))
+	mux.HandleFunc("DELETE /api/token/{id}", s.limit(s.user(s.deleteToken)))
 	mux.HandleFunc("GET /api/aktivitas", s.user(s.listAktivitas))
 	mux.HandleFunc("POST /api/aktivitas", s.limit(s.user(s.createAktivitas)))
 	mux.HandleFunc("DELETE /api/aktivitas/{id}", s.limit(s.user(s.deleteAktivitas)))
@@ -131,6 +145,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/notifikasi", s.limit(s.user(s.putNotifikasi)))
 	mux.HandleFunc("DELETE /api/notifikasi", s.limit(s.user(s.deleteNotifikasi)))
 	mux.HandleFunc("POST /api/notifikasi/uji", s.limitTo("webhook", webhookTestLimit, s.user(s.testNotifikasi)))
+	if s.MCP {
+		mcp := s.mcpHandler(mux)
+		mux.HandleFunc("POST /mcp", mcp)
+		mux.HandleFunc("GET /mcp", mcp)
+		mux.HandleFunc("DELETE /mcp", mcp)
+	}
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
@@ -159,7 +179,8 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	q := r.URL.Query()
-	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id")}
+	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id"),
+		Selesai: q.Get("selesai") == "1"}
 	if f.Status != "" && !f.Status.Valid() {
 		writeError(w, http.StatusUnprocessableEntity, "Status tidak dikenal.",
 			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
@@ -169,7 +190,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengg
 		writeError(w, http.StatusUnprocessableEntity, "Klien tidak dikenal.", map[string]string{"klien_id": "Klien tidak ditemukan."})
 		return
 	}
-	s.cachedRead(w, r, u.ID, "daftar:"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
+	s.cachedRead(w, r, u.ID, "daftar:"+strconv.FormatBool(f.Selesai)+":"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
 		items, err := s.Store.List(r.Context(), u.ID, f, now)
 		if err != nil {
 			return nil, err
@@ -213,7 +234,7 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request, u store.Peng
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareItem(w, r, u.ID, req)
+	in, ok := s.prepareItem(w, r, u.ID, req, nil)
 	if !ok {
 		return
 	}
@@ -242,11 +263,16 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		s.internal(w, r, err)
 		return
 	}
+	if old.SelesaiPada != nil {
+		writeError(w, http.StatusConflict, "Aset ini sudah ditutup.", nil)
+		return
+	}
 	var req itemRequest
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareItem(w, r, u.ID, req)
+	// The stored item goes along so a field the client left out keeps its value.
+	in, ok := s.prepareItem(w, r, u.ID, req, &old)
 	if !ok {
 		return
 	}

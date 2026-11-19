@@ -1,5 +1,5 @@
 // Indonesian formatting helpers shared by every screen.
-import type { Jenis, Status } from './api'
+import type { BiayaPerMataUang, Jenis, MataUang, SatuanUlang, Status } from './api'
 
 export const labelStatus: Record<Status, string> = {
   lewat: 'Lewat',
@@ -20,6 +20,7 @@ export const labelJenis: Record<Jenis, string> = {
   domain: 'Domain',
   token: 'Token API',
   langganan: 'Langganan',
+  tagihan: 'Tagihan',
   lainnya: 'Lainnya',
 }
 
@@ -35,6 +36,7 @@ const fmtTanggal = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'sh
 const fmtTanggalPanjang = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const fmtHari = new Intl.DateTimeFormat('id-ID', { weekday: 'long' })
 const fmtRupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
+const fmtUsd = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtRelatif = new Intl.RelativeTimeFormat('id-ID', { numeric: 'auto' })
 
 /** "13 Nov 2026" */
@@ -45,6 +47,50 @@ export const tanggalPanjang = (iso: string) => fmtTanggalPanjang.format(keTangga
 export const hari = (iso: string) => fmtHari.format(keTanggal(iso))
 /** "Rp 285.000" */
 export const rupiah = (n: number) => fmtRupiah.format(n)
+
+export const urutanMataUang: MataUang[] = ['IDR', 'USD']
+
+/** "Rp 189.000" or "US$20.50" */
+export function uang(n: number, mataUang: MataUang | null | undefined = 'IDR'): string {
+  if (mataUang === 'USD') return `US$${fmtUsd.format(n)}`
+  return `Rp ${fmtAngka.format(n)}`
+}
+
+/** Groups positive amounts by currency without mixing IDR and USD. Sums in minor units to avoid float drift. */
+export function kelompokBiaya(
+  baris: readonly { biaya: number | null; mata_uang?: MataUang | null }[],
+): BiayaPerMataUang {
+  const minor: Record<MataUang, number> = { IDR: 0, USD: 0 }
+  for (const b of baris) {
+    if (b.biaya == null || b.biaya <= 0) continue
+    const mu: MataUang = b.mata_uang === 'USD' ? 'USD' : 'IDR'
+    minor[mu] += mu === 'USD' ? Math.round(b.biaya * 100) : Math.round(b.biaya)
+  }
+  const hasil: BiayaPerMataUang = {}
+  if (minor.IDR > 0) hasil.IDR = minor.IDR
+  if (minor.USD > 0) hasil.USD = minor.USD / 100
+  return hasil
+}
+
+/** Ordered list of formatted amounts from a per-currency map (e.g. ["Rp 474.000", "US$20.50"]). */
+export function daftarUang(perMataUang?: BiayaPerMataUang | null, cadanganIdr = 0): string[] {
+  const out: string[] = []
+  if (perMataUang) {
+    for (const mu of urutanMataUang) {
+      const v = perMataUang[mu]
+      if (v != null && v > 0) out.push(uang(v, mu))
+    }
+    return out
+  }
+  if (cadanganIdr > 0) out.push(uang(cadanganIdr, 'IDR'))
+  return out
+}
+
+/** Formats a per-currency map for prose ("Rp 474.000", "Rp 474.000 dan US$20.50"), or null when empty. */
+export function teksUang(perMataUang?: BiayaPerMataUang | null, cadanganIdr = 0): string | null {
+  const bagian = daftarUang(perMataUang, cadanganIdr)
+  return bagian.length > 0 ? gabung(bagian) : null
+}
 
 /** "Lewat 3 hari", "Hari ini", "Besok", "4 hari lagi" */
 export function sisaHari(n: number): string {
@@ -86,6 +132,7 @@ export const labelJenisPendek: Record<Jenis, string> = {
   domain: 'Domain',
   token: 'Token',
   langganan: 'Langganan',
+  tagihan: 'Tagihan',
   lainnya: 'Lainnya',
 }
 
@@ -95,10 +142,11 @@ export const labelLajur: Record<Jenis, string> = {
   sertifikat: 'TLS',
   token: 'Token API',
   langganan: 'Langganan',
+  tagihan: 'Tagihan',
   lainnya: 'Lainnya',
 }
 
-export const urutanJenis: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan', 'lainnya']
+export const urutanJenis: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan', 'tagihan', 'lainnya']
 
 const fmtTanggalPendek = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' })
 const fmtBulan = new Intl.DateTimeFormat('id-ID', { month: 'short' })
@@ -146,4 +194,21 @@ export function gabung(daftar: string[]): string {
 export function hariIniIso(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`
+}
+
+/** "Tiap bulan", "Tiap 3 bulan", "Tiap tahun" */
+export function labelUlangItem(jumlah: number, satuan: SatuanUlang): string {
+  return jumlah === 1 ? `Tiap ${satuan}` : `Tiap ${jumlah} ${satuan}`
+}
+
+/** The date one interval after `dari`, keeping month-end dates on the month end (matches api/internal/expiry). */
+export function tambahIntervalItem(dari: string, jumlah: number, satuan: SatuanUlang): string {
+  const n = Math.max(1, jumlah)
+  const d = keTanggal(dari)
+  if (satuan === 'hari') return hariIniIso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n))
+  if (satuan === 'minggu') return hariIniIso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n * 7))
+  const bln = satuan === 'tahun' ? n * 12 : n
+  const target = new Date(d.getFullYear(), d.getMonth() + bln, 1)
+  const akhir = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  return hariIniIso(new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), akhir)))
 }

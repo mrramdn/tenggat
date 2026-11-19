@@ -220,8 +220,49 @@ func TestListKlienAggregates(t *testing.T) {
 		t.Errorf("ListKlien[1] (beta) = %+v", got[1])
 	}
 	if got[2].ID != kosong.ID || got[2].LaporanAktif || got[2].JumlahAset != 0 ||
-		got[2].Terdekat != nil || got[2].Biaya30Hari != 0 {
+		got[2].Terdekat != nil || got[2].Biaya30Hari != 0 || len(got[2].Biaya30HariPer) != 0 {
 		t.Errorf("ListKlien[2] (Kosong) = %+v", got[2])
+	}
+	if got[0].Biaya30HariPer["IDR"] != 350000 || len(got[0].Biaya30HariPer) != 1 || len(got[1].Biaya30HariPer) != 0 {
+		t.Errorf("Biaya30HariPer = %v, %v", got[0].Biaya30HariPer, got[1].Biaya30HariPer)
+	}
+
+	// Add USD items and a closed item to Alfa: Biaya30Hari stays IDR-only, Biaya30HariPer sums each currency,
+	// and the closed item is ignored by count, nearest date, and cost sums.
+	if _, err := s.Create(ctx, u.ID, Input{Nama: "Alfa USD dekat", Jenis: "tagihan", KlienID: &alfa.ID,
+		Kedaluwarsa: today.AddDate(0, 0, 10), Sumber: "manual", Biaya: ptr[int64](2050), MataUang: "USD"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Create(ctx, u.ID, Input{Nama: "Alfa USD jauh", Jenis: "tagihan", KlienID: &alfa.ID,
+		Kedaluwarsa: today.AddDate(0, 0, 40), Sumber: "manual", Biaya: ptr[int64](9900), MataUang: "USD"}); err != nil {
+		t.Fatal(err)
+	}
+	closedIt, err := s.Create(ctx, u.ID, Input{Nama: "Alfa lunas", Jenis: "tagihan", KlienID: &alfa.ID,
+		Kedaluwarsa: today.AddDate(0, 0, -20), Sumber: "manual", Biaya: ptr[int64](900000), MataUang: "IDR"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PerpanjangItem(ctx, u.ID, closedIt.ID, Perpanjangan{
+		Dari:  today.AddDate(0, 0, -20),
+		Lunas: true,
+		At:    now,
+		Aktivitas: AktivitasInput{
+			KlienID: &alfa.ID,
+			Jenis:   "tagihan_dibayar",
+			Teks:    "Lunas",
+			Tanggal: today,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err = s.ListKlien(ctx, u.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].JumlahAset != 7 || !sama(got[0].Terdekat, &wantEarliestAlfa) || got[0].Biaya30Hari != 350000 ||
+		got[0].Biaya30HariPer["IDR"] != 350000 || got[0].Biaya30HariPer["USD"] != 2050 || len(got[0].Biaya30HariPer) != 2 {
+		t.Errorf("ListKlien[0] (Alfa with USD and closed item) = %+v", got[0])
 	}
 }
 

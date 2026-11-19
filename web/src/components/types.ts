@@ -18,6 +18,8 @@ export interface Aksi {
   ubah: (it: Item, fokus?: 'kedaluwarsa') => void
   hapus: (it: Item) => void
   cekUlang: (it: Item) => void
+  /** Opens the pay-bill / renew-asset dialog for a manual item. */
+  perpanjang: (it: Item) => void
   /** ids of items being re-checked right now */
   sedangCek: ReadonlySet<string>
   tambahKlien: () => void

@@ -69,6 +69,8 @@ func run(log *slog.Logger) error {
 		api.LimitPerMinute = n
 	}
 	api.AppURL = strings.TrimRight(os.Getenv("APP_URL"), "/")
+	api.MCP = getenv("MCP_AKTIF", "true") == "true"
+	api.MCPResourceMetadataURL = strings.TrimSpace(os.Getenv("MCP_RESOURCE_METADATA_URL"))
 	go api.RunRechecks(ctx, interval)
 	go api.RunDigests(ctx, 5*time.Minute)
 

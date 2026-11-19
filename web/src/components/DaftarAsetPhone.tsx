@@ -1,11 +1,13 @@
-// Phone asset list: rows grouped by urgency. Tapping a row opens it for editing.
+// Phone asset list: rows grouped by urgency. Tapping a row opens it for editing; the primary action sits on the row.
 import type { Item, Status } from '../lib/api'
-import { labelJenisPendek, lalu, tanggalPendek } from '../lib/format'
+import { labelJenisPendek, labelUlangItem, lalu, tanggalPendek, uang } from '../lib/format'
 import { Icon, ikonJenis } from './Icon'
 import type { Aksi } from './types'
 import { Days, Pill } from './ui'
 
 function PhoneRow({ it, aksi, tampilKlien }: { it: Item; aksi: Aksi; tampilKlien: boolean }) {
+  const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
+  const tagihan = it.jenis === 'tagihan'
   const cek = aksi.sedangCek.has(it.id)
   return (
     <div className="ph-row">
@@ -18,6 +20,8 @@ function PhoneRow({ it, aksi, tampilKlien }: { it: Item; aksi: Aksi; tampilKlien
           <Icon name={ikonJenis[it.jenis]} />
           <span>
             {labelJenisPendek[it.jenis]}
+            {it.biaya ? ` · ${uang(it.biaya, it.mata_uang)}` : ''}
+            {it.ulang_jumlah && it.ulang_satuan ? ` · ${labelUlangItem(it.ulang_jumlah, it.ulang_satuan)}` : ''}
             {tampilKlien && it.klien ? ` · ${it.klien}` : ''}
           </span>
         </div>
@@ -27,26 +31,36 @@ function PhoneRow({ it, aksi, tampilKlien }: { it: Item; aksi: Aksi; tampilKlien
         <span className="cell num">{tanggalPendek(it.kedaluwarsa)}</span>
       </div>
       {it.galat_cek ? (
-        <>
-          <div className="ph-row__fail">
-            <Icon name="alert" />
-            <div>
-              Cek gagal{it.terakhir_dicek ? ` ${lalu(it.terakhir_dicek)}` : ''}. <span>{it.galat_cek}</span>
-            </div>
+        <div className="ph-row__fail">
+          <Icon name="alert" />
+          <div>
+            Cek gagal{it.terakhir_dicek ? ` ${lalu(it.terakhir_dicek)}` : ''}. <span>{it.galat_cek}</span>
           </div>
-          <div className="ph-row__act">
-            <button
-              type="button"
-              className={cek ? 'btn btn--secondary is-lg is-busy' : 'btn btn--secondary is-lg'}
-              aria-busy={cek}
-              onClick={() => aksi.cekUlang(it)}
-            >
-              <Icon name={cek ? 'loader' : 'refresh'} className={cek ? 'spin' : undefined} />
-              {cek ? 'Memeriksa' : 'Cek ulang'}
-            </button>
-          </div>
-        </>
+        </div>
       ) : null}
+      <div className="ph-row__act">
+        {bisaCek ? (
+          <button
+            type="button"
+            className={cek ? 'btn btn--secondary is-lg is-busy' : 'btn btn--secondary is-lg'}
+            aria-busy={cek}
+            onClick={() => aksi.cekUlang(it)}
+          >
+            <Icon name={cek ? 'loader' : 'refresh'} className={cek ? 'spin' : undefined} />
+            {cek ? 'Memeriksa' : 'Cek ulang'}
+          </button>
+        ) : tagihan ? (
+          <button type="button" className="btn btn--secondary is-lg" onClick={() => aksi.perpanjang(it)}>
+            <Icon name="check" />
+            Tandai dibayar
+          </button>
+        ) : (
+          <button type="button" className="btn btn--secondary is-lg" onClick={() => aksi.perpanjang(it)}>
+            <Icon name="calendar" />
+            Perpanjang
+          </button>
+        )}
+      </div>
     </div>
   )
 }

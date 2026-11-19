@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Akun } from './components/Akun'
 import { AssetSheet, type ModeSheet } from './components/AssetSheet'
 import { ConfirmDialog } from './components/ConfirmDialog'
@@ -13,11 +13,11 @@ import { Phone } from './components/Phone'
 import { TidakDitemukan } from './components/TidakDitemukan'
 import { pesanGalat, useToast } from './components/Toasts'
 import type { Aksi, BukaTambah } from './components/types'
-import { adaModal } from './hooks/useModal'
+import { adaModal, useModal } from './hooks/useModal'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import { KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna } from './lib/api'
+import { ApiError, KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna, type PerpanjangInput, type SatuanUlang } from './lib/api'
 import { saringAwal, type Saring } from './lib/derive'
-import { tanggal } from './lib/format'
+import { hariIniIso, tambahIntervalItem, tanggal, uang } from './lib/format'
 import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useJudulHalaman, useRute, type Rute } from './lib/rute'
 
 const KUNCI = ['item'] as const
@@ -122,6 +122,7 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
 
   const [saring, setSaring] = useState<Saring>(saringAwal)
   const [sheet, setSheet] = useState<ModeSheet | null>(null)
+  const [perpanjang, setPerpanjang] = useState<Item | null>(null)
   const [hapus, setHapus] = useState<Item | null>(null)
   const [sedangCek, setSedangCek] = useState<ReadonlySet<string>>(new Set())
   const [hapusAkun, setHapusAkun] = useState(false)
@@ -129,8 +130,8 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
   const [dialogKlien, setDialogKlien] = useState<Klien | null | undefined>(undefined)
   const [hapusKlien, setHapusKlien] = useState<Klien | null>(null)
 
-  // An asset write changes the clients' figures too, and the API logs it as activity (tasks follow the same
-  // clients), so every list that can show it is refreshed.
+  // An asset write changes the clients' figures too, and the API logs it as activity (tasks and reports follow the
+  // same clients), so every list that can show it is refreshed.
   const segarkan = useCallback(
     () =>
       Promise.all([
@@ -138,6 +139,7 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
         qc.invalidateQueries({ queryKey: KUNCI_KLIEN }),
         qc.invalidateQueries({ queryKey: ['aktivitas'] }),
         qc.invalidateQueries({ queryKey: ['tugas'] }),
+        qc.invalidateQueries({ queryKey: ['laporan'] }),
       ]),
     [qc],
   )
@@ -171,7 +173,7 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
   const hapusM = useMutation({
     mutationFn: (it: Item) => api.hapus(it.id),
     onSuccess: (_, it) => {
-      toast.ok('Aset dihapus.', it.nama)
+      toast.ok(it.jenis === 'tagihan' ? 'Tagihan dihapus.' : 'Aset dihapus.', it.nama)
       setHapus(null)
       setSheet(null)
       void segarkan()
@@ -246,6 +248,7 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
       ubah: (item, fokus) => setSheet({ mode: 'ubah', item, fokus }),
       hapus: (item) => setHapus(item),
       cekUlang: (item) => void cekUlang(item),
+      perpanjang: (item) => setPerpanjang(item),
       sedangCek,
       tambahKlien: () => setDialogKlien(null),
       ubahKlien: (k) => setDialogKlien(k),
@@ -308,22 +311,53 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
           onClose={() => setSheet(null)}
           onSaved={(it, baru) => {
             setSheet(null)
-            toast.ok(baru ? 'Aset ditambahkan.' : 'Perubahan disimpan.', `${it.nama} berakhir ${tanggal(it.kedaluwarsa)}.`)
+            const tagihan = it.jenis === 'tagihan'
+            toast.ok(
+              baru ? (tagihan ? 'Tagihan ditambahkan.' : 'Aset ditambahkan.') : 'Perubahan disimpan.',
+              `${it.nama} ${tagihan ? 'jatuh tempo' : 'berakhir'} ${tanggal(it.kedaluwarsa)}.`,
+            )
             void segarkan()
           }}
           onHapus={(it) => setHapus(it)}
         />
       ) : null}
+      {perpanjang ? (
+        <PerpanjangDialog
+          key={`${perpanjang.id}-${perpanjang.kedaluwarsa}`}
+          item={perpanjang}
+          onClose={() => setPerpanjang(null)}
+          onSaved={(updated) => {
+            const asli = perpanjang
+            setPerpanjang(null)
+            const tagihan = asli.jenis === 'tagihan'
+            const sekali = !asli.ulang_satuan || updated.selesai_pada != null
+            if (tagihan && sekali) {
+              toast.ok('Tagihan ditandai dibayar.', `${asli.nama} sudah ditutup.`)
+            } else if (tagihan) {
+              toast.ok('Tagihan ditandai dibayar.', `Jatuh tempo berikutnya ${tanggal(updated.kedaluwarsa)}.`)
+            } else {
+              toast.ok('Aset diperpanjang.', `${updated.nama} berakhir ${tanggal(updated.kedaluwarsa)}.`)
+            }
+            void segarkan()
+          }}
+          onKonflik={() => {
+            setPerpanjang(null)
+            toast.galat('Data baru saja berubah.', 'Daftar dimuat ulang.')
+            void segarkan()
+          }}
+        />
+      ) : null}
       {hapus ? (
         <ConfirmDialog
-          judul="Hapus aset ini?"
+          judul={hapus.jenis === 'tagihan' ? 'Hapus tagihan ini?' : 'Hapus aset ini?'}
           tombol="Hapus"
           tombolSedang="Menghapus"
           sedang={hapusM.isPending}
           onBatal={() => setHapus(null)}
           onYa={() => hapusM.mutate(hapus)}
         >
-          <b>{hapus.nama}</b> hilang dari daftar dan dari kalender. Aset yang dihapus tidak bisa dikembalikan.
+          <b>{hapus.nama}</b> hilang dari daftar dan dari kalender.{' '}
+          {hapus.jenis === 'tagihan' ? 'Tagihan yang dihapus tidak bisa dikembalikan.' : 'Aset yang dihapus tidak bisa dikembalikan.'}
         </ConfirmDialog>
       ) : null}
       {dialogKlien !== undefined ? (
@@ -368,6 +402,262 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
           <b>{pengguna.email}</b>.
         </ConfirmDialog>
       ) : null}
+    </>
+  )
+}
+
+function utcHari(iso: string): number {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
+/** Matches api/internal/expiry.NextDue: moves a recurring due date forward by whole intervals until after today. */
+function berikutnyaSampaiKini(dari: string, jumlah: number, satuan: SatuanUlang, hariIni = hariIniIso()): string {
+  const n = Math.max(1, jumlah)
+  let k = 1
+  const selisihHari = Math.floor((utcHari(hariIni) - utcHari(dari)) / 86_400_000)
+  if (selisihHari > 0) {
+    const perLangkah = satuan === 'hari' ? n : satuan === 'minggu' ? 7 * n : satuan === 'tahun' ? 366 * n : 31 * n
+    const loncat = Math.floor(selisihHari / perLangkah)
+    if (loncat > 1) k = loncat
+  }
+  let next = tambahIntervalItem(dari, k * n, satuan)
+  while (next <= hariIni) {
+    k++
+    next = tambahIntervalItem(dari, k * n, satuan)
+  }
+  return next
+}
+
+/** Confirmation / renewal dialog for bills ("Tandai dibayar") and manual assets ("Perpanjang"). */
+function PerpanjangDialog({
+  item,
+  onClose,
+  onSaved,
+  onKonflik,
+}: {
+  item: Item
+  onClose: () => void
+  onSaved: (updated: Item) => void
+  onKonflik: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useModal(ref, onClose)
+  const uid = useId()
+
+  const tagihan = item.jenis === 'tagihan'
+  const berulang = item.ulang_jumlah != null && item.ulang_satuan != null
+  const perluTanggal = !tagihan && !berulang
+  const satuPeriode = berulang ? tambahIntervalItem(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!) : null
+  const hariIni = hariIniIso()
+  const lewatBanyak = berulang && satuPeriode != null && satuPeriode <= hariIni
+  const sampaiKiniTanggal = lewatBanyak
+    ? berikutnyaSampaiKini(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!, hariIni)
+    : null
+  const biayaTeks = item.biaya != null && item.biaya > 0 ? uang(item.biaya, item.mata_uang) : null
+
+  const [sampai, setSampai] = useState('')
+  const [sampaiKini, setSampaiKini] = useState(true)
+  const [galatTanggal, setGalatTanggal] = useState<string | null>(null)
+  const [galatUmum, setGalatUmum] = useState<string | null>(null)
+
+  const kirimM = useMutation({
+    mutationFn: (input: PerpanjangInput) => api.perpanjang(item.id, input),
+    onSuccess: onSaved,
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        onKonflik()
+        return
+      }
+      if (err instanceof ApiError && Object.keys(err.field).length > 0) {
+        if (perluTanggal && err.field.sampai) {
+          setGalatTanggal(err.field.sampai)
+          const lain = Object.entries(err.field).filter(([k]) => k !== 'sampai')
+          setGalatUmum(lain.length ? lain.map(([, v]) => v).join(' ') : null)
+        } else {
+          setGalatUmum(Object.values(err.field).join(' ') || err.message)
+        }
+        return
+      }
+      setGalatUmum(pesanGalat(err))
+    },
+  })
+
+  function submit() {
+    if (kirimM.isPending) return
+    if (perluTanggal && !sampai) {
+      setGalatTanggal('Pilih tanggal berakhir baru.')
+      return
+    }
+    setGalatTanggal(null)
+    setGalatUmum(null)
+    const input: PerpanjangInput = {
+      dari: item.kedaluwarsa,
+      ...(perluTanggal ? { sampai } : {}),
+      ...(lewatBanyak && sampaiKini ? { sampai_kini: true } : {}),
+    }
+    kirimM.mutate(input)
+  }
+
+  const judul = tagihan ? 'Tandai dibayar?' : perluTanggal ? 'Perpanjang aset' : 'Perpanjang aset?'
+  const labelTombol = tagihan ? 'Tandai dibayar' : 'Perpanjang'
+  const bisa = !kirimM.isPending && (!perluTanggal || sampai !== '')
+
+  return (
+    <>
+      <div className="scrim" style={{ zIndex: 32 }} onClick={onClose} aria-hidden="true" />
+      <div
+        ref={ref}
+        className="dialog perpanjang-dialog"
+        style={{ zIndex: 33 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${uid}-j`}
+        aria-describedby={`${uid}-t`}
+      >
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault()
+            submit()
+          }}
+        >
+          <h2 className="dialog__title" id={`${uid}-j`}>
+            {judul}
+          </h2>
+          <p className="dialog__text" id={`${uid}-t`}>
+            <b>{item.nama}</b>
+            {lewatBanyak ? (
+              <>
+                {biayaTeks ? (
+                  <>
+                    {' '}
+                    · <b className="num">{biayaTeks}</b>
+                  </>
+                ) : null}
+                . Jatuh tempo saat ini <span className="num">{tanggal(item.kedaluwarsa)}</span>.
+              </>
+            ) : satuPeriode ? (
+              <>
+                . Jatuh tempo berikutnya <b className="num">{tanggal(satuPeriode)}</b>
+                {biayaTeks ? (
+                  <>
+                    {' '}
+                    · <b className="num">{biayaTeks}</b>
+                  </>
+                ) : null}
+                .
+              </>
+            ) : tagihan ? (
+              <>
+                {biayaTeks ? (
+                  <>
+                    {' '}
+                    (<span className="num">{biayaTeks}</span>)
+                  </>
+                ) : null}
+                . Tagihan ini akan ditutup.
+              </>
+            ) : (
+              <>
+                . Tanggal berakhir saat ini <span className="num">{tanggal(item.kedaluwarsa)}</span>
+                {biayaTeks ? (
+                  <>
+                    {' '}
+                    · <span className="num">{biayaTeks}</span>
+                  </>
+                ) : null}
+                .
+              </>
+            )}
+          </p>
+          {galatUmum ? (
+            <div className="form-error" role="alert">
+              <Icon name="alert" />
+              <span>{galatUmum}</span>
+            </div>
+          ) : null}
+          {lewatBanyak && satuPeriode && sampaiKiniTanggal ? (
+            <div className="field perpanjang-pilihan" role="radiogroup" aria-label="Pilihan periode">
+              <label className={sampaiKini ? 'perpanjang-opsi is-aktif' : 'perpanjang-opsi'}>
+                <input
+                  type="radio"
+                  name={`${uid}-mode`}
+                  checked={sampaiKini}
+                  onChange={() => {
+                    setSampaiKini(true)
+                    setGalatUmum(null)
+                  }}
+                />
+                <span className="num">
+                  Sudah lunas sampai sekarang · berikutnya <b>{tanggal(sampaiKiniTanggal)}</b>
+                </span>
+              </label>
+              <label className={!sampaiKini ? 'perpanjang-opsi is-aktif' : 'perpanjang-opsi'}>
+                <input
+                  type="radio"
+                  name={`${uid}-mode`}
+                  checked={!sampaiKini}
+                  onChange={() => {
+                    setSampaiKini(false)
+                    setGalatUmum(null)
+                  }}
+                />
+                <span className="num">
+                  Bayar satu periode saja · berikutnya <b>{tanggal(satuPeriode)}</b>
+                </span>
+              </label>
+            </div>
+          ) : null}
+          {perluTanggal ? (
+            <div className="field">
+              <label className="field__label" htmlFor={`${uid}-sampai`}>
+                Tanggal berakhir baru
+              </label>
+              <label className="input-icon">
+                <Icon name="calendar" />
+                <input
+                  id={`${uid}-sampai`}
+                  type="date"
+                  className={sampai ? 'control num has-value' : 'control num'}
+                  value={sampai}
+                  min="2000-01-01"
+                  max="2100-12-31"
+                  data-autofocus=""
+                  aria-invalid={!!galatTanggal}
+                  aria-describedby={galatTanggal ? `${uid}-sampai-e` : undefined}
+                  onChange={(e) => {
+                    setSampai(e.target.value)
+                    setGalatTanggal(null)
+                    setGalatUmum(null)
+                  }}
+                />
+              </label>
+              {galatTanggal ? (
+                <div className="field__error" id={`${uid}-sampai-e`}>
+                  <Icon name="alert" />
+                  <span>{galatTanggal}</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="dialog__foot">
+            <button type="button" className="btn btn--secondary" onClick={onClose}>
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={!bisa}
+              aria-busy={kirimM.isPending}
+              data-autofocus={perluTanggal ? undefined : ''}
+            >
+              {kirimM.isPending ? <Icon name="loader" className="spin" /> : <Icon name={tagihan ? 'check' : 'calendar'} />}
+              {kirimM.isPending ? 'Menyimpan' : labelTombol}
+            </button>
+          </div>
+        </form>
+      </div>
     </>
   )
 }

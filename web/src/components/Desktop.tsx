@@ -113,7 +113,12 @@ function Hero({ items, saring, setSaring, jumlahKlien }: Pick<LayarProps, 'items
         </h1>
         <p className="lede">
           {b.pre}
-          {b.jumlah ? <b className="num">{b.jumlah}</b> : null}
+          {b.jumlah.map((teks, i) => (
+            <span key={teks}>
+              {i > 0 ? ' dan ' : null}
+              <b className="num">{teks}</b>
+            </span>
+          ))}
           {b.post}
         </p>
       </div>

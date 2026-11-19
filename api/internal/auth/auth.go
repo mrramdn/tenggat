@@ -99,6 +99,17 @@ func NewToken() (token, hash string, err error) {
 	return token, HashToken(token), nil
 }
 
+// NewPAT returns a personal access token ("tgt_" + 43 random characters), the
+// SHA-256 hash to store, and the 8-character prefix to show in the list.
+func NewPAT() (token, hash, awalan string, err error) {
+	raw, _, err := NewToken()
+	if err != nil {
+		return "", "", "", err
+	}
+	token = "tgt_" + raw
+	return token, HashToken(token), token[:8], nil
+}
+
 // HashToken is the SHA-256 of a session token, as stored in the database.
 func HashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))

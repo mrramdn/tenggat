@@ -211,15 +211,22 @@ func TestTugasConstraints(t *testing.T) {
 
 	_, err := s.CreateTugas(ctx, u.ID, TugasInput{Judul: "x", UlangJumlah: 1, UlangSatuan: "bulan", JatuhTempo: due})
 	mustCheckViolation(t, err, "tugas_judul_check")
-	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 0, UlangSatuan: "bulan", JatuhTempo: due})
+	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: -1, UlangSatuan: "bulan", JatuhTempo: due})
 	mustCheckViolation(t, err, "tugas_ulang_jumlah_check")
 	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 366, UlangSatuan: "hari", JatuhTempo: due})
 	mustCheckViolation(t, err, "tugas_ulang_jumlah_check")
+	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 0, UlangSatuan: "bulan", JatuhTempo: due})
+	mustCheckViolation(t, err, "tugas_ulang_lengkap")
+	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 1, UlangSatuan: "", JatuhTempo: due})
+	mustCheckViolation(t, err, "tugas_ulang_lengkap")
 	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 1, UlangSatuan: "jam", JatuhTempo: due})
 	mustCheckViolation(t, err, "tugas_ulang_satuan_check")
 	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 1, UlangSatuan: "bulan",
 		JatuhTempo: due, Biaya: ptr[int64](-100)})
 	mustCheckViolation(t, err, "tugas_biaya_check")
+	_, err = s.CreateTugas(ctx, u.ID, TugasInput{Judul: "Backup", UlangJumlah: 1, UlangSatuan: "bulan",
+		JatuhTempo: due, MataUang: "EUR"})
+	mustCheckViolation(t, err, "tugas_mata_uang_check")
 
 	_, err = s.CreateTugas(ctx, u.ID, TugasInput{KlienID: ptr("00000000-0000-4000-8000-000000000999"),
 		Judul: "Backup", UlangJumlah: 1, UlangSatuan: "bulan", JatuhTempo: due})
@@ -228,5 +235,103 @@ func TestTugasConstraints(t *testing.T) {
 	}
 	if n := hitung(t, s, `SELECT count(*) FROM tugas`); n != 0 {
 		t.Errorf("%d rows written by refused task creates", n)
+	}
+}
+
+func TestOneOffTugasCloseAndFilter(t *testing.T) {
+	t.Parallel()
+	s := storeSiap(t)
+	ctx := t.Context()
+	u := penggunaUji(t, s, "Rana")
+	other := penggunaUji(t, s, "Budi")
+	k := klienUji(t, s, u.ID, "Toko Kue Mawar")
+
+	due1 := tanggal(2026, 11, 20)
+	due2 := tanggal(2026, 11, 25)
+	at1 := time.Date(2026, 11, 19, 8, 0, 0, 0, time.UTC)
+	at2 := time.Date(2026, 11, 19, 9, 0, 0, 0, time.UTC)
+
+	// One-off task with USD cost.
+	once1, err := s.CreateTugas(ctx, u.ID, TugasInput{
+		KlienID:    &k.ID,
+		Judul:      "Migrasi server produksi",
+		Catatan:    "Pindah ke region Singapura",
+		JatuhTempo: due1,
+		Biaya:      ptr[int64](5000),
+		MataUang:   "USD",
+	})
+	if err != nil {
+		t.Fatalf("CreateTugas(one-off): %v", err)
+	}
+	if once1.UlangJumlah != 0 || once1.UlangSatuan != "" || once1.MataUang != "USD" || once1.SelesaiPada != nil {
+		t.Errorf("CreateTugas(one-off) = %+v", once1)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM tugas WHERE id = $1 AND ulang_jumlah IS NULL AND ulang_satuan IS NULL`, once1.ID); n != 1 {
+		t.Errorf("one-off task recurrence not stored as NULL in SQL")
+	}
+
+	once2, err := s.CreateTugas(ctx, u.ID, TugasInput{
+		Judul:      "Audit keamanan",
+		JatuhTempo: due2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if once2.MataUang != "IDR" {
+		t.Errorf("default MataUang = %q, want IDR", once2.MataUang)
+	}
+
+	recurring, err := s.CreateTugas(ctx, u.ID, TugasInput{
+		Judul:       "Backup mingguan",
+		UlangJumlah: 1,
+		UlangSatuan: "minggu",
+		JatuhTempo:  due1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// CloseTugas guards: recurring task, wrong from date, other user, unknown id all return ErrNotFound.
+	if _, err := s.CloseTugas(ctx, u.ID, recurring.ID, due1, at1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("CloseTugas(recurring) err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.CloseTugas(ctx, u.ID, once1.ID, due2, at1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("CloseTugas(wrong from) err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.CloseTugas(ctx, other.ID, once1.ID, due1, at1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("CloseTugas(other user) err = %v, want ErrNotFound", err)
+	}
+
+	// Close once1 at at1, then once2 at at2 (later).
+	closed1, err := s.CloseTugas(ctx, u.ID, once1.ID, due1, at1)
+	if err != nil {
+		t.Fatalf("CloseTugas(once1): %v", err)
+	}
+	if !sama(closed1.SelesaiPada, &at1) || !sama(closed1.TerakhirSelesai, &at1) || closed1.Klien != k.Nama {
+		t.Errorf("CloseTugas(once1) = %+v", closed1)
+	}
+	if _, err := s.CloseTugas(ctx, u.ID, once2.ID, due2, at2); err != nil {
+		t.Fatalf("CloseTugas(once2): %v", err)
+	}
+
+	// Closed task cannot be closed again, completed, or updated.
+	if _, err := s.CloseTugas(ctx, u.ID, once1.ID, due1, at2); !errors.Is(err, ErrNotFound) {
+		t.Errorf("second CloseTugas err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.CompleteTugas(ctx, u.ID, once1.ID, due1, due2, at2); !errors.Is(err, ErrNotFound) {
+		t.Errorf("CompleteTugas(closed) err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.UpdateTugas(ctx, u.ID, once1.ID, TugasInput{Judul: "Ubah", JatuhTempo: due2}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("UpdateTugas(closed) err = %v, want ErrNotFound", err)
+	}
+
+	// ListTugas with Selesai=false returns only active tasks; Selesai=true returns closed tasks ordered by selesai_pada DESC.
+	active, err := s.ListTugas(ctx, u.ID, TugasFilter{Selesai: false})
+	if err != nil || !slices.Equal(idTugas(active), []string{recurring.ID}) {
+		t.Errorf("ListTugas(Selesai=false) = %v, %v; want [%s]", idTugas(active), err, recurring.ID)
+	}
+	closedList, err := s.ListTugas(ctx, u.ID, TugasFilter{Selesai: true})
+	if err != nil || !slices.Equal(idTugas(closedList), []string{once2.ID, once1.ID}) {
+		t.Errorf("ListTugas(Selesai=true) = %v, %v; want [%s %s] (newest selesai_pada first)", idTugas(closedList), err, once2.ID, once1.ID)
 	}
 }

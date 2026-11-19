@@ -13,6 +13,7 @@ const tambahan = {
   'chevron-right': <path d="m9 18 6-6-6-6" />,
   clock: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
   'circle-check': <><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></>,
+  receipt: <><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M14 8H8" /><path d="M16 12H8" /><path d="M13 16H8" /></>,
 }
 
 export type NamaIkon = IconName | keyof typeof tambahan
@@ -38,4 +39,5 @@ export const ikonAktivitas: Record<JenisAktivitas, NamaIkon> = {
   tugas_selesai: 'circle-check',
   tugas_dihapus: 'trash',
   laporan_dibagikan: 'link',
+  tagihan_dibayar: 'receipt',
 }

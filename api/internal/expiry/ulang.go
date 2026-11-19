@@ -5,6 +5,24 @@ import "time"
 // Units a recurring task repeats in.
 var Units = map[string]bool{"hari": true, "minggu": true, "bulan": true, "tahun": true}
 
+// AddInterval moves a date forward by one interval of n units, keeping a
+// month-end date on the month end: 31 Jan plus one month is 28 (or 29) Feb.
+func AddInterval(d time.Time, n int, unit string) time.Time {
+	if n < 1 {
+		n = 1
+	}
+	switch unit {
+	case "hari":
+		return d.AddDate(0, 0, n)
+	case "minggu":
+		return d.AddDate(0, 0, 7*n)
+	case "tahun":
+		return AddMonths(d, 12*n)
+	default:
+		return AddMonths(d, n)
+	}
+}
+
 // NextDue moves a recurring task's due date forward by whole intervals of n
 // units until it is after today, and always by at least one interval. Counting
 // every step from the old due date keeps a month-end date on the month end:
@@ -13,18 +31,6 @@ var Units = map[string]bool{"hari": true, "minggu": true, "bulan": true, "tahun"
 func NextDue(due, today time.Time, n int, unit string) time.Time {
 	if n < 1 {
 		n = 1
-	}
-	step := func(k int) time.Time {
-		switch unit {
-		case "hari":
-			return due.AddDate(0, 0, k*n)
-		case "minggu":
-			return due.AddDate(0, 0, 7*k*n)
-		case "tahun":
-			return AddMonths(due, 12*k*n)
-		default:
-			return AddMonths(due, k*n)
-		}
 	}
 	k := 1
 	// Jump close to today first, so a task overdue for years needs few steps.
@@ -37,10 +43,10 @@ func NextDue(due, today time.Time, n int, unit string) time.Time {
 			k = skip
 		}
 	}
-	next := step(k)
+	next := AddInterval(due, k*n, unit)
 	for !next.After(today) {
 		k++
-		next = step(k)
+		next = AddInterval(due, k*n, unit)
 	}
 	return next
 }

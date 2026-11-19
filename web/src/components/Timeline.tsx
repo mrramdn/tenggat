@@ -54,7 +54,7 @@ export function Timeline({ items, ghost = false }: { items: Item[]; ghost?: bool
   }, [])
 
   const lajur: Jenis[] = ghost
-    ? ['domain', 'sertifikat', 'token', 'langganan']
+    ? ['domain', 'sertifikat', 'token', 'langganan', 'tagihan']
     : urutanJenis.filter((j) => items.some((it) => it.jenis === j))
   const H = TOP + LANE * lajur.length + 22
   const bottom = TOP + LANE * lajur.length
