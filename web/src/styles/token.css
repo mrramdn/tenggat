@@ -1,0 +1,99 @@
+/* Personal access tokens section in Pengaturan. Only tokens from tokens.css. */
+
+.tok { display: flex; flex-direction: column; gap: var(--s-4); }
+
+/* show-once panel after creating a token */
+.tok__baru {
+  display: flex; flex-direction: column; gap: var(--s-3);
+  padding: var(--s-4);
+  border: var(--bw) solid var(--line-strong); border-radius: var(--r-card);
+  background: var(--surface-2);
+}
+.tok__baru-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3); }
+.tok__baru-judul { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.tok__baru-judul b { font-size: var(--fs-14); font-weight: var(--fw-medium); color: var(--ink); overflow-wrap: anywhere; }
+.tok__sekali {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  font-size: var(--fs-13); line-height: var(--lh-20); color: var(--st-d7);
+}
+.tok__sekali svg.i { flex: none; }
+.tok__mono {
+  font-family: var(--font-mono); font-size: var(--fs-13); color: var(--ink-2);
+  background: var(--surface); text-overflow: ellipsis;
+}
+.tok__salin { min-width: var(--kal-salin-w, 104px); flex: none; }
+.tok__cmd-box { display: flex; align-items: flex-start; gap: var(--s-2); }
+textarea.control.tok__cmd {
+  flex: 1; min-width: 0;
+  height: auto; min-height: calc(var(--lh-20) * 2 + var(--s-2) * 2 + var(--bw) * 2);
+  padding: var(--s-2) var(--s-3); resize: none;
+  font-family: var(--font-mono); font-size: var(--fs-12); line-height: var(--lh-20); color: var(--ink-2);
+  background: var(--surface); overflow-wrap: anywhere;
+}
+
+/* create form */
+.tok__form {
+  display: flex; flex-direction: column; gap: var(--s-4);
+  padding: var(--s-4);
+  border: var(--bw) solid var(--line); border-radius: var(--r-card);
+  background: var(--surface-2);
+}
+.tok__form .control,
+.tok__form .seg { background: var(--surface); }
+.tok__form-aksi { display: flex; justify-content: flex-end; gap: var(--s-2); }
+.tok__warn {
+  display: flex; align-items: flex-start; gap: var(--s-2);
+  font-size: var(--fs-12); line-height: var(--lh-16); color: var(--st-d7);
+}
+.tok__warn svg.i { width: 14px; height: 14px; margin-top: 1px; flex: none; }
+
+/* top action bar */
+.tok__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.tok__hitung { font-size: var(--fs-12); color: var(--muted); }
+
+/* token list */
+.tok__list { list-style: none; display: flex; flex-direction: column; border: var(--bw) solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.tok__item {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4); background: var(--surface);
+}
+.tok__item + .tok__item { border-top: var(--bw) solid var(--line); }
+.tok__main { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.tok__judul { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+.tok__nama { font-size: var(--fs-14); font-weight: var(--fw-medium); color: var(--ink); overflow-wrap: anywhere; }
+.tok__prefix {
+  display: inline-flex; align-items: center;
+  padding: 1px var(--s-2); border-radius: var(--r-xs);
+  background: var(--surface-3); color: var(--ink-2);
+  font-family: var(--font-mono); font-size: var(--fs-12); line-height: var(--lh-16);
+}
+.tok__cakupan {
+  display: inline-flex; align-items: center;
+  height: var(--pill-h); padding: 0 var(--s-2); border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--ink-2);
+  font-size: var(--fs-12); font-weight: var(--fw-medium); line-height: 1; white-space: nowrap;
+}
+.tok__cakupan.is-tulis { background: var(--accent-soft); color: var(--accent); }
+.tok__meta {
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s-2); row-gap: var(--s-0);
+  font-size: var(--fs-12); line-height: var(--lh-16); color: var(--muted);
+}
+.tok__meta > span + span::before { content: "·"; margin-right: var(--s-2); color: var(--faint); }
+.tok__exp.is-lewat { color: var(--st-lewat); font-weight: var(--fw-medium); }
+.tok__cabut { flex: none; }
+.tok__kosong { font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted); }
+.tok__code { font-family: var(--font-mono); font-size: var(--fs-13); }
+
+@media (max-width: 1023px) {
+  .tok__meta { font-size: var(--fs-13); line-height: var(--lh-20); }
+}
+@media (max-width: 640px) {
+  .tok__bar .btn { width: 100%; }
+  .tok__form-aksi { flex-direction: column-reverse; }
+  .tok__form-aksi .btn { width: 100%; }
+  .tok__item { flex-direction: column; align-items: stretch; }
+  .tok__cabut { width: 100%; }
+  .tok__baru .field-row,
+  .tok__cmd-box { flex-direction: column; align-items: stretch; }
+  .tok__salin { width: 100%; }
+}
