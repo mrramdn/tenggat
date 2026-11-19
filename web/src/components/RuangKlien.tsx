@@ -2,7 +2,8 @@
 // Aset, Tugas, Aktivitas and Laporan, each its own URL.
 import type { Item, Klien } from '../lib/api'
 import { saringItem, type Saring } from '../lib/derive'
-import { daftarUang, tanggal } from '../lib/format'
+import { daftarUang, tanggal, uang } from '../lib/format'
+import { catatanKurs, kiraTotalRupiah, perluKiraTotal, useKurs } from '../lib/kurs'
 import { jalurKlien, Tautan, type TabKlien } from '../lib/rute'
 import { DaftarAset } from './DaftarAset'
 import { DaftarAsetPhone } from './DaftarAsetPhone'
@@ -29,7 +30,19 @@ interface Props {
   phone?: boolean
 }
 
-function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: boolean }) {
+function Kepala({
+  klien: k,
+  aksi,
+  phone,
+  totalKira,
+  catatan,
+}: {
+  klien: Klien
+  aksi: Aksi
+  phone: boolean
+  totalKira: number | null
+  catatan?: string
+}) {
   const biayaDaftar = daftarUang(k.biaya_30_hari_per_mata_uang, k.biaya_30_hari)
   return (
     <header className={phone ? 'rk is-phone' : 'rk'}>
@@ -48,10 +61,16 @@ function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: bo
               <>
                 {biayaDaftar.map((teks, i) => (
                   <span key={teks}>
-                    {i > 0 ? ' dan ' : null}
+                    {i > 0 ? ' + ' : null}
                     <b className="num">{teks}</b>
                   </span>
-                ))}{' '}
+                ))}
+                {totalKira != null ? (
+                  <span className="kira num" title={catatan}>
+                    {' '}
+                    ≈ {uang(totalKira, 'IDR')}
+                  </span>
+                ) : null}{' '}
                 jatuh tempo dalam 30 hari
               </>
             ) : (
@@ -89,10 +108,16 @@ function Kepala({ klien: k, aksi, phone }: { klien: Klien; aksi: Aksi; phone: bo
 }
 
 export function RuangKlien({ klien: k, items, semuaKlien, tab, saring, setSaring, aksi, phone = false }: Props) {
+  const kurs = useKurs()
   const milik = items.filter((it) => it.klien_id === k.id)
+  const totalKira = perluKiraTotal(k.biaya_30_hari_per_mata_uang)
+    ? (k.biaya_30_hari_kira_idr ?? kiraTotalRupiah(k.biaya_30_hari_per_mata_uang, kurs))
+    : null
+  const catatan = catatanKurs(kurs)
+  const kepalaAdaKira = totalKira != null
   return (
     <div className={phone ? 'ruang is-phone' : 'ruang'}>
-      <Kepala klien={k} aksi={aksi} phone={phone} />
+      <Kepala klien={k} aksi={aksi} phone={phone} totalKira={totalKira} catatan={catatan} />
       <nav className={phone ? 'seg is-full rk__tabs' : 'tabs'} aria-label={`Bagian ${k.nama}`}>
         {TAB.map((t) => (
           <Tautan
@@ -115,14 +140,27 @@ export function RuangKlien({ klien: k, items, semuaKlien, tab, saring, setSaring
                 <span>Tambahkan domain, sertifikat, token, langganan, atau tagihan milik klien ini.</span>
               </div>
             ) : (
-              <DaftarAsetPhone rows={saringItem(milik, { ...saring, cari: '', jenis: null, sumber: null, status: null, klien: null })} aksi={aksi} tampilKlien={false} />
+              <DaftarAsetPhone
+                rows={saringItem(milik, { ...saring, cari: '', jenis: null, sumber: null, status: null, klien: null })}
+                aksi={aksi}
+                tampilKlien={false}
+                catatanSudahTampil={kepalaAdaKira}
+              />
             )
           ) : (
-            <DaftarAset items={milik} klien={semuaKlien} saring={saring} setSaring={setSaring} aksi={aksi} satuKlien />
+            <DaftarAset
+              items={milik}
+              klien={semuaKlien}
+              saring={saring}
+              setSaring={setSaring}
+              aksi={aksi}
+              satuKlien
+              catatanSudahTampil={kepalaAdaKira}
+            />
           )
         ) : null}
-        {tab === 'tugas' ? <TugasKlien klienId={k.id} /> : null}
-        {tab === 'aktivitas' ? <AktivitasKlien klienId={k.id} /> : null}
+        {tab === 'tugas' ? <TugasKlien klienId={k.id} catatanSudahTampil={kepalaAdaKira} /> : null}
+        {tab === 'aktivitas' ? <AktivitasKlien klienId={k.id} catatanSudahTampil={kepalaAdaKira} /> : null}
         {tab === 'laporan' ? <LaporanKlien klienId={k.id} /> : null}
       </div>
     </div>

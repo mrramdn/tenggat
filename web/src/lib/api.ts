@@ -4,7 +4,7 @@
 export type Jenis = 'sertifikat' | 'domain' | 'token' | 'langganan' | 'tagihan' | 'lainnya'
 export type Status = 'lewat' | 'kritis' | 'segera' | 'aman'
 export type Sumber = 'manual' | 'server' | 'registri'
-export type MataUang = 'IDR' | 'USD'
+export type MataUang = 'IDR' | 'USD' | 'SGD'
 export type SatuanUlang = 'hari' | 'minggu' | 'bulan' | 'tahun'
 export type BiayaPerMataUang = Partial<Record<MataUang, number>>
 
@@ -272,6 +272,7 @@ export interface Klien {
   terdekat: string | null // YYYY-MM-DD, null without assets
   biaya_30_hari: number
   biaya_30_hari_per_mata_uang?: BiayaPerMataUang
+  biaya_30_hari_kira_idr?: number | null
 }
 
 export interface KlienInput {

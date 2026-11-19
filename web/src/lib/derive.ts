@@ -108,12 +108,19 @@ export function biaya30(items: Item[]): { perMataUang: BiayaPerMataUang; nama: s
   return { perMataUang: kelompokBiaya(kena), nama: kena.map(namaDalamKalimat) }
 }
 
-export function kalimatBiaya(items: Item[]): { pre: string; jumlah: string[]; post: string } {
+export function kalimatBiaya(items: Item[]): {
+  pre: string
+  jumlah: string[]
+  perMataUang: BiayaPerMataUang
+  post: string
+} {
   const b = biaya30(items)
   const jumlah = daftarUang(b.perMataUang)
-  if (jumlah.length === 0) return { pre: 'Tidak ada biaya perpanjangan dalam 30 hari ke depan.', jumlah: [], post: '' }
+  if (jumlah.length === 0) {
+    return { pre: 'Tidak ada biaya perpanjangan dalam 30 hari ke depan.', jumlah: [], perMataUang: b.perMataUang, post: '' }
+  }
   const dari = b.nama.length > 3 ? `${b.nama.length} aset` : gabung(b.nama)
-  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah, post: `, untuk ${dari}.` }
+  return { pre: 'Biaya perpanjangan 30 hari ke depan ', jumlah, perMataUang: b.perMataUang, post: `, untuk ${dari}.` }
 }
 
 const BOBOT: Record<Status, number> = { lewat: 0, kritis: 1, segera: 2, aman: 3 }

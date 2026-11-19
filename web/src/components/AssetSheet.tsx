@@ -17,7 +17,21 @@ import {
   type Status,
   type TLSInfo,
 } from '../lib/api'
-import { angka, frasaHari, labelJenis, labelJenisPendek, lalu, tanggal, urutanJenis, urutanMataUang } from '../lib/format'
+import {
+  angka,
+  frasaHari,
+  labelJenis,
+  labelJenisPendek,
+  labelMataUang,
+  lalu,
+  mataUangDesimal,
+  normalisasiMataUang,
+  simbolMataUang,
+  tanggal,
+  urutanJenis,
+  urutanMataUang,
+} from '../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../lib/kurs'
 import { useModal } from '../hooks/useModal'
 import { tautanPengingat } from '../lib/pengingat'
 import { pesanGalat } from './Toasts'
@@ -34,8 +48,8 @@ const OPSI_SATUAN: { nilai: SatuanUlang; label: string }[] = [
   { nilai: 'tahun', label: 'tahun' },
 ]
 
-/** Sanitizes a USD input string, allowing either comma or dot as decimal separator and at most 2 decimals. */
-function bersihkanUsd(raw: string): string {
+/** Sanitizes a foreign-currency input string (USD/SGD), allowing either comma or dot and at most 2 decimals. */
+function bersihkanDesimal(raw: string): string {
   let sep = ''
   let bulat = ''
   let des = ''
@@ -57,7 +71,7 @@ function bersihkanUsd(raw: string): string {
 
 function biayaAwal(item: Item | null): string {
   if (item?.biaya == null) return ''
-  if (item.mata_uang === 'USD') {
+  if (mataUangDesimal(item.mata_uang)) {
     return Number.isInteger(item.biaya) ? String(item.biaya) : item.biaya.toFixed(2)
   }
   return String(Math.round(item.biaya))
@@ -300,7 +314,8 @@ export function AssetSheet({ buka, klien, onClose, onSaved, onHapus }: Props) {
   const [kedaluwarsa, setKedaluwarsa] = useState(item && item.sumber === 'manual' ? item.kedaluwarsa : '')
   // A domain is read from the registry unless the user chose to type its date.
   const [tanggalSendiri, setTanggalSendiri] = useState(!!item && item.jenis === 'domain' && item.sumber === 'manual')
-  const [mataUang, setMataUang] = useState<MataUang>(item?.mata_uang === 'USD' ? 'USD' : 'IDR')
+  const kurs = useKurs()
+  const [mataUang, setMataUang] = useState<MataUang>(normalisasiMataUang(item?.mata_uang))
   const [biaya, setBiaya] = useState(() => biayaAwal(item))
   const [berulang, setBerulang] = useState(!!(item?.ulang_jumlah && item?.ulang_satuan))
   const [ulangJumlah, setUlangJumlah] = useState(String(item?.ulang_jumlah ?? 1))
@@ -548,6 +563,8 @@ export function AssetSheet({ buka, klien, onClose, onSaved, onHapus }: Props) {
   )
 
   const galatBiaya = galat.biaya || galat.mata_uang
+  const desimal = mataUangDesimal(mataUang)
+  const kiraBiaya = teksKiraRupiah(biayaAngka, mataUang, kurs)
   const fieldBiaya = (
     <div className="field">
       <label className="field__label" htmlFor={id('biaya')}>
@@ -555,19 +572,19 @@ export function AssetSheet({ buka, klien, onClose, onSaved, onHapus }: Props) {
       </label>
       <div className="biaya-row">
         <div className={mataUang === 'USD' ? 'input-affix is-usd' : 'input-affix'}>
-          <span className="affix">{mataUang === 'USD' ? 'US$' : 'Rp'}</span>
+          <span className="affix">{simbolMataUang[mataUang]}</span>
           <input
             id={id('biaya')}
             className="control num"
-            inputMode={mataUang === 'USD' ? 'decimal' : 'numeric'}
-            placeholder={mataUang === 'USD' ? '0.00' : '0'}
+            inputMode={desimal ? 'decimal' : 'numeric'}
+            placeholder={desimal ? '0.00' : '0'}
             autoComplete="off"
-            value={mataUang === 'USD' ? biaya : biaya ? angka(Number(biaya)) : ''}
+            value={desimal ? biaya : biaya ? angka(Number(biaya)) : ''}
             aria-invalid={!!galatBiaya}
-            aria-describedby={galatBiaya ? id('biaya-e') : undefined}
+            aria-describedby={galatBiaya ? id('biaya-e') : kiraBiaya ? id('biaya-kira') : undefined}
             onChange={(e) => {
-              if (mataUang === 'USD') {
-                setBiaya(bersihkanUsd(e.target.value))
+              if (desimal) {
+                setBiaya(bersihkanDesimal(e.target.value))
               } else {
                 setBiaya(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 13))
               }
@@ -576,20 +593,36 @@ export function AssetSheet({ buka, klien, onClose, onSaved, onHapus }: Props) {
           />
         </div>
         <div className="seg biaya-row__mu" role="radiogroup" aria-label="Mata uang">
-          {urutanMataUang.map((mu) => (
+          {urutanMataUang.map((mu, idx) => (
             <button
               key={mu}
               type="button"
               className="seg__item"
               role="radio"
               aria-checked={mataUang === mu}
+              aria-label={labelMataUang[mu]}
+              tabIndex={mataUang === mu ? 0 : -1}
+              data-uang={mu}
               onClick={() => gantiMataUang(mu)}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+                e.preventDefault()
+                const langkah = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
+                const berikut = urutanMataUang[(idx + langkah + urutanMataUang.length) % urutanMataUang.length]
+                gantiMataUang(berikut)
+                e.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-uang="${berikut}"]`)?.focus()
+              }}
             >
-              {mu}
+              {simbolMataUang[mu]}
             </button>
           ))}
         </div>
       </div>
+      {kiraBiaya && !galatBiaya ? (
+        <div className="field__hint num" id={id('biaya-kira')} title={catatanKurs(kurs)}>
+          {kiraBiaya}
+        </div>
+      ) : null}
       <FieldError id={id('biaya-e')} pesan={galatBiaya} />
     </div>
   )

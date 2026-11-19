@@ -29,8 +29,10 @@ Tenggat adalah alat yang saya pakai sendiri untuk masalah ini.
 - **Aset dan tagihan** dengan status dari sisa hari: Lewat, 7 hari, 30 hari, Aman. Domain dibaca lewat RDAP (`.com`,
   `.net`, `.org`, `.id` termasuk `.co.id`, dan TLD lain yang punya RDAP); TLD tanpa RDAP, misalnya `.io`, diisi
   tanggalnya sendiri. Sertifikat dibaca dari port 443. Keduanya dicek ulang berkala, dan kegagalan cek ikut tercatat.
-  Jenis **tagihan** mendukung nominal dalam `IDR` atau `USD` (biaya aset dan tugas juga mendukung kedua mata uang,
-  dijumlahkan terpisah) serta jadwal berulang. Tombol **Tandai dibayar** (atau **Perpanjang** untuk aset manual)
+  Jenis **tagihan** mendukung nominal dalam `IDR`, `USD`, atau `SGD` (biaya aset dan tugas juga mendukung ketiga mata
+  uang, dijumlahkan terpisah) serta jadwal berulang. Nominal dalam `USD` dan `SGD` menampilkan perkiraan rupiah sebagai
+  acuan memakai kurs referensi harian ECB dari Frankfurter (tidak muncul di laporan untuk klien). Tombol **Tandai
+  dibayar** (atau **Perpanjang** untuk aset manual)
   memajukan tanggal satu periode dan mencatatnya ke aktivitas — atau langsung melompat ke periode pertama setelah hari
   ini (**Sudah lunas sampai sekarang**) bila sudah tertinggal lebih dari satu periode.
 - **Tugas maintenance berulang dan tenggat sekali jalan**, misalnya cek backup tiap bulan untuk klien maupun tenggat
@@ -61,8 +63,8 @@ Tenggat adalah alat yang saya pakai sendiri untuk masalah ini.
 
 | Service | Image | Port di host | Network | Volume |
 |---|---|---|---|---|
-| web | `mrramdn/tenggat-web:1.1.0`, build dari `web/` (nginx 1.30.6 unprivileged) | 127.0.0.1:8080 | edge | - |
-| api | `mrramdn/tenggat-api:1.1.0`, build dari `api/` (distroless static) | - | edge, data | - |
+| web | `mrramdn/tenggat-web:1.2.0`, build dari `web/` (nginx 1.30.6 unprivileged) | 127.0.0.1:8080 | edge | - |
+| api | `mrramdn/tenggat-api:1.2.0`, build dari `api/` (distroless static) | - | edge, data | - |
 | db | postgres:18.6-alpine3.24 | - | data | db_data |
 | cache | redis:8.10.3-alpine3.23 | - | data | - (tmpfs) |
 | adminer (profile `tools`) | adminer:6.3.0 | 127.0.0.1:8081 | edge, data | - |
@@ -87,7 +89,7 @@ akun `contoh@tenggat.id` dengan kata sandi `contoh-tenggat` (hanya untuk mencoba
 dua tagihan bulanan (IDR dan USD), empat tugas klien, satu tenggat pribadi sekali jalan, catatan pekerjaan, dan
 ringkasan laporan bulan ini.
 
-Image `web` dan `api` juga ada di Docker Hub dengan tag `1.1.0` dan `latest`:
+Image `web` dan `api` juga ada di Docker Hub dengan tag `1.2.0` dan `latest`:
 [mrramdn/tenggat-web](https://hub.docker.com/r/mrramdn/tenggat-web) dan
 [mrramdn/tenggat-api](https://hub.docker.com/r/mrramdn/tenggat-api). Untuk memakainya tanpa build, ganti perintah
 terakhir dengan `docker compose pull web api && docker compose up -d`.
@@ -121,6 +123,7 @@ Menambah aset: tanggal domain dibaca dari registri.
 | `CEK_INTERVAL` | 6h | Seberapa sering sertifikat dan domain dicek ulang |
 | `BATAS_PER_MENIT` | 30 | Batas permintaan tulis dan cek per pengunjung per menit |
 | `MCP_AKTIF` | true | Mengaktifkan endpoint Model Context Protocol di `/mcp` (`true` atau `false`) |
+| `KURS_AKTIF` | true | Mengambil kurs referensi harian `USD`/`SGD` dari Frankfurter untuk perkiraan rupiah (`true` atau `false`) |
 | `APP_URL` | - | Alamat publik aplikasi tanpa garis miring di akhir untuk tautan di notifikasi harian (kosongkan bila lokal) |
 | `ADMINER_PORT` | 8081 | Port Adminer (profile `tools`) |
 
@@ -148,7 +151,8 @@ manajemen token (`/api/token`), hapus akun (`DELETE /api/saya`), ubah/hapus/uji 
 | `POST /api/item/{id}/perpanjang` | Tandai tagihan dibayar (tutup bila sekali, maju satu periode atau `sampai_kini: true` bila berulang) atau perpanjang aset manual | 200, 404, 409, 422, 429 |
 | `GET /api/sertifikat?host=`, `GET /api/domain?host=` | Pratinjau tanggal sebelum disimpan | 200, 422, 429 |
 | `GET /api/item.csv`, `GET /api/ringkasan` | Semua aset sebagai CSV; jumlah per status | 200 |
-| `GET /api/klien`, `POST /api/klien` | Daftar klien dengan jumlah aset, jatuh tempo terdekat, biaya 30 hari per mata uang; tambah klien | 200 / 201, 409, 422, 429 |
+| `GET /api/kurs` | Kurs referensi harian `USD` dan `SGD` ke rupiah (Frankfurter/ECB); tanggal dan nilai `null` bila kurs tidak tersedia | 200 |
+| `GET /api/klien`, `POST /api/klien` | Daftar klien dengan jumlah aset, jatuh tempo terdekat, biaya 30 hari per mata uang dan perkiraan rupiah; tambah klien | 200 / 201, 409, 422, 429 |
 | `PUT`, `DELETE /api/klien/{id}` | Ubah nama, catatan, atau status klien; hapus klien (aset dan tugasnya tetap ada) | 200, 404, 409, 422, 429 / 204 |
 | `GET /api/tugas?klien_id=&dalam_hari=&selesai=1`, `POST /api/tugas` | Tugas maintenance berulang dan tenggat sekali jalan (`?selesai=1` ikut menampilkan yang sudah selesai) | 200, 422 / 201 + `Location`, 422, 429 |
 | `GET`, `PUT`, `DELETE /api/tugas/{id}`, `POST /api/tugas/{id}/selesai` | Lihat satu tugas, ubah, hapus, tandai selesai (berulang maju ke periode setelah hari ini; sekali jalan ditutup) | 200, 404, 409, 422, 429 / 204 |
@@ -212,7 +216,7 @@ Daftar sepuluh alat yang tersedia di `/mcp` (token **Baca saja** hanya melihat t
 | Alat | Fungsi | Akses |
 |---|---|---|
 | `agenda` | Daftar aset, tagihan, tugas, dan tenggat aktif urut tanggal terdekat beserta jumlah per status; bisa disaring menurut rentang hari, klien, pribadi, status, jenis, atau kata kunci | Baca |
-| `daftar_klien` | Daftar klien dengan jumlah aset, tanggal jatuh tempo terdekat, dan biaya 30 hari per mata uang (`IDR`, `USD`) | Baca |
+| `daftar_klien` | Daftar klien dengan jumlah aset, tanggal jatuh tempo terdekat, dan biaya 30 hari per mata uang (`IDR`, `USD`, `SGD`) | Baca |
 | `cek_host` | Cek langsung tanggal berakhir domain (RDAP) dan sertifikat TLS sebuah host tanpa menyimpan apa pun | Baca |
 | `tambah_item` | Tambah aset atau tagihan (`sertifikat`, `domain`, `token`, `langganan`, `tagihan`, atau `lainnya`) beserta biaya, mata uang, dan jadwal berulang | Tulis |
 | `tambah_tugas` | Tambah tugas maintenance berulang atau tenggat sekali jalan (`sekali: true`), untuk klien maupun pribadi | Tulis |
@@ -247,6 +251,8 @@ Contoh kalimat yang bisa Anda ucapkan ke asisten:
   `HttpOnly` dan `SameSite=Lax` (dan `Secure` di HTTPS), berlaku 30 hari, dan dicabut saat keluar.
 - Untuk membaca tanggal, api menghubungi server situs dan registri domain; yang dikirim hanya nama host atau domain.
   Cek di halaman depan tidak menyimpan apa pun.
+- Untuk perkiraan rupiah, api meminta kurs referensi harian ke `api.frankfurter.dev` (dapat dimatikan lewat
+  `KURS_AKTIF=false`); tidak ada data pengguna yang dikirim.
 - Permintaan yang mengubah data dari situs lain ditolak (`403`). Masuk, daftar, tulis, dan cek dibatasi per pengunjung.
 - Hapus akun menghapus akun, sesi, token akses, klien, aset, tugas, aktivitas, dan pengaturan notifikasi sekaligus.
 
@@ -270,7 +276,7 @@ CI GitHub Actions (`.github/workflows/ci.yml`) menjalankan pengujian PostgreSQL 
 ## Struktur folder
 
 ```
-api/        layanan Go: cmd/server, internal/{expiry,tlscheck,rdap,store,cache,auth,httpapi,mcpserver,uang}, Dockerfile
+api/        layanan Go: cmd/server, internal/{expiry,tlscheck,rdap,store,cache,auth,httpapi,mcpserver,uang,kurs}, Dockerfile
 web/        React + Vite + TypeScript, nginx.conf, Dockerfile
 scripts/    isi-data-contoh.sh untuk data contoh
 docs/       diagram, screenshot README, dan salinan artikel (GitHub Pages)

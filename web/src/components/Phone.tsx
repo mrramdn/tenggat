@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react'
 import type { Klien } from '../lib/api'
 import { biaya30, judul, saringAwal, saringItem, statusTerburuk, tanpaSaring } from '../lib/derive'
-import { daftarUang, hariIniIso, kelasStatus, keteranganStatus, labelStatus, tanggalPanjang, urutanStatus } from '../lib/format'
+import { daftarUang, hariIniIso, kelasStatus, keteranganStatus, labelStatus, tanggalPanjang, uang, urutanStatus } from '../lib/format'
+import { catatanKurs, kiraTotalRupiah, useKurs } from '../lib/kurs'
 import { jalurKlien, Tautan } from '../lib/rute'
 import { useModal } from '../hooks/useModal'
 import { DaftarAsetPhone } from './DaftarAsetPhone'
@@ -74,6 +75,7 @@ function SheetKlien({ klien, terburuk, aktifId, aksi, onClose }: { klien: Klien[
 }
 
 function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' | 'saring' | 'setSaring' | 'aksi'>) {
+  const kurs = useKurs()
   // Only the status chips apply on the phone.
   const sp = { ...saringAwal, status: saring.status }
   const rows = saringItem(items, sp)
@@ -81,6 +83,8 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
   const j = judul(items)
   const b = biaya30(items)
   const biayaDaftar = daftarUang(b.perMataUang)
+  const totalKira = kiraTotalRupiah(b.perMataUang, kurs)
+  const catatan = catatanKurs(kurs)
   const urut = [...items].sort((a, c) => a.sisa_hari - c.sisa_hari)
   return (
     <main>
@@ -95,16 +99,23 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
             <>
               {biayaDaftar.map((teks, i) => (
                 <span key={teks}>
-                  {i > 0 ? ' dan ' : null}
+                  {i > 0 ? ' + ' : null}
                   <b className="num">{teks}</b>
                 </span>
-              ))}{' '}
+              ))}
+              {totalKira != null ? (
+                <span className="kira num" title={catatan}>
+                  {' '}
+                  ≈ {uang(totalKira, 'IDR')}
+                </span>
+              ) : null}{' '}
               jatuh tempo dalam 30 hari ke depan.
             </>
           ) : (
             'Tidak ada biaya perpanjangan dalam 30 hari ke depan.'
           )}
         </p>
+        {totalKira != null && catatan ? <p className="kurs-note">{catatan}</p> : null}
       </div>
       <div
         className="ph__bar"
@@ -138,7 +149,7 @@ function Ringkasan({ items, saring, setSaring, aksi }: Pick<LayarProps, 'items' 
           ))}
         </div>
       </div>
-      <DaftarAsetPhone rows={rows} aksi={aksi} />
+      <DaftarAsetPhone rows={rows} aksi={aksi} catatanSudahTampil={totalKira != null} />
       {rows.length === 0 ? (
         <div className="ph-empty">
           <b>Tidak ada aset yang cocok.</b>

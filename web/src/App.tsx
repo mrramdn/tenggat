@@ -18,6 +18,7 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import { ApiError, KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna, type PerpanjangInput, type SatuanUlang } from './lib/api'
 import { saringAwal, type Saring } from './lib/derive'
 import { hariIniIso, tambahIntervalItem, tanggal, uang } from './lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from './lib/kurs'
 import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useJudulHalaman, useRute, type Rute } from './lib/rute'
 
 const KUNCI = ['item'] as const
@@ -454,7 +455,15 @@ function PerpanjangDialog({
   const sampaiKiniTanggal = lewatBanyak
     ? berikutnyaSampaiKini(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!, hariIni)
     : null
+  const kurs = useKurs()
   const biayaTeks = item.biaya != null && item.biaya > 0 ? uang(item.biaya, item.mata_uang) : null
+  const kiraTeks = teksKiraRupiah(item.biaya, item.mata_uang, kurs)
+  const biayaKira = kiraTeks ? (
+    <span className="kira num" title={catatanKurs(kurs)}>
+      {' '}
+      {kiraTeks}
+    </span>
+  ) : null
 
   const [sampai, setSampai] = useState('')
   const [sampaiKini, setSampaiKini] = useState(true)
@@ -533,6 +542,7 @@ function PerpanjangDialog({
                   <>
                     {' '}
                     · <b className="num">{biayaTeks}</b>
+                    {biayaKira}
                   </>
                 ) : null}
                 . Jatuh tempo saat ini <span className="num">{tanggal(item.kedaluwarsa)}</span>.
@@ -544,6 +554,7 @@ function PerpanjangDialog({
                   <>
                     {' '}
                     · <b className="num">{biayaTeks}</b>
+                    {biayaKira}
                   </>
                 ) : null}
                 .
@@ -553,7 +564,8 @@ function PerpanjangDialog({
                 {biayaTeks ? (
                   <>
                     {' '}
-                    (<span className="num">{biayaTeks}</span>)
+                    (<span className="num">{biayaTeks}</span>
+                    {biayaKira})
                   </>
                 ) : null}
                 . Tagihan ini akan ditutup.
@@ -565,6 +577,7 @@ function PerpanjangDialog({
                   <>
                     {' '}
                     · <span className="num">{biayaTeks}</span>
+                    {biayaKira}
                   </>
                 ) : null}
                 .

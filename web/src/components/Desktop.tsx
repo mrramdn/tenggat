@@ -2,7 +2,8 @@
 // follows the route: the overview, a client's space or the settings.
 import type { ReactNode } from 'react'
 import { hitungStatus, judul, kalimatBiaya, rentangTanggal, statusTerburuk } from '../lib/derive'
-import { hariIniIso, kelasStatus, keteranganStatus, tanggalPanjang, urutanStatus } from '../lib/format'
+import { hariIniIso, kelasStatus, keteranganStatus, tanggalPanjang, uang, urutanStatus } from '../lib/format'
+import { catatanKurs, kiraTotalRupiah, useKurs, type Kurs } from '../lib/kurs'
 import { jalurKlien, Tautan, type Rute } from '../lib/rute'
 import { AkunSidebar } from './Akun'
 import { DaftarAset } from './DaftarAset'
@@ -89,10 +90,22 @@ function Sidebar({ items, klien, rute, aksi, muat, akun }: ShellProps) {
   )
 }
 
-function Hero({ items, saring, setSaring, jumlahKlien }: Pick<LayarProps, 'items' | 'saring' | 'setSaring'> & { jumlahKlien: number }) {
+function Hero({
+  items,
+  saring,
+  setSaring,
+  jumlahKlien,
+  kurs,
+  totalKira,
+}: Pick<LayarProps, 'items' | 'saring' | 'setSaring'> & {
+  jumlahKlien: number
+  kurs: Kurs | null
+  totalKira: number | null
+}) {
   const j = judul(items)
   const b = kalimatBiaya(items)
   const n = hitungStatus(items)
+  const catatan = catatanKurs(kurs)
   return (
     <section className="hero">
       <div className="hero__text">
@@ -115,12 +128,19 @@ function Hero({ items, saring, setSaring, jumlahKlien }: Pick<LayarProps, 'items
           {b.pre}
           {b.jumlah.map((teks, i) => (
             <span key={teks}>
-              {i > 0 ? ' dan ' : null}
+              {i > 0 ? ' + ' : null}
               <b className="num">{teks}</b>
             </span>
           ))}
+          {totalKira != null ? (
+            <span className="kira num" title={catatan}>
+              {' '}
+              ≈ {uang(totalKira, 'IDR')}
+            </span>
+          ) : null}
           {b.post}
         </p>
+        {totalKira != null && catatan ? <p className="kurs-note">{catatan}</p> : null}
       </div>
       <div className="overview">
         <div className="stats" role="group" aria-label="Saring menurut status">
@@ -262,11 +282,13 @@ export function Galat({ muat, phone = false }: { muat: Extract<Muat, { status: '
 
 export function Desktop(props: ShellProps) {
   const { items, klien, saring, setSaring, aksi, muat, rute, akun } = props
+  const kurs = useKurs()
   const siap = muat.status === 'siap'
   const kosong = siap && items.length === 0
   const k = rute.nama === 'klien' ? klien.find((x) => x.id === rute.id) : undefined
   // Remount the scroll area per page, so a new page starts at the top.
   const kunciIsi = rute.nama === 'klien' ? `klien-${rute.id}-${rute.tab}` : rute.nama
+  const heroTotalKira = rute.nama === 'ringkasan' && siap && !kosong ? kiraTotalRupiah(kalimatBiaya(items).perMataUang, kurs) : null
 
   let crumbs: ReactNode
   let ujung: ReactNode = null
@@ -329,13 +351,20 @@ export function Desktop(props: ShellProps) {
         <EmptyState aksi={aksi} />
       ) : (
         <div className="content" key={kunciIsi}>
-          <Hero items={items} saring={saring} setSaring={setSaring} jumlahKlien={klien.length} />
+          <Hero items={items} saring={saring} setSaring={setSaring} jumlahKlien={klien.length} kurs={kurs} totalKira={heroTotalKira} />
           <PerluDikerjakan />
           <section className="blok" aria-labelledby="judul-semua-aset">
             <h2 className="blok__judul" id="judul-semua-aset">
               Semua aset
             </h2>
-            <DaftarAset items={items} klien={klien} saring={saring} setSaring={setSaring} aksi={aksi} />
+            <DaftarAset
+              items={items}
+              klien={klien}
+              saring={saring}
+              setSaring={setSaring}
+              aksi={aksi}
+              catatanSudahTampil={heroTotalKira != null}
+            />
           </section>
         </div>
       )
