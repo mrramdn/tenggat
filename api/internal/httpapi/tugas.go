@@ -14,9 +14,10 @@ import (
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
 	"github.com/mrramdn/tenggat/api/internal/store"
+	"github.com/mrramdn/tenggat/api/internal/uang"
 )
 
-// TugasStore is the part of Store that keeps recurring tasks.
+// TugasStore is the part of Store that keeps recurring and one-off tasks.
 type TugasStore interface {
 	ListTugas(ctx context.Context, userID string, f store.TugasFilter) ([]store.Tugas, error)
 	GetTugas(ctx context.Context, userID, id string) (store.Tugas, error)
@@ -27,6 +28,10 @@ type TugasStore interface {
 	DeleteTugas(ctx context.Context, userID, id string) error
 }
 
+func isSekali(t store.Tugas) bool {
+	return t.UlangJumlah == 0 && t.UlangSatuan == ""
+}
+
 // tugasJSON is the API form of a task, with the days left and status worked out.
 type tugasJSON struct {
 	ID              string        `json:"id"`
@@ -34,37 +39,68 @@ type tugasJSON struct {
 	Klien           string        `json:"klien"`
 	Judul           string        `json:"judul"`
 	Catatan         string        `json:"catatan"`
+	Sekali          bool          `json:"sekali"`
 	UlangJumlah     int           `json:"ulang_jumlah"`
 	UlangSatuan     string        `json:"ulang_satuan"`
 	JatuhTempo      string        `json:"jatuh_tempo"`
 	SisaHari        int           `json:"sisa_hari"`
 	Status          expiry.Status `json:"status"`
-	Biaya           *int64        `json:"biaya"`
+	Biaya           *json.Number  `json:"biaya"`
+	MataUang        string        `json:"mata_uang"`
 	TerakhirSelesai *time.Time    `json:"terakhir_selesai"`
+	SelesaiPada     *time.Time    `json:"selesai_pada"`
 	Dibuat          time.Time     `json:"dibuat"`
 	Diubah          time.Time     `json:"diubah"`
 }
 
+// MarshalJSON emits ulang_jumlah and ulang_satuan as null for one-off tasks
+// while keeping the Go fields non-pointer for callers.
+func (t tugasJSON) MarshalJSON() ([]byte, error) {
+	type alias tugasJSON
+	var jumlah *int
+	var satuan *string
+	if !t.Sekali {
+		jumlah, satuan = &t.UlangJumlah, &t.UlangSatuan
+	}
+	return json.Marshal(struct {
+		alias
+		UlangJumlah *int    `json:"ulang_jumlah"`
+		UlangSatuan *string `json:"ulang_satuan"`
+	}{alias(t), jumlah, satuan})
+}
+
 func toTugasJSON(t store.Tugas, now time.Time) tugasJSON {
 	days := expiry.DaysLeft(t.JatuhTempo, now)
+	mu := t.MataUang
+	if mu == "" {
+		mu = "IDR"
+	}
+	var biaya *json.Number
+	if t.Biaya != nil {
+		n := uang.JSON(*t.Biaya, mu)
+		biaya = &n
+	}
 	return tugasJSON{
 		ID: t.ID, KlienID: t.KlienID, Klien: t.Klien, Judul: t.Judul, Catatan: t.Catatan,
-		UlangJumlah: t.UlangJumlah, UlangSatuan: t.UlangSatuan, JatuhTempo: t.JatuhTempo.Format(time.DateOnly),
-		SisaHari: days, Status: expiry.For(days), Biaya: t.Biaya, TerakhirSelesai: t.TerakhirSelesai,
+		Sekali: isSekali(t), UlangJumlah: t.UlangJumlah, UlangSatuan: t.UlangSatuan,
+		JatuhTempo: t.JatuhTempo.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days),
+		Biaya: biaya, MataUang: mu, TerakhirSelesai: t.TerakhirSelesai, SelesaiPada: t.SelesaiPada,
 		Dibuat: t.Dibuat, Diubah: t.Diubah,
 	}
 }
 
 // tugasRequest is the body of POST /api/tugas and PUT /api/tugas/{id}.
 type tugasRequest struct {
-	Judul       string  `json:"judul"`
-	Catatan     string  `json:"catatan"`
-	Klien       string  `json:"klien"`    // a client's name; ignored when klien_id is set
-	KlienID     *string `json:"klien_id"` // one of the user's clients
-	UlangJumlah *int    `json:"ulang_jumlah"`
-	UlangSatuan string  `json:"ulang_satuan"`
-	JatuhTempo  string  `json:"jatuh_tempo"`
-	Biaya       *int64  `json:"biaya"`
+	Judul       string       `json:"judul"`
+	Catatan     string       `json:"catatan"`
+	Klien       string       `json:"klien"`    // a client's name; ignored when klien_id is set
+	KlienID     *string      `json:"klien_id"` // one of the user's clients
+	Sekali      bool         `json:"sekali"`
+	UlangJumlah *int         `json:"ulang_jumlah"`
+	UlangSatuan string       `json:"ulang_satuan"`
+	JatuhTempo  string       `json:"jatuh_tempo"`
+	Biaya       *json.Number `json:"biaya"`
+	MataUang    string       `json:"mata_uang"`
 }
 
 // selesaiRequest is the optional body of POST /api/tugas/{id}/selesai.
@@ -72,6 +108,7 @@ type selesaiRequest struct {
 	Catatan     string `json:"catatan"`
 	DurasiMenit *int   `json:"durasi_menit"`
 	Tanggal     string `json:"tanggal"`
+	Dari        string `json:"dari"`
 }
 
 func writeTugasNotFound(w http.ResponseWriter) {
@@ -80,13 +117,17 @@ func writeTugasNotFound(w http.ResponseWriter) {
 
 // prepareTugas validates a task request and resolves its client. It writes the
 // error response and returns false when the task cannot be stored.
-func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID string, req tugasRequest) (store.TugasInput, bool) {
+func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID string, req tugasRequest, defaultMataUang string) (store.TugasInput, bool) {
 	in := store.TugasInput{
-		Judul:       strings.TrimSpace(req.Judul),
-		Catatan:     strings.TrimSpace(req.Catatan),
-		UlangJumlah: 1,
-		UlangSatuan: strings.TrimSpace(req.UlangSatuan),
-		Biaya:       req.Biaya,
+		Judul:    strings.TrimSpace(req.Judul),
+		Catatan:  strings.TrimSpace(req.Catatan),
+		MataUang: strings.TrimSpace(req.MataUang),
+	}
+	if in.MataUang == "" {
+		in.MataUang = defaultMataUang
+	}
+	if in.MataUang == "" {
+		in.MataUang = "IDR"
 	}
 	klien := strings.TrimSpace(req.Klien)
 	fields := map[string]string{}
@@ -99,20 +140,36 @@ func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID str
 	if utf8.RuneCountInString(klien) > 80 {
 		fields["klien"] = "Nama klien maksimal 80 karakter."
 	}
-	if req.UlangJumlah != nil {
-		in.UlangJumlah = *req.UlangJumlah
+	satuan := strings.TrimSpace(req.UlangSatuan)
+	if req.Sekali {
+		if req.UlangJumlah != nil || satuan != "" {
+			fields["ulang_satuan"] = "Tugas sekali jalan tidak berulang."
+		}
+	} else {
+		in.UlangJumlah = 1
+		if req.UlangJumlah != nil {
+			in.UlangJumlah = *req.UlangJumlah
+		}
+		if in.UlangJumlah < 1 || in.UlangJumlah > 365 {
+			fields["ulang_jumlah"] = "Isi angka 1 sampai 365."
+		}
+		in.UlangSatuan = satuan
+		if in.UlangSatuan == "" {
+			in.UlangSatuan = "bulan"
+		}
+		if !expiry.Units[in.UlangSatuan] {
+			fields["ulang_satuan"] = "Pilih satuan: hari, minggu, bulan, atau tahun."
+		}
 	}
-	if in.UlangJumlah < 1 || in.UlangJumlah > 365 {
-		fields["ulang_jumlah"] = "Isi angka 1 sampai 365."
-	}
-	if in.UlangSatuan == "" {
-		in.UlangSatuan = "bulan"
-	}
-	if !expiry.Units[in.UlangSatuan] {
-		fields["ulang_satuan"] = "Pilih satuan: hari, minggu, bulan, atau tahun."
-	}
-	if in.Biaya != nil && (*in.Biaya < 0 || *in.Biaya > 1_000_000_000_000) {
-		fields["biaya"] = "Biaya harus angka rupiah 0 atau lebih."
+	if !uang.Valid(in.MataUang) {
+		fields["mata_uang"] = "Pilih IDR atau USD."
+	} else if req.Biaya != nil {
+		minor, err := uang.Parse(*req.Biaya, in.MataUang)
+		if err != nil {
+			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
+		} else {
+			in.Biaya = &minor
+		}
 	}
 	d, err := time.Parse(time.DateOnly, strings.TrimSpace(req.JatuhTempo))
 	switch {
@@ -155,11 +212,22 @@ func (s *Server) listTugas(w http.ResponseWriter, r *http.Request, u store.Pengg
 			f.Sampai = &d
 		}
 	}
+	switch q.Get("selesai") {
+	case "", "0":
+	case "1":
+		f.Selesai = true
+	default:
+		fields["selesai"] = "Gunakan 0 atau 1."
+	}
 	if len(fields) > 0 {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali parameter Anda.", fields)
 		return
 	}
-	s.cachedRead(w, r, u.ID, "tugas:"+f.KlienID+":"+dalam, func(now time.Time) (any, error) {
+	selesaiKey := "0"
+	if f.Selesai {
+		selesaiKey = "1"
+	}
+	s.cachedRead(w, r, u.ID, "tugas:"+f.KlienID+":"+dalam+":"+selesaiKey, func(now time.Time) (any, error) {
 		list, err := s.Store.ListTugas(r.Context(), u.ID, f)
 		if err != nil {
 			return nil, err
@@ -177,7 +245,7 @@ func (s *Server) createTugas(w http.ResponseWriter, r *http.Request, u store.Pen
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareTugas(w, r, u.ID, req)
+	in, ok := s.prepareTugas(w, r, u.ID, req, "IDR")
 	if !ok {
 		return
 	}
@@ -203,23 +271,32 @@ func (s *Server) updateTugas(w http.ResponseWriter, r *http.Request, u store.Pen
 		writeTugasNotFound(w)
 		return
 	}
-	if _, err := s.Store.GetTugas(r.Context(), u.ID, id); errors.Is(err, store.ErrNotFound) {
+	old, err := s.Store.GetTugas(r.Context(), u.ID, id)
+	if errors.Is(err, store.ErrNotFound) {
 		writeTugasNotFound(w)
 		return
 	} else if err != nil {
 		s.internal(w, r, err)
 		return
 	}
+	if old.SelesaiPada != nil {
+		writeError(w, http.StatusConflict, "Tugas ini sudah selesai.", nil)
+		return
+	}
 	var req tugasRequest
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareTugas(w, r, u.ID, req)
+	in, ok := s.prepareTugas(w, r, u.ID, req, old.MataUang)
 	if !ok {
 		return
 	}
 	t, err := s.Store.UpdateTugas(r.Context(), u.ID, id, in)
 	if errors.Is(err, store.ErrNotFound) {
+		if cur, err2 := s.Store.GetTugas(r.Context(), u.ID, id); err2 == nil && cur.SelesaiPada != nil {
+			writeError(w, http.StatusConflict, "Tugas ini sudah selesai.", nil)
+			return
+		}
 		writeTugasNotFound(w)
 		return
 	}
@@ -258,9 +335,10 @@ func (s *Server) deleteTugas(w http.ResponseWriter, r *http.Request, u store.Pen
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// completeTugas marks a task done: the due date moves forward by whole
-// intervals from the old due date until it is after today, and the work is
-// recorded as a tugas_selesai entry.
+// completeTugas marks a task done: a recurring task's due date moves forward by
+// whole intervals from the old due date until it is after today, while a
+// one-off task is closed. Either way the work is recorded as a tugas_selesai
+// entry.
 func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	id, ok := itemID(r)
 	if !ok {
@@ -278,6 +356,16 @@ func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.P
 	}
 	validDuration(req.DurasiMenit, fields)
 	tanggal := s.workDate(req.Tanggal, fields)
+	var dari time.Time
+	hasDari := false
+	if rawDari := strings.TrimSpace(req.Dari); rawDari != "" {
+		d, err := time.Parse(time.DateOnly, rawDari)
+		if err != nil {
+			fields["dari"] = "Isi tanggal dengan format TTTT-BB-HH."
+		} else {
+			dari, hasDari = d, true
+		}
+	}
 	if len(fields) > 0 {
 		writeError(w, http.StatusUnprocessableEntity, "Periksa kembali isian Anda.", fields)
 		return
@@ -291,9 +379,25 @@ func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.P
 		s.internal(w, r, err)
 		return
 	}
+	if old.SelesaiPada != nil {
+		writeError(w, http.StatusConflict, "Tugas ini sudah selesai.", nil)
+		return
+	}
+	if hasDari && !dari.Equal(old.JatuhTempo) {
+		writeError(w, http.StatusConflict, "Tugas ini baru saja diubah. Muat ulang lalu coba lagi.", nil)
+		return
+	}
 	now := s.Now()
-	next := expiry.NextDue(old.JatuhTempo, expiry.DateOf(now), old.UlangJumlah, old.UlangSatuan)
-	t, err := s.Store.CompleteTugas(r.Context(), u.ID, id, old.JatuhTempo, next, now)
+	extra := map[string]any{"jatuh_tempo_lama": old.JatuhTempo.Format(time.DateOnly)}
+	var t store.Tugas
+	if isSekali(old) {
+		t, err = s.Store.CloseTugas(r.Context(), u.ID, id, old.JatuhTempo, now)
+		extra["sekali"] = true
+	} else {
+		next := expiry.NextDue(old.JatuhTempo, expiry.DateOf(now), old.UlangJumlah, old.UlangSatuan)
+		t, err = s.Store.CompleteTugas(r.Context(), u.ID, id, old.JatuhTempo, next, now)
+		extra["jatuh_tempo_baru"] = next.Format(time.DateOnly)
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusConflict, "Tugas ini baru saja diubah. Muat ulang lalu coba lagi.", nil)
 		return
@@ -302,8 +406,6 @@ func (s *Server) completeTugas(w http.ResponseWriter, r *http.Request, u store.P
 		s.internal(w, r, err)
 		return
 	}
-	extra := map[string]any{"jatuh_tempo_lama": old.JatuhTempo.Format(time.DateOnly),
-		"jatuh_tempo_baru": next.Format(time.DateOnly)}
 	if req.Catatan != "" {
 		extra["catatan"] = req.Catatan
 	}
