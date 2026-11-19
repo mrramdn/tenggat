@@ -27,6 +27,9 @@ type perpanjangRequest struct {
 	MataUang string       `json:"mata_uang"`
 	Catatan  string       `json:"catatan"`
 	Tanggal  string       `json:"tanggal"`
+	// SampaiKini moves a recurring item to its first date after today instead of
+	// one period on: "I am paid up", for a bill left unticked for several periods.
+	SampaiKini bool `json:"sampai_kini"`
 }
 
 // perpanjangItem pays a bill or renews a manual asset, moving its date forward
@@ -88,11 +91,18 @@ func (s *Server) perpanjangItem(w http.ResponseWriter, r *http.Request, u store.
 		}
 	} else if old.UlangJumlah > 0 && old.UlangSatuan != "" {
 		next := expiry.AddInterval(old.Kedaluwarsa, old.UlangJumlah, old.UlangSatuan)
+		if req.SampaiKini {
+			next = expiry.NextDue(old.Kedaluwarsa, expiry.DateOf(s.Now()), old.UlangJumlah, old.UlangSatuan)
+		}
 		sampai = &next
 	} else if old.Jenis == "tagihan" {
 		lunas = true
 	} else {
 		fields["sampai"] = "Isi tanggal berakhir yang baru."
+	}
+
+	if req.SampaiKini && (strings.TrimSpace(req.Sampai) != "" || old.UlangJumlah == 0) {
+		fields["sampai_kini"] = "Hanya untuk yang berulang, dan tanpa tanggal baru."
 	}
 
 	mu := strings.TrimSpace(req.MataUang)
@@ -151,6 +161,9 @@ func (s *Server) perpanjangItem(w http.ResponseWriter, r *http.Request, u store.
 	}
 	if catatan != "" {
 		extra["catatan"] = catatan
+	}
+	if req.SampaiKini {
+		extra["sampai_kini"] = true
 	}
 	var aktMataUang *string
 	if jumlah != nil {

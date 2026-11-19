@@ -343,3 +343,37 @@ func TestPerCurrencyFiguresAndCSV(t *testing.T) {
 		t.Errorf("calendar lacks Tagihan description:\n%s", icsBody)
 	}
 }
+
+// A bill left unticked for months: paying one period leaves it overdue, and
+// sampai_kini moves it to the first date after today in one step.
+func TestPerpanjangSampaiKini(t *testing.T) {
+	s, _ := newTestServer()
+	h := s.Routes()
+	c := signUp(t, h, "telat@contoh.id")
+	// testNow is 9 Nov 2026; the bill was due 5 Sep.
+	rec := do(t, h, "POST", "/api/item", `{"jenis":"tagihan","nama":"Internet","kedaluwarsa":"2026-09-05","biaya":350000,"ulang_jumlah":1,"ulang_satuan":"bulan"}`, c)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	it := decode[itemJSON](t, rec)
+
+	rec = do(t, h, "POST", "/api/item/"+it.ID+"/perpanjang", `{"dari":"2026-09-05"}`, c)
+	if got := decode[itemJSON](t, rec); rec.Code != http.StatusOK || got.Kedaluwarsa != "2026-10-05" || got.Status != "lewat" {
+		t.Fatalf("one period: %d, date %s status %s; want 2026-10-05 lewat", rec.Code, got.Kedaluwarsa, got.Status)
+	}
+	rec = do(t, h, "POST", "/api/item/"+it.ID+"/perpanjang", `{"dari":"2026-10-05","sampai_kini":true}`, c)
+	if got := decode[itemJSON](t, rec); rec.Code != http.StatusOK || got.Kedaluwarsa != "2026-12-05" {
+		t.Fatalf("sampai_kini: %d, date %s; want 2026-12-05", rec.Code, got.Kedaluwarsa)
+	}
+	// Not with an explicit date, and not on something that does not repeat.
+	rec = do(t, h, "POST", "/api/item/"+it.ID+"/perpanjang", `{"sampai_kini":true,"sampai":"2027-03-05"}`, c)
+	if e := decode[apiError](t, rec); rec.Code != http.StatusUnprocessableEntity || e.Field["sampai_kini"] == "" {
+		t.Errorf("sampai_kini with sampai: %d %v, want 422 on sampai_kini", rec.Code, e.Field)
+	}
+	rec = do(t, h, "POST", "/api/item", `{"jenis":"tagihan","nama":"Sekali","kedaluwarsa":"2026-11-01","biaya":1000}`, c)
+	one := decode[itemJSON](t, rec)
+	rec = do(t, h, "POST", "/api/item/"+one.ID+"/perpanjang", `{"sampai_kini":true}`, c)
+	if e := decode[apiError](t, rec); rec.Code != http.StatusUnprocessableEntity || e.Field["sampai_kini"] == "" {
+		t.Errorf("sampai_kini on a one-off: %d %v, want 422 on sampai_kini", rec.Code, e.Field)
+	}
+}

@@ -361,6 +361,7 @@ type selesaikanInput struct {
 	ID          string   `json:"id" jsonschema:"Item or task UUID from agenda."`
 	Dari        string   `json:"dari" jsonschema:"Current tanggal of the row as YYYY-MM-DD (guards against concurrent changes)."`
 	Sampai      string   `json:"sampai,omitempty" jsonschema:"New expiry date as YYYY-MM-DD (required for non-recurring manual non-bill items)."`
+	SampaiKini  bool     `json:"sampai_kini,omitempty" jsonschema:"For a recurring \"item\" that is more than one period overdue: true means the user is paid up, so the date moves to the first period after today instead of one period on. Ask or infer from what the user said; default false."`
 	Jumlah      *float64 `json:"jumlah,omitempty" jsonschema:"Amount paid in major currency units (for \"item\")."`
 	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code for jumlah: \"IDR\" or \"USD\"."`
 	DurasiMenit *int     `json:"durasi_menit,omitempty" jsonschema:"Work duration in minutes (1..1440, for \"tugas\")."`
@@ -857,12 +858,13 @@ func (e *env) ubahTugas(ctx context.Context, req *mcp.CallToolRequest, in ubahTu
 }
 
 type perpanjangBody struct {
-	Dari     string   `json:"dari"`
-	Sampai   string   `json:"sampai,omitempty"`
-	Jumlah   *float64 `json:"jumlah,omitempty"`
-	MataUang string   `json:"mata_uang,omitempty"`
-	Catatan  string   `json:"catatan,omitempty"`
-	Tanggal  string   `json:"tanggal,omitempty"`
+	Dari       string   `json:"dari"`
+	Sampai     string   `json:"sampai,omitempty"`
+	Jumlah     *float64 `json:"jumlah,omitempty"`
+	MataUang   string   `json:"mata_uang,omitempty"`
+	Catatan    string   `json:"catatan,omitempty"`
+	Tanggal    string   `json:"tanggal,omitempty"`
+	SampaiKini bool     `json:"sampai_kini,omitempty"`
 }
 
 type selesaiTugasBody struct {
@@ -879,12 +881,13 @@ func (e *env) selesaikan(ctx context.Context, req *mcp.CallToolRequest, in seles
 	switch in.Asal {
 	case "item":
 		body := perpanjangBody{
-			Dari:     in.Dari,
-			Sampai:   in.Sampai,
-			Jumlah:   in.Jumlah,
-			MataUang: in.MataUang,
-			Catatan:  in.Catatan,
-			Tanggal:  in.Tanggal,
+			Dari:       in.Dari,
+			Sampai:     in.Sampai,
+			Jumlah:     in.Jumlah,
+			MataUang:   in.MataUang,
+			Catatan:    in.Catatan,
+			Tanggal:    in.Tanggal,
+			SampaiKini: in.SampaiKini,
 		}
 		status, raw, err := e.call(ctx, req, http.MethodPost, "/api/item/"+url.PathEscape(in.ID)+"/perpanjang", body)
 		if err != nil {
