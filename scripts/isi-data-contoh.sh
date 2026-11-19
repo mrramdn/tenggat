@@ -46,6 +46,8 @@ kirim "{\"nama\":\"Token Cloudflare DNS\",\"jenis\":\"token\",\"klien\":\"Pribad
 kirim "{\"nama\":\"Lisensi font editorial\",\"jenis\":\"lainnya\",\"klien\":\"Studio Arsitek Rana\",\"kedaluwarsa\":\"$(hari_lagi -3)\",\"biaya\":450000}" "Lisensi font (sudah lewat)"
 kirim '{"jenis":"domain","klien":"Pribadi","host":"mrramdn.com"}' "Domain mrramdn.com (registri)"
 kirim '{"jenis":"sertifikat","klien":"Pribadi","host":"tenggat.mrramdn.com"}' "Sertifikat tenggat.mrramdn.com"
+kirim "{\"nama\":\"Internet fiber studio\",\"jenis\":\"tagihan\",\"klien\":\"Pribadi\",\"kedaluwarsa\":\"$(hari_lagi +5)\",\"biaya\":450000,\"mata_uang\":\"IDR\",\"ulang_jumlah\":1,\"ulang_satuan\":\"bulan\"}" "Tagihan internet fiber (IDR)"
+kirim "{\"nama\":\"Langganan cloud & AI\",\"jenis\":\"tagihan\",\"klien\":\"Pribadi\",\"kedaluwarsa\":\"$(hari_lagi +15)\",\"biaya\":20,\"mata_uang\":\"USD\",\"ulang_jumlah\":1,\"ulang_satuan\":\"bulan\"}" "Tagihan cloud & AI (USD)"
 
 # Tugas maintenance berulang per klien. Jawabannya memuat klien_id, yang dipakai untuk catatan pekerjaan di bawah.
 tugas() {
@@ -64,6 +66,7 @@ tugas "{\"klien\":\"Toko Kue Mawar\",\"judul\":\"Cek backup situs\",\"ulang_juml
 tugas "{\"klien\":\"Toko Kue Mawar\",\"judul\":\"Update plugin, tema, dan core\",\"ulang_jumlah\":1,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi +12)\"}" "Tugas update plugin"
 tugas "{\"klien\":\"Kopi Senja\",\"judul\":\"Tinjau uptime dan sertifikat TLS\",\"ulang_jumlah\":3,\"ulang_satuan\":\"bulan\",\"jatuh_tempo\":\"$(hari_lagi +40)\"}" "Tugas tinjau uptime"
 tugas "{\"klien\":\"Studio Arsitek Rana\",\"judul\":\"Tagih perpanjangan hosting dan domain\",\"ulang_jumlah\":1,\"ulang_satuan\":\"tahun\",\"jatuh_tempo\":\"$(hari_lagi +9)\",\"biaya\":1250000}" "Tugas tagih perpanjangan"
+tugas "{\"judul\":\"Kirim invoice bulanan klien\",\"sekali\":true,\"jatuh_tempo\":\"$(hari_lagi +5)\"}" "Tenggat pribadi (sekali)"
 
 MAWAR=$(id_klien 'Toko Kue Mawar')
 catat() {

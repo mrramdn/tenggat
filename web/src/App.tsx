@@ -15,9 +15,9 @@ import { pesanGalat, useToast } from './components/Toasts'
 import type { Aksi, BukaTambah } from './components/types'
 import { adaModal, useModal } from './hooks/useModal'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import { ApiError, KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna, type PerpanjangInput } from './lib/api'
+import { ApiError, KUNCI_KLIEN, api, auth, klienApi, saatSesiBerakhir, type Item, type Klien, type Pengguna, type PerpanjangInput, type SatuanUlang } from './lib/api'
 import { saringAwal, type Saring } from './lib/derive'
-import { tambahIntervalItem, tanggal, uang } from './lib/format'
+import { hariIniIso, tambahIntervalItem, tanggal, uang } from './lib/format'
 import { jalurKlien, jalurMasuk, perluMasuk, pergi, tujuanLanjut, useJudulHalaman, useRute, type Rute } from './lib/rute'
 
 const KUNCI = ['item'] as const
@@ -406,6 +406,29 @@ function Dasbor({ pengguna, rute, onKeluar }: { pengguna: Pengguna; rute: Rute; 
   )
 }
 
+function utcHari(iso: string): number {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
+/** Matches api/internal/expiry.NextDue: moves a recurring due date forward by whole intervals until after today. */
+function berikutnyaSampaiKini(dari: string, jumlah: number, satuan: SatuanUlang, hariIni = hariIniIso()): string {
+  const n = Math.max(1, jumlah)
+  let k = 1
+  const selisihHari = Math.floor((utcHari(hariIni) - utcHari(dari)) / 86_400_000)
+  if (selisihHari > 0) {
+    const perLangkah = satuan === 'hari' ? n : satuan === 'minggu' ? 7 * n : satuan === 'tahun' ? 366 * n : 31 * n
+    const loncat = Math.floor(selisihHari / perLangkah)
+    if (loncat > 1) k = loncat
+  }
+  let next = tambahIntervalItem(dari, k * n, satuan)
+  while (next <= hariIni) {
+    k++
+    next = tambahIntervalItem(dari, k * n, satuan)
+  }
+  return next
+}
+
 /** Confirmation / renewal dialog for bills ("Tandai dibayar") and manual assets ("Perpanjang"). */
 function PerpanjangDialog({
   item,
@@ -425,10 +448,16 @@ function PerpanjangDialog({
   const tagihan = item.jenis === 'tagihan'
   const berulang = item.ulang_jumlah != null && item.ulang_satuan != null
   const perluTanggal = !tagihan && !berulang
-  const berikutnya = berulang ? tambahIntervalItem(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!) : null
+  const satuPeriode = berulang ? tambahIntervalItem(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!) : null
+  const hariIni = hariIniIso()
+  const lewatBanyak = berulang && satuPeriode != null && satuPeriode <= hariIni
+  const sampaiKiniTanggal = lewatBanyak
+    ? berikutnyaSampaiKini(item.kedaluwarsa, item.ulang_jumlah!, item.ulang_satuan!, hariIni)
+    : null
   const biayaTeks = item.biaya != null && item.biaya > 0 ? uang(item.biaya, item.mata_uang) : null
 
   const [sampai, setSampai] = useState('')
+  const [sampaiKini, setSampaiKini] = useState(true)
   const [galatTanggal, setGalatTanggal] = useState<string | null>(null)
   const [galatUmum, setGalatUmum] = useState<string | null>(null)
 
@@ -465,6 +494,7 @@ function PerpanjangDialog({
     const input: PerpanjangInput = {
       dari: item.kedaluwarsa,
       ...(perluTanggal ? { sampai } : {}),
+      ...(lewatBanyak && sampaiKini ? { sampai_kini: true } : {}),
     }
     kirimM.mutate(input)
   }
@@ -497,9 +527,19 @@ function PerpanjangDialog({
           </h2>
           <p className="dialog__text" id={`${uid}-t`}>
             <b>{item.nama}</b>
-            {berikutnya ? (
+            {lewatBanyak ? (
               <>
-                . Jatuh tempo berikutnya <b className="num">{tanggal(berikutnya)}</b>
+                {biayaTeks ? (
+                  <>
+                    {' '}
+                    · <b className="num">{biayaTeks}</b>
+                  </>
+                ) : null}
+                . Jatuh tempo saat ini <span className="num">{tanggal(item.kedaluwarsa)}</span>.
+              </>
+            ) : satuPeriode ? (
+              <>
+                . Jatuh tempo berikutnya <b className="num">{tanggal(satuPeriode)}</b>
                 {biayaTeks ? (
                   <>
                     {' '}
@@ -535,6 +575,38 @@ function PerpanjangDialog({
             <div className="form-error" role="alert">
               <Icon name="alert" />
               <span>{galatUmum}</span>
+            </div>
+          ) : null}
+          {lewatBanyak && satuPeriode && sampaiKiniTanggal ? (
+            <div className="field perpanjang-pilihan" role="radiogroup" aria-label="Pilihan periode">
+              <label className={sampaiKini ? 'perpanjang-opsi is-aktif' : 'perpanjang-opsi'}>
+                <input
+                  type="radio"
+                  name={`${uid}-mode`}
+                  checked={sampaiKini}
+                  onChange={() => {
+                    setSampaiKini(true)
+                    setGalatUmum(null)
+                  }}
+                />
+                <span className="num">
+                  Sudah lunas sampai sekarang · berikutnya <b>{tanggal(sampaiKiniTanggal)}</b>
+                </span>
+              </label>
+              <label className={!sampaiKini ? 'perpanjang-opsi is-aktif' : 'perpanjang-opsi'}>
+                <input
+                  type="radio"
+                  name={`${uid}-mode`}
+                  checked={!sampaiKini}
+                  onChange={() => {
+                    setSampaiKini(false)
+                    setGalatUmum(null)
+                  }}
+                />
+                <span className="num">
+                  Bayar satu periode saja · berikutnya <b>{tanggal(satuPeriode)}</b>
+                </span>
+              </label>
             </div>
           ) : null}
           {perluTanggal ? (

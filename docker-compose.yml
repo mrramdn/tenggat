@@ -12,7 +12,7 @@ services:
   web:
     build: ./web
     # Nama image di Docker Hub: build memberi tag ini, docker compose push mengunggahnya.
-    image: mrramdn/tenggat-web:1.0.0
+    image: mrramdn/tenggat-web:1.1.0
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8080"
     depends_on:
@@ -42,7 +42,7 @@ services:
   api:
     build: ./api
     # Nama image di Docker Hub: build memberi tag ini, docker compose push mengunggahnya.
-    image: mrramdn/tenggat-api:1.0.0
+    image: mrramdn/tenggat-api:1.1.0
     environment:
       PGHOST: db
       PGPORT: "5432"

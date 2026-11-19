@@ -73,6 +73,8 @@ export interface PerpanjangInput {
   dari: string
   /** New expiry date (YYYY-MM-DD); required for a non-recurring manual asset that is not a bill. */
   sampai?: string
+  /** For a recurring item that is more than one period overdue: move to the first period after today. */
+  sampai_kini?: boolean
   jumlah?: number | null
   mata_uang?: MataUang
   catatan?: string

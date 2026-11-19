@@ -1,8 +1,8 @@
 // Tab "Tugas" of a client's space: recurring maintenance tasks, nearest due date first, with Tandai selesai.
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
-import { formatUang, kunciTugas, labelUlang, tugasApi, useSegarkan, type Tugas } from '../../lib/api-tugas'
-import { frasaHari, tanggal } from '../../lib/format'
+import { kunciTugas, labelUlang, tugasApi, useSegarkan, type Tugas } from '../../lib/api-tugas'
+import { frasaHari, tanggal, uang } from '../../lib/format'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Icon } from '../Icon'
 import { Menu } from '../RowMenu'
@@ -234,7 +234,7 @@ function Baris({ t, menuTerbuka, onSelesai, bukaMenu }: { t: Tugas; menuTerbuka:
           <Icon name={t.sekali ? 'calendar' : 'repeat'} />
           <span>{t.sekali ? 'Sekali' : labelUlang(t.ulang_jumlah, t.ulang_satuan)}</span>
           <span className="tg-sub-tgl tg-dot num">{tanggal(t.jatuh_tempo)}</span>
-          {t.biaya != null ? <span className="tg-dot num">{formatUang(t.biaya, t.mata_uang)}</span> : null}
+          {t.biaya != null ? <span className="tg-dot num">{uang(t.biaya, t.mata_uang)}</span> : null}
         </div>
         {t.catatan ? <div className="tg-note">{t.catatan}</div> : null}
         {t.sekali ? null : (

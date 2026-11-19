@@ -1,11 +1,10 @@
 // Recurring maintenance tasks and the client activity feed (notes, the work log and what the API records itself).
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { KUNCI_KLIEN, request, type Status } from './api'
-import { angka, hariIniIso, keTanggal } from './format'
+import { KUNCI_KLIEN, request, type MataUang, type SatuanUlang, type Status } from './api'
+import { hariIniIso, keTanggal } from './format'
 
-export type SatuanUlang = 'hari' | 'minggu' | 'bulan' | 'tahun'
-export type MataUang = 'IDR' | 'USD'
+export type { MataUang, SatuanUlang }
 
 export interface Tugas {
   id: string
@@ -158,14 +157,6 @@ const namaSatuan: Record<SatuanUlang, string> = { hari: 'hari', minggu: 'minggu'
 export function labelUlang(jumlah: number | null, satuan: SatuanUlang | null): string {
   if (!jumlah || !satuan) return 'Sekali'
   return jumlah === 1 ? `Tiap ${namaSatuan[satuan]}` : `Tiap ${jumlah} ${namaSatuan[satuan]}`
-}
-
-const fmtUsd = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-/** Formats major-unit money: "Rp 186.000" for IDR, "US$20.50" for USD. */
-export function formatUang(jumlah: number, mataUang?: string | null): string {
-  if (mataUang === 'USD') return `US$${fmtUsd.format(jumlah)}`
-  return `Rp ${angka(Math.round(jumlah))}`
 }
 
 /** "45 menit", "1 jam", "1 jam 30 menit" */

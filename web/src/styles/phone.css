@@ -69,6 +69,8 @@
   textarea.control.as-textarea { font-size: var(--fs-16); }
   .as-ulang { grid-template-columns: auto 72px minmax(0, 1fr); }
   .input-affix.is-usd > .control { padding-left: calc(var(--s-7) + var(--s-3)); }
+  .perpanjang-opsi { min-height: var(--control-lg); padding: var(--s-3); font-size: var(--fs-16); line-height: var(--lh-24); }
+  .perpanjang-opsi input[type="radio"] { margin-top: var(--s-1); }
 }
 @media (max-width: 640px) {
   .sheet { inset: 0; width: auto; max-width: none; border-radius: 0; }
