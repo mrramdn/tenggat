@@ -54,6 +54,7 @@ services:
       CEK_INTERVAL: ${CEK_INTERVAL:-6h}
       BATAS_PER_MENIT: ${BATAS_PER_MENIT:-30}
       MCP_AKTIF: ${MCP_AKTIF:-true}
+      KURS_AKTIF: ${KURS_AKTIF:-true}
       APP_URL: ${APP_URL:-}
     depends_on:
       db:

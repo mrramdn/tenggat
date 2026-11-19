@@ -74,15 +74,19 @@ func TestTagihanAndCurrencyValidation(t *testing.T) {
 		},
 		{
 			`{"nama":"Domain","jenis":"domain","kedaluwarsa":"2026-12-01","biaya":1.5}`,
-			"biaya", "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal.",
+			"biaya", "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal.",
 		},
 		{
 			`{"nama":"VPS","jenis":"langganan","kedaluwarsa":"2026-12-01","biaya":10.123,"mata_uang":"USD"}`,
-			"biaya", "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal.",
+			"biaya", "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal.",
+		},
+		{
+			`{"nama":"VPS","jenis":"langganan","kedaluwarsa":"2026-12-01","biaya":10.123,"mata_uang":"SGD"}`,
+			"biaya", "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal.",
 		},
 		{
 			`{"nama":"VPS","jenis":"langganan","kedaluwarsa":"2026-12-01","mata_uang":"EUR"}`,
-			"mata_uang", "Pilih IDR atau USD.",
+			"mata_uang", "Pilih IDR, USD, atau SGD.",
 		},
 		{
 			`{"nama":"Aset","jenis":"tidak_ada","kedaluwarsa":"2026-12-01"}`,
@@ -375,5 +379,65 @@ func TestPerpanjangSampaiKini(t *testing.T) {
 	rec = do(t, h, "POST", "/api/item/"+one.ID+"/perpanjang", `{"sampai_kini":true}`, c)
 	if e := decode[apiError](t, rec); rec.Code != http.StatusUnprocessableEntity || e.Field["sampai_kini"] == "" {
 		t.Errorf("sampai_kini on a one-off: %d %v, want 422 on sampai_kini", rec.Code, e.Field)
+	}
+}
+
+func TestSGDRoundTrip(t *testing.T) {
+	s, st := newTestServer()
+	h := s.Routes()
+	c := signUp(t, h, "sgd@contoh.id")
+
+	// Create an SGD recurring bill, verify minor-unit storage and major-unit JSON.
+	rec := do(t, h, "POST", "/api/item",
+		`{"nama":"VPS Singapura","jenis":"tagihan","klien":"Klien SG","kedaluwarsa":"2026-11-15","biaya":20.50,"mata_uang":"SGD","ulang_jumlah":1,"ulang_satuan":"bulan"}`, c)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create SGD bill: %d %s", rec.Code, rec.Body)
+	}
+	bill := decode[itemJSON](t, rec)
+	if bill.MataUang != "SGD" || bill.Biaya == nil || string(*bill.Biaya) != "20.5" {
+		t.Fatalf("created SGD bill = %+v", bill)
+	}
+	if stored := st.items[bill.ID]; stored.MataUang != "SGD" || stored.Biaya == nil || *stored.Biaya != 2050 {
+		t.Errorf("stored SGD bill = %+v", stored)
+	}
+
+	// PUT without mata_uang keeps SGD.
+	rec = do(t, h, "PUT", "/api/item/"+bill.ID,
+		`{"nama":"VPS Singapura Pro","jenis":"tagihan","klien":"Klien SG","kedaluwarsa":"2026-11-15","biaya":24.75}`, c)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT SGD bill: %d %s", rec.Code, rec.Body)
+	}
+	upd := decode[itemJSON](t, rec)
+	if upd.MataUang != "SGD" || upd.Biaya == nil || string(*upd.Biaya) != "24.75" {
+		t.Errorf("updated SGD bill = %+v", upd)
+	}
+
+	// GET /api/klien exposes SGD in biaya_30_hari_per_mata_uang while keeping biaya_30_hari IDR-only.
+	clients := decode[klienList](t, do(t, h, "GET", "/api/klien", "", c)).Klien
+	if len(clients) != 1 || clients[0].Biaya30Hari != 0 || string(clients[0].Biaya30HariPer["SGD"]) != "24.75" {
+		t.Errorf("klien with SGD = %+v", clients)
+	}
+
+	// Paying the SGD bill formats S$ in the activity feed and preserves SGD.
+	rec = do(t, h, "POST", "/api/item/"+bill.ID+"/perpanjang", `{"dari":"2026-11-15"}`, c)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("perpanjang SGD bill: %d %s", rec.Code, rec.Body)
+	}
+	akt := decode[aktivitasList](t, do(t, h, "GET", "/api/aktivitas", "", c)).Aktivitas
+	if len(akt) == 0 || akt[0].Jenis != "tagihan_dibayar" ||
+		!strings.Contains(akt[0].Teks, "S$24.75") ||
+		akt[0].Jumlah == nil || string(*akt[0].Jumlah) != "24.75" || deref(akt[0].MataUang) != "SGD" {
+		t.Errorf("SGD payment activity = %+v", akt)
+	}
+
+	// SGD task round trip.
+	rec = do(t, h, "POST", "/api/tugas",
+		`{"judul":"Audit server SG","sekali":true,"jatuh_tempo":"2026-11-20","biaya":15.25,"mata_uang":"SGD"}`, c)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create SGD task: %d %s", rec.Code, rec.Body)
+	}
+	tg := decode[tugasJSON](t, rec)
+	if tg.MataUang != "SGD" || tg.Biaya == nil || string(*tg.Biaya) != "15.25" {
+		t.Errorf("created SGD task = %+v", tg)
 	}
 }

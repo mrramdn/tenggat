@@ -1,6 +1,6 @@
 // Package uang converts money amounts between their JSON form (major units)
 // and the integer minor units stored in PostgreSQL (rupiah for IDR, cents for
-// USD), without floating-point arithmetic.
+// USD and SGD), without floating-point arithmetic.
 package uang
 
 import (
@@ -18,12 +18,12 @@ var errInvalid = errors.New("jumlah uang tidak valid")
 
 // Valid reports whether mu is a supported currency code.
 func Valid(mu string) bool {
-	return mu == "IDR" || mu == "USD"
+	return mu == "IDR" || mu == "USD" || mu == "SGD"
 }
 
 // Exponent returns the number of decimal places a currency has in minor units.
 func Exponent(mu string) int {
-	if mu == "USD" {
+	if mu == "USD" || mu == "SGD" {
 		return 2
 	}
 	return 0
@@ -96,12 +96,16 @@ func JSON(minor int64, mu string) json.Number {
 	return json.Number(fmt.Sprintf("%s.%02d", whole, rem))
 }
 
-// Format turns minor units into a display string: "Rp 189.000" or "US$20.50".
+// Format turns minor units into a display string: "Rp 189.000", "US$20.50", or "S$20.50".
 func Format(minor int64, mu string) string {
-	if mu == "USD" {
+	switch mu {
+	case "USD":
 		return fmt.Sprintf("US$%d.%02d", minor/100, minor%100)
+	case "SGD":
+		return fmt.Sprintf("S$%d.%02d", minor/100, minor%100)
+	default:
+		return "Rp " + ribuan(minor)
 	}
-	return "Rp " + ribuan(minor)
 }
 
 func ribuan(n int64) string {

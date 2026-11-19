@@ -322,7 +322,7 @@ func TestEverythingNeedsASession(t *testing.T) {
 		{"GET", "/api/item"}, {"POST", "/api/item"}, {"GET", "/api/item/00000000-0000-4000-8000-000000000001"},
 		{"PUT", "/api/item/00000000-0000-4000-8000-000000000001"}, {"DELETE", "/api/item/00000000-0000-4000-8000-000000000001"},
 		{"POST", "/api/item/00000000-0000-4000-8000-000000000001/cek"}, {"GET", "/api/sertifikat?host=example.com"},
-		{"GET", "/api/ringkasan"}, {"GET", "/api/kalender.ics"}, {"GET", "/api/saya"}, {"DELETE", "/api/saya"},
+		{"GET", "/api/ringkasan"}, {"GET", "/api/kurs"}, {"GET", "/api/kalender.ics"}, {"GET", "/api/saya"}, {"DELETE", "/api/saya"},
 	} {
 		if rec := do(t, h, r.method, r.path, `{}`); rec.Code != http.StatusUnauthorized {
 			t.Errorf("%s %s without session: %d, want 401", r.method, r.path, rec.Code)

@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
+	"github.com/mrramdn/tenggat/api/internal/kurs"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/uang"
 )
@@ -70,6 +71,7 @@ type agendaRow struct {
 	Status   expiry.Status `json:"status"`
 	Biaya    *json.Number  `json:"biaya"`
 	MataUang string        `json:"mata_uang"`
+	KiraIDR  *int64        `json:"kira_idr"`
 	Ulang    *agendaUlang  `json:"ulang"`
 	Aksi     *agendaAksi   `json:"aksi"`
 
@@ -87,9 +89,11 @@ type agendaJumlah struct {
 }
 
 type agendaResponse struct {
-	Agenda []agendaRow  `json:"agenda"`
-	Jumlah agendaJumlah `json:"jumlah"`
-	Lagi   bool         `json:"lagi"`
+	Agenda       []agendaRow  `json:"agenda"`
+	Jumlah       agendaJumlah `json:"jumlah"`
+	Lagi         bool         `json:"lagi"`
+	KiraIDRTotal *int64       `json:"kira_idr_total"`
+	KursTanggal  *string      `json:"kurs_tanggal"`
 }
 
 func (s *Server) getAgenda(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
@@ -104,12 +108,49 @@ func (s *Server) getAgenda(w http.ResponseWriter, r *http.Request, u store.Pengg
 		if err != nil {
 			return nil, err
 		}
+		rate, hasRate := s.kursKini(r.Context())
+		var kursTanggal *string
+		if hasRate {
+			t := rate.Tanggal
+			kursTanggal = &t
+		}
+		kiraTotal := applyAgendaEstimates(rows, rate)
 		lagi := len(rows) > batas
 		if lagi {
 			rows = rows[:batas]
 		}
-		return agendaResponse{Agenda: rows, Jumlah: jumlah, Lagi: lagi}, nil
+		return agendaResponse{
+			Agenda:       rows,
+			Jumlah:       jumlah,
+			Lagi:         lagi,
+			KiraIDRTotal: kiraTotal,
+			KursTanggal:  kursTanggal,
+		}, nil
 	})
+}
+
+// applyAgendaEstimates fills each priced row's kira_idr and returns their sum,
+// or nil when any priced row has no estimate (for example, foreign currency
+// with rates unavailable).
+func applyAgendaEstimates(rows []agendaRow, rate kurs.Kurs) *int64 {
+	var total int64
+	missing := false
+	for i := range rows {
+		if rows[i].biayaRaw == nil {
+			continue
+		}
+		est, ok := rate.KeRupiah(*rows[i].biayaRaw, rows[i].MataUang)
+		if !ok {
+			missing = true
+			continue
+		}
+		rows[i].KiraIDR = &est
+		total += est
+	}
+	if missing {
+		return nil
+	}
+	return &total
 }
 
 func parseAgendaQuery(q url.Values) (agendaFilter, int, map[string]string) {

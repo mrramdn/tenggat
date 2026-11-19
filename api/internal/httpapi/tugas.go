@@ -162,11 +162,11 @@ func (s *Server) prepareTugas(w http.ResponseWriter, r *http.Request, userID str
 		}
 	}
 	if !uang.Valid(in.MataUang) {
-		fields["mata_uang"] = "Pilih IDR atau USD."
+		fields["mata_uang"] = "Pilih IDR, USD, atau SGD."
 	} else if req.Biaya != nil {
 		minor, err := uang.Parse(*req.Biaya, in.MataUang)
 		if err != nil {
-			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
+			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal."
 		} else {
 			in.Biaya = &minor
 		}

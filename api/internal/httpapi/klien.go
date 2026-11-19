@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mrramdn/tenggat/api/internal/kurs"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/uang"
 )
@@ -30,11 +31,12 @@ type klienJSON struct {
 	Catatan string `json:"catatan"`
 	Status  string `json:"status"` // aktif, jeda or selesai
 	// LaporanAktif is true while the client's report has a read-only link.
-	LaporanAktif   bool                   `json:"laporan_aktif"`
-	JumlahAset     int                    `json:"jumlah_aset"`
-	Terdekat       *string                `json:"terdekat"`      // TTTT-BB-HH, null without assets
-	Biaya30Hari    int64                  `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
-	Biaya30HariPer map[string]json.Number `json:"biaya_30_hari_per_mata_uang"`
+	LaporanAktif       bool                   `json:"laporan_aktif"`
+	JumlahAset         int                    `json:"jumlah_aset"`
+	Terdekat           *string                `json:"terdekat"`      // TTTT-BB-HH, null without assets
+	Biaya30Hari        int64                  `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
+	Biaya30HariPer     map[string]json.Number `json:"biaya_30_hari_per_mata_uang"`
+	Biaya30HariKiraIDR *int64                 `json:"biaya_30_hari_kira_idr"`
 }
 
 func biayaPerMataUangJSON(per map[string]int64) map[string]json.Number {
@@ -45,11 +47,24 @@ func biayaPerMataUangJSON(per map[string]int64) map[string]json.Number {
 	return out
 }
 
-func toKlienJSON(k store.KlienRingkas) klienJSON {
+func biayaPerKiraIDR(per map[string]int64, rate kurs.Kurs) *int64 {
+	var total int64
+	for mu, minor := range per {
+		est, ok := rate.KeRupiah(minor, mu)
+		if !ok {
+			return nil
+		}
+		total += est
+	}
+	return &total
+}
+
+func toKlienJSON(k store.KlienRingkas, rate kurs.Kurs) klienJSON {
 	out := klienJSON{
 		ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, LaporanAktif: k.LaporanAktif,
 		JumlahAset: k.JumlahAset, Biaya30Hari: k.Biaya30Hari,
-		Biaya30HariPer: biayaPerMataUangJSON(k.Biaya30HariPer),
+		Biaya30HariPer:     biayaPerMataUangJSON(k.Biaya30HariPer),
+		Biaya30HariKiraIDR: biayaPerKiraIDR(k.Biaya30HariPer, rate),
 	}
 	if k.Terdekat != nil {
 		d := k.Terdekat.Format(time.DateOnly)
@@ -103,9 +118,10 @@ func (s *Server) listKlien(w http.ResponseWriter, r *http.Request, u store.Pengg
 		if err != nil {
 			return nil, err
 		}
+		rate, _ := s.kursKini(r.Context())
 		out := make([]klienJSON, 0, len(list))
 		for _, k := range list {
-			out = append(out, toKlienJSON(k))
+			out = append(out, toKlienJSON(k, rate))
 		}
 		return map[string]any{"klien": out}, nil
 	})
@@ -132,7 +148,7 @@ func (s *Server) createKlien(w http.ResponseWriter, r *http.Request, u store.Pen
 	}
 	s.bump(r.Context(), u.ID)
 	w.Header().Set("Location", "/api/klien/"+k.ID)
-	writeJSON(w, http.StatusCreated, toKlienJSON(store.KlienRingkas{Klien: k}))
+	writeJSON(w, http.StatusCreated, toKlienJSON(store.KlienRingkas{Klien: k}, kurs.Kurs{}))
 }
 
 func (s *Server) updateKlien(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
@@ -169,9 +185,10 @@ func (s *Server) updateKlien(w http.ResponseWriter, r *http.Request, u store.Pen
 		s.internal(w, r, err)
 		return
 	}
+	rate, _ := s.kursKini(r.Context())
 	for _, k := range list {
 		if k.ID == id {
-			writeJSON(w, http.StatusOK, toKlienJSON(k))
+			writeJSON(w, http.StatusOK, toKlienJSON(k, rate))
 			return
 		}
 	}

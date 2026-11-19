@@ -677,3 +677,76 @@ func TestItemV2ColumnsAndPerpanjang(t *testing.T) {
 		t.Errorf("DueForCheck with closed registry domain = %+v, %v; want empty", dueCheck, err)
 	}
 }
+
+func TestItemTugasAktivitasSGDRoundTrip(t *testing.T) {
+	t.Parallel()
+	s := storeSiap(t)
+	ctx := t.Context()
+	u := penggunaUji(t, s, "Rana")
+	k := klienUji(t, s, u.ID, "Klien Singapura")
+	now := time.Date(2026, 11, 19, 7, 0, 0, 0, time.UTC)
+	due1 := tanggal(2026, 11, 25)
+	due2 := tanggal(2026, 12, 25)
+
+	bill, err := s.Create(ctx, u.ID, Input{
+		Nama:        "DigitalOcean SG",
+		Jenis:       "tagihan",
+		KlienID:     &k.ID,
+		Kedaluwarsa: due1,
+		Sumber:      "manual",
+		Biaya:       ptr[int64](2050),
+		MataUang:    "SGD",
+		UlangJumlah: 1,
+		UlangSatuan: "bulan",
+	})
+	if err != nil {
+		t.Fatalf("Create SGD item: %v", err)
+	}
+	if bill.MataUang != "SGD" || bill.Biaya == nil || *bill.Biaya != 2050 {
+		t.Fatalf("created SGD item = %+v", bill)
+	}
+
+	got, err := s.Get(ctx, u.ID, bill.ID)
+	if err != nil || got.MataUang != "SGD" || got.Biaya == nil || *got.Biaya != 2050 {
+		t.Fatalf("Get SGD item = %+v, %v", got, err)
+	}
+
+	clients, err := s.ListKlien(ctx, u.ID, now)
+	if err != nil || len(clients) != 1 || clients[0].Biaya30Hari != 0 || clients[0].Biaya30HariPer["SGD"] != 2050 {
+		t.Fatalf("ListKlien SGD = %+v, %v", clients, err)
+	}
+
+	moved, err := s.PerpanjangItem(ctx, u.ID, bill.ID, Perpanjangan{
+		Dari:   due1,
+		Sampai: &due2,
+		At:     now,
+		Aktivitas: AktivitasInput{
+			KlienID:  &k.ID,
+			Jenis:    "tagihan_dibayar",
+			Teks:     "Tagihan DigitalOcean SG dibayar S$20.50",
+			Tanggal:  tanggal(2026, 11, 19),
+			Jumlah:   ptr[int64](2050),
+			MataUang: ptr("SGD"),
+		},
+	})
+	if err != nil || !moved.Kedaluwarsa.Equal(due2) || moved.MataUang != "SGD" {
+		t.Fatalf("PerpanjangItem SGD = %+v, %v", moved, err)
+	}
+
+	feed, err := s.ListAktivitas(ctx, u.ID, AktivitasFilter{})
+	if err != nil || len(feed) != 1 || feed[0].MataUang == nil || *feed[0].MataUang != "SGD" ||
+		feed[0].Jumlah == nil || *feed[0].Jumlah != 2050 {
+		t.Fatalf("ListAktivitas SGD = %+v, %v", feed, err)
+	}
+
+	tg, err := s.CreateTugas(ctx, u.ID, TugasInput{
+		KlienID:    &k.ID,
+		Judul:      "Audit server SG",
+		JatuhTempo: due1,
+		Biaya:      ptr[int64](1500),
+		MataUang:   "SGD",
+	})
+	if err != nil || tg.MataUang != "SGD" || tg.Biaya == nil || *tg.Biaya != 1500 {
+		t.Fatalf("CreateTugas SGD = %+v, %v", tg, err)
+	}
+}

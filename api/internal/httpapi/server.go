@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
+	"github.com/mrramdn/tenggat/api/internal/kurs"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
 )
@@ -78,6 +80,12 @@ type Server struct {
 	// Registry reads domain expiry dates over RDAP; nil turns registry lookups off.
 	Registry Registry
 
+	// Kurs reads daily reference exchange rates; nil turns rupiah estimates off.
+	Kurs kurs.Sumber
+
+	kursMu         sync.Mutex
+	kursRetryUntil time.Time
+
 	// Webhook posts notifications; nil means a client with an 8 second timeout
 	// that never follows redirects. Tests replace it.
 	Webhook *http.Client
@@ -114,6 +122,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/domain", s.limit(s.user(s.previewDomain)))
 	mux.HandleFunc("GET /api/item.csv", s.user(s.exportCSV))
 	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
+	mux.HandleFunc("GET /api/kurs", s.user(s.getKurs))
 	mux.HandleFunc("GET /api/agenda", s.user(s.getAgenda))
 	mux.HandleFunc("GET /api/klien", s.user(s.listKlien))
 	mux.HandleFunc("POST /api/klien", s.limit(s.user(s.createKlien)))
