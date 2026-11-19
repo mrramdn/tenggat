@@ -314,42 +314,13 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
-func (s *Server) listClosedItems(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
-	q := r.URL.Query()
-	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id"), Selesai: true}
-	if f.Status != "" && !f.Status.Valid() {
-		writeError(w, http.StatusUnprocessableEntity, "Status tidak dikenal.",
-			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
-		return
-	}
-	if f.KlienID != "" && !uuidPattern.MatchString(f.KlienID) {
-		writeError(w, http.StatusUnprocessableEntity, "Klien tidak dikenal.", map[string]string{"klien_id": "Klien tidak ditemukan."})
-		return
-	}
-	s.cachedRead(w, r, u.ID, "daftar:selesai:"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
-		items, err := s.Store.List(r.Context(), u.ID, f, now)
-		if err != nil {
-			return nil, err
-		}
-		out := make([]itemJSON, 0, len(items))
-		for _, it := range items {
-			out = append(out, toJSON(it, now))
-		}
-		return map[string]any{"item": out}, nil
-	})
-}
-
 // logRequests writes one JSON log line per request. Successful health checks,
 // which Docker sends every few seconds, are not logged.
 func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		if r.Method == http.MethodGet && r.URL.Path == "/api/item" && r.URL.Query().Get("selesai") == "1" {
-			s.user(s.listClosedItems).ServeHTTP(rec, r)
-		} else {
-			next.ServeHTTP(rec, r)
-		}
+		next.ServeHTTP(rec, r)
 		if r.URL.Path == "/health" && rec.status == http.StatusOK {
 			return
 		}

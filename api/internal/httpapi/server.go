@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
@@ -167,7 +168,8 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengguna) {
 	q := r.URL.Query()
-	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id")}
+	f := store.Filter{Status: expiry.Status(q.Get("status")), Klien: q.Get("klien"), KlienID: q.Get("klien_id"),
+		Selesai: q.Get("selesai") == "1"}
 	if f.Status != "" && !f.Status.Valid() {
 		writeError(w, http.StatusUnprocessableEntity, "Status tidak dikenal.",
 			map[string]string{"status": "Gunakan lewat, kritis, segera, atau aman."})
@@ -177,7 +179,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request, u store.Pengg
 		writeError(w, http.StatusUnprocessableEntity, "Klien tidak dikenal.", map[string]string{"klien_id": "Klien tidak ditemukan."})
 		return
 	}
-	s.cachedRead(w, r, u.ID, "daftar:"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
+	s.cachedRead(w, r, u.ID, "daftar:"+strconv.FormatBool(f.Selesai)+":"+string(f.Status)+":"+f.KlienID+":"+f.Klien, func(now time.Time) (any, error) {
 		items, err := s.Store.List(r.Context(), u.ID, f, now)
 		if err != nil {
 			return nil, err
@@ -221,7 +223,7 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request, u store.Peng
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareItem(w, r, u.ID, req)
+	in, ok := s.prepareItem(w, r, u.ID, req, nil)
 	if !ok {
 		return
 	}
@@ -250,11 +252,16 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request, u store.Peng
 		s.internal(w, r, err)
 		return
 	}
+	if old.SelesaiPada != nil {
+		writeError(w, http.StatusConflict, "Aset ini sudah ditutup.", nil)
+		return
+	}
 	var req itemRequest
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in, ok := s.prepareItem(w, r, u.ID, req)
+	// The stored item goes along so a field the client left out keeps its value.
+	in, ok := s.prepareItem(w, r, u.ID, req, &old)
 	if !ok {
 		return
 	}

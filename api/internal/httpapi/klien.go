@@ -237,29 +237,7 @@ func (s *Server) findKlien(ctx context.Context, userID string, klienID *string, 
 
 // prepareItem validates an item request and resolves its client. It writes the
 // error response and returns false when the item cannot be stored.
-func (s *Server) prepareItem(w http.ResponseWriter, r *http.Request, userID string, req itemRequest) (store.Input, bool) {
-	var old *store.Item
-	if r.Method == http.MethodPut {
-		id, ok := itemID(r)
-		if !ok {
-			writeNotFound(w)
-			return store.Input{}, false
-		}
-		it, err := s.Store.Get(r.Context(), userID, id)
-		if errors.Is(err, store.ErrNotFound) {
-			writeNotFound(w)
-			return store.Input{}, false
-		}
-		if err != nil {
-			s.internal(w, r, err)
-			return store.Input{}, false
-		}
-		if it.SelesaiPada != nil {
-			writeError(w, http.StatusConflict, "Aset ini sudah ditutup.", nil)
-			return store.Input{}, false
-		}
-		old = &it
-	}
+func (s *Server) prepareItem(w http.ResponseWriter, r *http.Request, userID string, req itemRequest, old *store.Item) (store.Input, bool) {
 	in, fields := s.prepare(r.Context(), req, old)
 	if fields == nil {
 		var err error
