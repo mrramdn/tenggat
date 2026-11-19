@@ -18,11 +18,31 @@ var migrationFiles embed.FS
 // order, each in its own transaction. An advisory lock keeps two API containers
 // starting at the same time from applying the same file twice.
 func (s *Store) Migrate(ctx context.Context) error {
+	return s.migrateUpTo(ctx, "")
+}
+
+// migrateUpTo applies the migrations like Migrate but stops after the one whose
+// version (the file name without .sql) is last; "" applies them all. Tests use it
+// to build a database as an older release left it.
+func (s *Store) migrateUpTo(ctx context.Context, last string) error {
 	names, err := fs.Glob(migrationFiles, "migrations/*.sql")
 	if err != nil {
 		return err
 	}
 	sort.Strings(names)
+	if last != "" {
+		end := -1
+		for i, name := range names {
+			if migrationVersion(name) == last {
+				end = i
+				break
+			}
+		}
+		if end < 0 {
+			return fmt.Errorf("migration %s does not exist", last)
+		}
+		names = names[:end+1]
+	}
 
 	if _, err := s.pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		versi text PRIMARY KEY,
@@ -32,7 +52,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	}
 
 	for _, name := range names {
-		version := strings.TrimSuffix(strings.TrimPrefix(name, "migrations/"), ".sql")
+		version := migrationVersion(name)
 		body, err := migrationFiles.ReadFile(name)
 		if err != nil {
 			return err
@@ -59,4 +79,9 @@ func (s *Store) Migrate(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// migrationVersion turns "migrations/001_item.sql" into "001_item".
+func migrationVersion(name string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(name, "migrations/"), ".sql")
 }
