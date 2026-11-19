@@ -1,12 +1,17 @@
 # ---------- Stage 1: build ----------
 # Image Go lengkap (compiler dan alat build), hanya dipakai untuk mengompilasi.
-FROM golang:1.27.3-alpine3.24 AS build
+# Compiler jalan di arsitektur mesin yang membangun (BUILDPLATFORM) dan Go
+# mengompilasi silang ke arsitektur tujuan, jadi image arm64 untuk server bisa
+# dibangun dari laptop amd64 tanpa emulasi.
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.24 AS build
 
 WORKDIR /src
 
 # Binary statis tanpa cgo, sehingga bisa jalan di image yang tidak punya libc.
+ARG TARGETARCH
 ENV CGO_ENABLED=0 \
-    GOOS=linux
+    GOOS=linux \
+    GOARCH=$TARGETARCH
 
 # File dependency disalin lebih dulu: selama go.mod dan go.sum tidak berubah,
 # layer "go mod download" diambil dari cache dan tidak diunduh ulang.
