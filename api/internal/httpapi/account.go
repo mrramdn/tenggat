@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/mail"
@@ -37,23 +38,141 @@ type loginRequest struct {
 // authedHandler is a handler that runs only for a signed-in user.
 type authedHandler func(http.ResponseWriter, *http.Request, store.Pengguna)
 
-// user looks up the session cookie and answers 401 when there is no valid session.
-func (s *Server) user(next authedHandler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(sessionCookie)
-		if err != nil || c.Value == "" {
-			writeError(w, http.StatusUnauthorized, "Silakan masuk terlebih dahulu.", nil)
-			return
+// sessionOnlyRoutes lists endpoints that a personal access token may never
+// call: a token must not raise its own power, destroy the account, publish
+// data on a public link, or point outbound webhook posts at a URL.
+var sessionOnlyRoutes = []struct {
+	method string
+	path   string
+}{
+	// Token management: a token must not list, mint, or revoke tokens to raise its own power.
+	{http.MethodGet, "/api/token"},
+	{http.MethodHead, "/api/token"},
+	{http.MethodPost, "/api/token"},
+	{http.MethodDelete, "/api/token/{id}"},
+	// Account deletion: a leaked token must not wipe the account and all its data.
+	{http.MethodDelete, "/api/saya"},
+	// Outbound webhooks: a token must not configure, remove, or trigger posts to a webhook URL.
+	{http.MethodPut, "/api/notifikasi"},
+	{http.MethodDelete, "/api/notifikasi"},
+	{http.MethodPost, "/api/notifikasi/uji"},
+	// Public calendar link: a token must not publish or revoke the unauthenticated calendar feed.
+	{http.MethodPost, "/api/kalender/tautan"},
+	{http.MethodDelete, "/api/kalender/tautan"},
+	// Public report link: a token must not publish or revoke a client's read-only report link.
+	{http.MethodPost, "/api/klien/{id}/laporan/tautan"},
+	{http.MethodDelete, "/api/klien/{id}/laporan/tautan"},
+}
+
+func isSessionOnly(r *http.Request) bool {
+	pat := r.URL.Path
+	if _, p, ok := strings.Cut(r.Pattern, " "); ok {
+		pat = p
+	}
+	for _, route := range sessionOnlyRoutes {
+		if route.method == r.Method && matchRoute(route.path, pat) {
+			return true
 		}
-		u, err := s.Store.UserBySession(r.Context(), auth.HashToken(c.Value), s.Now())
+	}
+	return false
+}
+
+func matchRoute(pattern, path string) bool {
+	if pattern == path {
+		return true
+	}
+	pSegs := strings.Split(pattern, "/")
+	uSegs := strings.Split(path, "/")
+	if len(pSegs) != len(uSegs) {
+		return false
+	}
+	for i := range pSegs {
+		if strings.HasPrefix(pSegs[i], "{") && strings.HasSuffix(pSegs[i], "}") {
+			if uSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		if pSegs[i] != uSegs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// lookupToken looks up a raw personal access token ("tgt_...") and returns its
+// owner and token row, or store.ErrNotFound when the prefix is wrong or the
+// token is unknown, expired, or revoked.
+func (s *Server) lookupToken(ctx context.Context, raw string) (store.Pengguna, store.TokenAkses, error) {
+	if !strings.HasPrefix(raw, "tgt_") {
+		return store.Pengguna{}, store.TokenAkses{}, store.ErrNotFound
+	}
+	return s.Store.UserByToken(ctx, auth.HashToken(raw), s.Now())
+}
+
+// authenticate resolves the caller from an Authorization: Bearer header or,
+// when no Authorization header is sent, from the session cookie. For a Bearer
+// token it also returns the token row; for a cookie session the token pointer
+// is nil. It writes the error response itself and returns false on failure.
+func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (store.Pengguna, *store.TokenAkses, bool) {
+	if _, hasAuth := r.Header["Authorization"]; hasAuth {
+		raw, ok := bearerToken(r)
+		var u store.Pengguna
+		var tok store.TokenAkses
+		err := store.ErrNotFound
+		if ok {
+			u, tok, err = s.lookupToken(r.Context(), raw)
+		}
 		if errors.Is(err, store.ErrNotFound) {
-			s.clearCookie(w)
-			writeError(w, http.StatusUnauthorized, "Sesi Anda berakhir. Silakan masuk lagi.", nil)
-			return
+			if !s.allow(w, r, "token_gagal", clientIP(r), tokenFailPerMinute) {
+				return store.Pengguna{}, nil, false
+			}
+			w.Header().Set("WWW-Authenticate", `Bearer realm="tenggat", error="invalid_token"`)
+			writeError(w, http.StatusUnauthorized, "Token akses tidak dikenal, kedaluwarsa, atau sudah dicabut.", nil)
+			return store.Pengguna{}, nil, false
 		}
 		if err != nil {
 			s.internal(w, r, err)
+			return store.Pengguna{}, nil, false
+		}
+		return u, &tok, true
+	}
+	c, err := r.Cookie(sessionCookie)
+	if err != nil || c.Value == "" {
+		writeError(w, http.StatusUnauthorized, "Silakan masuk terlebih dahulu.", nil)
+		return store.Pengguna{}, nil, false
+	}
+	u, err := s.Store.UserBySession(r.Context(), auth.HashToken(c.Value), s.Now())
+	if errors.Is(err, store.ErrNotFound) {
+		s.clearCookie(w)
+		writeError(w, http.StatusUnauthorized, "Sesi Anda berakhir. Silakan masuk lagi.", nil)
+		return store.Pengguna{}, nil, false
+	}
+	if err != nil {
+		s.internal(w, r, err)
+		return store.Pengguna{}, nil, false
+	}
+	return u, nil, true
+}
+
+// user authenticates the request by Bearer token or session cookie and checks
+// token restrictions before running next.
+func (s *Server) user(next authedHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, tok, ok := s.authenticate(w, r)
+		if !ok {
 			return
+		}
+		if tok != nil {
+			if isSessionOnly(r) {
+				writeError(w, http.StatusForbidden, "Token akses tidak dapat dipakai untuk tindakan ini.", nil)
+				return
+			}
+			if tok.Cakupan == "baca" && r.Method != http.MethodGet && r.Method != http.MethodHead {
+				w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_scope", scope="tulis"`)
+				writeError(w, http.StatusForbidden, "Token ini hanya untuk membaca.", nil)
+				return
+			}
 		}
 		next(w, r, u)
 	}

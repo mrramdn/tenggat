@@ -9,14 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mrramdn/tenggat/api/internal/auth"
 	"github.com/mrramdn/tenggat/api/internal/expiry"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
 )
 
 const (
-	readTTL = 60 * time.Second // cached list and summary
-	certTTL = time.Hour        // cached certificate lookup per host
+	readTTL            = 60 * time.Second // cached list and summary
+	certTTL            = time.Hour        // cached certificate lookup per host
+	tokenFailPerMinute = 20               // failed Bearer lookups per client IP per minute
 )
 
 // cachedRead answers a GET from Redis when it can. The key holds the user, that
@@ -138,24 +140,62 @@ func (s *Server) limit(next http.HandlerFunc) http.HandlerFunc {
 	if perMinute <= 0 {
 		perMinute = 30
 	}
-	return s.limitTo("tulis", perMinute, next)
-}
-
-// limitTo counts requests per client in its own bucket; over the limit it
-// answers 429 with Retry-After.
-func (s *Server) limitTo(bucket string, perMinute int, next http.HandlerFunc) http.HandlerFunc {
+	// These routes all sit in front of s.user, so a made-up token buys nothing:
+	// it fails the lookup and is counted per address in token_gagal.
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.Cache != nil {
-			ok, retry := s.Cache.Allow(r.Context(), bucket, clientIP(r), perMinute, time.Minute)
-			if !ok {
-				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-				writeError(w, http.StatusTooManyRequests,
-					"Terlalu banyak permintaan dalam satu menit. Coba beberapa saat lagi.", nil)
-				return
-			}
+		if !s.allow(w, r, "tulis", clientKey(r), perMinute) {
+			return
 		}
 		next(w, r)
 	}
+}
+
+// limitTo counts requests per client address in its own bucket; over the limit
+// it answers 429 with Retry-After. It always counts by address, never by token:
+// sign-in, sign-up and the public lookups do not check the Authorization header,
+// so keying on it would hand every request with a new made-up token a fresh
+// bucket and switch the limit off.
+func (s *Server) limitTo(bucket string, perMinute int, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.allow(w, r, bucket, clientIP(r), perMinute) {
+			return
+		}
+		next(w, r)
+	}
+}
+
+// allow checks one rate-limit bucket and writes the 429 response when the
+// caller is over the limit.
+func (s *Server) allow(w http.ResponseWriter, r *http.Request, bucket, client string, perMinute int) bool {
+	if s.Cache != nil {
+		ok, retry := s.Cache.Allow(r.Context(), bucket, client, perMinute, time.Minute)
+		if !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+			writeError(w, http.StatusTooManyRequests,
+				"Terlalu banyak permintaan dalam satu menit. Coba beberapa saat lagi.", nil)
+			return false
+		}
+	}
+	return true
+}
+
+// bearerToken extracts the raw personal access token from an Authorization
+// header when it uses the exact "Bearer " scheme and "tgt_" prefix.
+func bearerToken(r *http.Request) (string, bool) {
+	raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || !strings.HasPrefix(raw, "tgt_") {
+		return "", false
+	}
+	return raw, true
+}
+
+// clientKey identifies the caller for rate limiting: by token hash prefix for a
+// Bearer request without hitting the database first, and by client IP otherwise.
+func clientKey(r *http.Request) string {
+	if raw, ok := bearerToken(r); ok {
+		return "t:" + auth.HashToken(raw)[:16]
+	}
+	return clientIP(r)
 }
 
 // clientIP takes the last address in X-Forwarded-For, which is the one our own
