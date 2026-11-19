@@ -44,6 +44,19 @@ func TestTokens(t *testing.T) {
 	if tok == tok2 {
 		t.Error("tokens repeat")
 	}
+
+	pat, patHash, awalan, err := NewPAT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(pat, "tgt_") || len(pat) != 47 || HashToken(pat) != patHash || len(patHash) != 64 ||
+		len(awalan) != 8 || awalan != pat[:8] {
+		t.Errorf("pat %q hash %q awalan %q", pat, patHash, awalan)
+	}
+	pat2, _, _, _ := NewPAT()
+	if pat == pat2 {
+		t.Error("PATs repeat")
+	}
 }
 
 func TestHashingRunsAtMostTwoAtOnce(t *testing.T) {

@@ -42,6 +42,8 @@ type Store interface {
 	AktivitasStore
 	LaporanStore
 	NotifikasiStore
+	PerpanjangStore
+	TokenStore
 }
 
 // Checker reads a host's certificate.
@@ -101,10 +103,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/item/{id}", s.limit(s.user(s.updateItem)))
 	mux.HandleFunc("DELETE /api/item/{id}", s.limit(s.user(s.deleteItem)))
 	mux.HandleFunc("POST /api/item/{id}/cek", s.limit(s.user(s.recheckItem)))
+	mux.HandleFunc("POST /api/item/{id}/perpanjang", s.limit(s.user(s.perpanjangItem)))
 	mux.HandleFunc("GET /api/sertifikat", s.limit(s.user(s.previewCertificate)))
 	mux.HandleFunc("GET /api/domain", s.limit(s.user(s.previewDomain)))
 	mux.HandleFunc("GET /api/item.csv", s.user(s.exportCSV))
 	mux.HandleFunc("GET /api/ringkasan", s.user(s.summary))
+	mux.HandleFunc("GET /api/agenda", s.user(s.getAgenda))
 	mux.HandleFunc("GET /api/klien", s.user(s.listKlien))
 	mux.HandleFunc("POST /api/klien", s.limit(s.user(s.createKlien)))
 	mux.HandleFunc("PUT /api/klien/{id}", s.limit(s.user(s.updateKlien)))
@@ -115,9 +119,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/kalender/{berkas}", s.limitTo("kalender", calendarPerMinute, s.subscribedCalendar))
 	mux.HandleFunc("GET /api/tugas", s.user(s.listTugas))
 	mux.HandleFunc("POST /api/tugas", s.limit(s.user(s.createTugas)))
+	mux.HandleFunc("GET /api/tugas/{id}", s.user(s.getTugas))
 	mux.HandleFunc("PUT /api/tugas/{id}", s.limit(s.user(s.updateTugas)))
 	mux.HandleFunc("DELETE /api/tugas/{id}", s.limit(s.user(s.deleteTugas)))
 	mux.HandleFunc("POST /api/tugas/{id}/selesai", s.limit(s.user(s.completeTugas)))
+	mux.HandleFunc("GET /api/token", s.user(s.listTokens))
+	mux.HandleFunc("POST /api/token", s.limit(s.user(s.createToken)))
+	mux.HandleFunc("DELETE /api/token/{id}", s.limit(s.user(s.deleteToken)))
 	mux.HandleFunc("GET /api/aktivitas", s.user(s.listAktivitas))
 	mux.HandleFunc("POST /api/aktivitas", s.limit(s.user(s.createAktivitas)))
 	mux.HandleFunc("DELETE /api/aktivitas/{id}", s.limit(s.user(s.deleteAktivitas)))

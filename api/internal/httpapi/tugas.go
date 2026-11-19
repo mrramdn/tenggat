@@ -23,6 +23,7 @@ type TugasStore interface {
 	CreateTugas(ctx context.Context, userID string, in store.TugasInput) (store.Tugas, error)
 	UpdateTugas(ctx context.Context, userID, id string, in store.TugasInput) (store.Tugas, error)
 	CompleteTugas(ctx context.Context, userID, id string, from, next, at time.Time) (store.Tugas, error)
+	CloseTugas(ctx context.Context, userID, id string, from, at time.Time) (store.Tugas, error)
 	DeleteTugas(ctx context.Context, userID, id string) error
 }
 

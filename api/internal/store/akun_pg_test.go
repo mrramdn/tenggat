@@ -148,6 +148,10 @@ func TestDeleteUserCascade(t *testing.T) {
 			Jenis: "pekerjaan", Teks: "Kerja " + suffix, Tanggal: tanggal(2026, 11, 19), DurasiMenit: ptr(30)}); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := s.CreateToken(ctx, u.ID, TokenInput{Nama: "Token " + suffix, Hash: "pat-" + suffix,
+			Awalan: "tgt_0000", Cakupan: "baca"}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	populate(a, "A")
 	populate(b, "B")
@@ -163,7 +167,7 @@ func TestDeleteUserCascade(t *testing.T) {
 	}
 
 	// Every table now holds only Budi's 1 row.
-	for _, table := range []string{"pengguna", "sesi", "klien", "catatan_laporan", "item", "tugas", "aktivitas"} {
+	for _, table := range []string{"pengguna", "sesi", "token_akses", "klien", "catatan_laporan", "item", "tugas", "aktivitas"} {
 		if got := hitung(t, s, `SELECT count(*) FROM `+table); got != 1 {
 			t.Errorf("%s has %d rows after DeleteUser(a), want 1 (Budi's)", table, got)
 		}

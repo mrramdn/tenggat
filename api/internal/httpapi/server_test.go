@@ -52,7 +52,7 @@ func (m *memStore) List(_ context.Context, userID string, f store.Filter, now ti
 	defer m.mu.Unlock()
 	out := []store.Item{}
 	for _, it := range m.items {
-		if it.PenggunaID != userID {
+		if it.PenggunaID != userID || (it.SelesaiPada != nil) != f.Selesai {
 			continue
 		}
 		if f.Status != "" && expiry.For(expiry.DaysLeft(it.Kedaluwarsa, now)) != f.Status {
@@ -88,7 +88,7 @@ func (m *memStore) Create(_ context.Context, userID string, in store.Input) (sto
 func (m *memStore) Update(_ context.Context, userID, id string, in store.Input) (store.Item, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if it, ok := m.items[id]; !ok || it.PenggunaID != userID {
+	if it, ok := m.items[id]; !ok || it.PenggunaID != userID || it.SelesaiPada != nil {
 		return store.Item{}, store.ErrNotFound
 	}
 	it := fromInput(id, userID, in)
@@ -220,8 +220,13 @@ func (m *memStore) DeleteUser(_ context.Context, userID string) error {
 func (m *memStore) DeleteExpiredSessions(context.Context, time.Time) (int64, error) { return 0, nil }
 
 func fromInput(id, userID string, in store.Input) store.Item {
+	mu := in.MataUang
+	if mu == "" {
+		mu = "IDR"
+	}
 	return store.Item{ID: id, PenggunaID: userID, Nama: in.Nama, Jenis: in.Jenis, Klien: in.Klien, KlienID: in.KlienID, Host: in.Host,
-		Kedaluwarsa: in.Kedaluwarsa, Sumber: in.Sumber, Biaya: in.Biaya, Catatan: in.Catatan,
+		Kedaluwarsa: in.Kedaluwarsa, Sumber: in.Sumber, Biaya: in.Biaya, MataUang: mu,
+		UlangJumlah: in.UlangJumlah, UlangSatuan: in.UlangSatuan, Catatan: in.Catatan,
 		InfoTLS: in.InfoTLS, TerakhirDicek: in.Dicek, InfoRegistri: in.Registri}
 }
 

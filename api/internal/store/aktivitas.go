@@ -26,6 +26,8 @@ type Aktivitas struct {
 	Teks        string
 	Tanggal     time.Time // a calendar date at midnight UTC
 	DurasiMenit *int
+	Jumlah      *int64
+	MataUang    *string
 	Data        json.RawMessage // nil when there is none
 	Dibuat      time.Time
 }
@@ -39,6 +41,8 @@ type AktivitasInput struct {
 	Teks        string
 	Tanggal     time.Time
 	DurasiMenit *int
+	Jumlah      *int64
+	MataUang    *string
 	Data        json.RawMessage
 	// SekaliSehari skips the entry when the same item already has one of this
 	// kind on this date; AddAktivitas then returns ErrNotFound.
@@ -56,13 +60,13 @@ type AktivitasFilter struct {
 }
 
 const aktivitasColumns = `a.id, a.pengguna_id, a.klien_id, COALESCE(k.nama, ''), a.item_id, a.tugas_id, a.jenis, a.teks,
-	a.tanggal, a.durasi_menit, a.data, a.dibuat`
+	a.tanggal, a.durasi_menit, a.jumlah, a.mata_uang, a.data, a.dibuat`
 
 func scanAktivitas(row pgx.Row) (Aktivitas, error) {
 	var a Aktivitas
 	var data []byte
 	err := row.Scan(&a.ID, &a.PenggunaID, &a.KlienID, &a.Klien, &a.ItemID, &a.TugasID, &a.Jenis, &a.Teks, &a.Tanggal,
-		&a.DurasiMenit, &data, &a.Dibuat)
+		&a.DurasiMenit, &a.Jumlah, &a.MataUang, &data, &a.Dibuat)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, ErrNotFound
 	}
@@ -123,12 +127,12 @@ func (s *Store) AddAktivitas(ctx context.Context, userID string, in AktivitasInp
 		data = in.Data
 	}
 	return scanAktivitas(s.pool.QueryRow(ctx, `WITH a AS (INSERT INTO aktivitas
-		(pengguna_id, klien_id, item_id, tugas_id, jenis, teks, tanggal, durasi_menit, data)
-		SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::text, $6::text, $7::date, $8::integer, $9::jsonb
-		WHERE NOT ($10::boolean AND EXISTS (SELECT 1 FROM aktivitas
+		(pengguna_id, klien_id, item_id, tugas_id, jenis, teks, tanggal, durasi_menit, jumlah, mata_uang, data)
+		SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::text, $6::text, $7::date, $8::integer, $9::bigint, $10::text, $11::jsonb
+		WHERE NOT ($12::boolean AND EXISTS (SELECT 1 FROM aktivitas
 			WHERE item_id = $3 AND jenis = $5 AND tanggal = $7))
 		RETURNING *) SELECT `+aktivitasColumns+` FROM a LEFT JOIN klien AS k ON k.id = a.klien_id`,
-		userID, in.KlienID, in.ItemID, in.TugasID, in.Jenis, in.Teks, in.Tanggal, in.DurasiMenit, data, in.SekaliSehari))
+		userID, in.KlienID, in.ItemID, in.TugasID, in.Jenis, in.Teks, in.Tanggal, in.DurasiMenit, in.Jumlah, in.MataUang, data, in.SekaliSehari))
 }
 
 // DeleteAktivitas removes one of a user's notes or work entries. An entry the

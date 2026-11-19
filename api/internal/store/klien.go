@@ -26,12 +26,13 @@ type Klien struct {
 	LaporanAktif bool
 }
 
-// KlienRingkas is a client with figures over its assets.
+// KlienRingkas is a client with figures over its active assets.
 type KlienRingkas struct {
 	Klien
-	JumlahAset  int
-	Terdekat    *time.Time // the earliest expiry date among its assets, nil without assets
-	Biaya30Hari int64      // the summed cost of assets due within 30 days, overdue ones included
+	JumlahAset     int
+	Terdekat       *time.Time       // the earliest expiry date among its active assets, nil without assets
+	Biaya30Hari    int64            // the summed IDR cost of active assets due within 30 days, overdue ones included
+	Biaya30HariPer map[string]int64 // minor units per currency for active assets with a cost due within 30 days
 }
 
 const klienColumns = `id, pengguna_id, nama, catatan, status, dibuat, hash_token_laporan IS NOT NULL`
@@ -49,32 +50,64 @@ func scanKlien(row pgx.Row) (Klien, error) {
 	return k, err
 }
 
-// ListKlien returns a user's clients sorted by name, each with its asset count,
-// nearest expiry date and the cost due within 30 days, overdue assets included like the
-// dashboard's renewal sentence. "Today" is the date in Jakarta, as in Summary.
+// ListKlien returns a user's clients sorted by name, each with its active asset
+// count, nearest expiry date and the cost due within 30 days, overdue assets
+// included like the dashboard's renewal sentence. "Today" is the date in
+// Jakarta, as in Summary.
 func (s *Store) ListKlien(ctx context.Context, userID string, now time.Time) ([]KlienRingkas, error) {
+	today := expiry.DateOf(now)
 	rows, err := s.pool.Query(ctx, `SELECT k.id, k.pengguna_id, k.nama, k.catatan, k.status, k.dibuat,
 		k.hash_token_laporan IS NOT NULL,
 		count(i.id), min(i.kedaluwarsa),
-		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa <= $2::date + 30), 0)
-		FROM klien AS k LEFT JOIN item AS i ON i.klien_id = k.id
+		COALESCE(sum(i.biaya) FILTER (WHERE i.kedaluwarsa <= $2::date + 30 AND i.mata_uang = 'IDR'), 0)
+		FROM klien AS k LEFT JOIN item AS i ON i.klien_id = k.id AND i.selesai_pada IS NULL
 		WHERE k.pengguna_id = $1
 		GROUP BY k.id
-		ORDER BY lower(k.nama), k.nama`, userID, expiry.DateOf(now))
+		ORDER BY lower(k.nama), k.nama`, userID, today)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []KlienRingkas{}
+	byID := map[string]int{}
 	for rows.Next() {
 		var k KlienRingkas
 		if err := rows.Scan(&k.ID, &k.PenggunaID, &k.Nama, &k.Catatan, &k.Status, &k.Dibuat, &k.LaporanAktif,
 			&k.JumlahAset, &k.Terdekat, &k.Biaya30Hari); err != nil {
 			return nil, err
 		}
+		k.Biaya30HariPer = map[string]int64{}
+		byID[k.ID] = len(out)
 		out = append(out, k)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	cRows, err := s.pool.Query(ctx, `SELECT k.id, i.mata_uang, sum(i.biaya)
+		FROM klien AS k JOIN item AS i ON i.klien_id = k.id
+		WHERE k.pengguna_id = $1
+		  AND i.selesai_pada IS NULL
+		  AND i.biaya IS NOT NULL
+		  AND i.kedaluwarsa <= $2::date + 30
+		GROUP BY k.id, i.mata_uang`, userID, today)
+	if err != nil {
+		return nil, err
+	}
+	defer cRows.Close()
+	for cRows.Next() {
+		var id, mu string
+		var sum int64
+		if err := cRows.Scan(&id, &mu, &sum); err != nil {
+			return nil, err
+		}
+		if idx, ok := byID[id]; ok {
+			out[idx].Biaya30HariPer[mu] = sum
+		}
+	}
+	return out, cRows.Err()
 }
 
 // GetKlien returns one of a user's clients. Another user's client is reported as not found.

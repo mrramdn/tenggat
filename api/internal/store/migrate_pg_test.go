@@ -298,9 +298,13 @@ func cekDataRilis005(t *testing.T, s *Store) {
 		}
 		if it.Nama != w.nama || it.Jenis != w.jenis || it.Sumber != w.sumber || it.Klien != w.klien ||
 			str(it.Host) != str(w.host) || !it.Kedaluwarsa.Equal(w.due) || (it.Biaya == nil) != (w.biaya == nil) ||
-			(it.Biaya != nil && *it.Biaya != *w.biaya) {
+			(it.Biaya != nil && *it.Biaya != *w.biaya) || it.MataUang != "IDR" ||
+			it.UlangJumlah != 0 || it.UlangSatuan != "" || it.SelesaiPada != nil {
 			t.Errorf("Get(%s) = %+v", w.nama, it)
 		}
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM item WHERE mata_uang = 'IDR' AND ulang_jumlah IS NULL AND ulang_satuan IS NULL AND selesai_pada IS NULL`); n != fxJumlah["item"] {
+		t.Errorf("migrated item defaults count = %d, want %d", n, fxJumlah["item"])
 	}
 	items, err := s.List(ctx, fxRana, Filter{}, now)
 	if err != nil || len(items) != len(want) {
@@ -326,7 +330,8 @@ func cekDataRilis005(t *testing.T, s *Store) {
 	if _, err := s.Get(ctx, fxRana, fxDomainBudi); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Get(another user's item) err = %v, want ErrNotFound", err)
 	}
-	if it, err := s.Get(ctx, fxBudi, fxDomainBudi); err != nil || it.Klien != "Toko Budi" {
+	if it, err := s.Get(ctx, fxBudi, fxDomainBudi); err != nil || it.Klien != "Toko Budi" ||
+		it.MataUang != "IDR" || it.UlangJumlah != 0 || it.UlangSatuan != "" || it.SelesaiPada != nil {
 		t.Errorf("Get(budi's item) = %+v, %v", it, err)
 	}
 	if sum, err := s.Summary(ctx, fxRana, now); err != nil || sum.Total != len(want) ||
@@ -351,11 +356,19 @@ func cekDataRilis005(t *testing.T, s *Store) {
 	backup, err := s.GetTugas(ctx, fxRana, fxTugasBackup)
 	if err != nil || backup.Klien != "Toko Kue Mawar" || backup.UlangJumlah != 1 || backup.UlangSatuan != "bulan" ||
 		!backup.JatuhTempo.Equal(tanggal(2026, 12, 1)) || backup.Biaya == nil || *backup.Biaya != 50000 ||
+		backup.MataUang != "IDR" || backup.SelesaiPada != nil ||
 		backup.TerakhirSelesai == nil || backup.Catatan != "Simpan ke S3" {
 		t.Errorf("GetTugas(backup) = %+v, %v", backup, err)
 	}
-	if plugin, err := s.GetTugas(ctx, fxRana, fxTugasPlugin); err != nil || plugin.KlienID != nil || plugin.UlangSatuan != "minggu" {
+	if plugin, err := s.GetTugas(ctx, fxRana, fxTugasPlugin); err != nil || plugin.KlienID != nil ||
+		plugin.UlangSatuan != "minggu" || plugin.MataUang != "IDR" || plugin.SelesaiPada != nil {
 		t.Errorf("GetTugas(plugin) = %+v, %v", plugin, err)
+	}
+	if budiTugas, err := s.GetTugas(ctx, fxBudi, fxTugasBudi); err != nil || budiTugas.MataUang != "IDR" || budiTugas.SelesaiPada != nil {
+		t.Errorf("GetTugas(budi) = %+v, %v", budiTugas, err)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM tugas WHERE mata_uang = 'IDR' AND selesai_pada IS NULL`); n != fxJumlah["tugas"] {
+		t.Errorf("migrated tugas defaults count = %d, want %d", n, fxJumlah["tugas"])
 	}
 
 	// Activity: one entry of each of the 11 kinds.
@@ -366,6 +379,9 @@ func cekDataRilis005(t *testing.T, s *Store) {
 	var jenis []string
 	for _, a := range feed {
 		jenis = append(jenis, a.Jenis)
+		if a.Jumlah != nil || a.MataUang != nil {
+			t.Errorf("migrated activity %s has Jumlah=%v MataUang=%v, want nil", a.Jenis, a.Jumlah, a.MataUang)
+		}
 		switch a.Jenis {
 		case "pekerjaan":
 			if a.DurasiMenit == nil || *a.DurasiMenit != 90 || !a.Tanggal.Equal(tanggal(2026, 11, 3)) {
@@ -433,16 +449,52 @@ func TestCheckConstraints(t *testing.T) {
 		{"unknown client status", "klien_status_check",
 			`INSERT INTO klien (pengguna_id, nama, status) VALUES ($1, 'Arsip', 'arsip')`, []any{fxRana}},
 		{"empty client name", "klien_nama_check", `INSERT INTO klien (pengguna_id, nama) VALUES ($1, '')`, []any{fxRana}},
+		{"unknown item currency", "item_mata_uang_check",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, mata_uang) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 'EUR')`, []any{fxRana}},
+		{"zero item repeat count", "item_ulang_jumlah_check",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, ulang_jumlah, ulang_satuan) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 0, 'bulan')`, []any{fxRana}},
+		{"excessive item repeat count", "item_ulang_jumlah_check",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, ulang_jumlah, ulang_satuan) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 366, 'hari')`, []any{fxRana}},
+		{"unknown item repeat unit", "item_ulang_satuan_check",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, ulang_jumlah, ulang_satuan) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 1, 'jam')`, []any{fxRana}},
+		{"item repeat count without unit", "item_ulang_lengkap",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, ulang_jumlah) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 1)`, []any{fxRana}},
+		{"item repeat unit without count", "item_ulang_lengkap",
+			`INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, ulang_satuan) VALUES ($1, 'Tagihan', 'tagihan', '2027-01-01', 'manual', 'bulan')`, []any{fxRana}},
+		{"recurring non-manual item", "item_ulang_manual",
+			`INSERT INTO item (pengguna_id, nama, jenis, host, kedaluwarsa, sumber, ulang_jumlah, ulang_satuan) VALUES ($1, 'contoh.id', 'domain', 'contoh.id', '2027-01-01', 'registri', 1, 'tahun')`, []any{fxRana}},
+		{"tagihan with host", "tagihan_manual",
+			`INSERT INTO item (pengguna_id, nama, jenis, host, kedaluwarsa, sumber) VALUES ($1, 'Tagihan', 'tagihan', 'contoh.id', '2027-01-01', 'manual')`, []any{fxRana}},
 		{"unknown repeat unit", "tugas_ulang_satuan_check",
-			`INSERT INTO tugas (pengguna_id, judul, ulang_satuan, jatuh_tempo) VALUES ($1, 'Cek', 'jam', '2027-01-01')`, []any{fxRana}},
+			`INSERT INTO tugas (pengguna_id, judul, ulang_jumlah, ulang_satuan, jatuh_tempo) VALUES ($1, 'Cek', 1, 'jam', '2027-01-01')`, []any{fxRana}},
 		{"zero repeat count", "tugas_ulang_jumlah_check",
 			`INSERT INTO tugas (pengguna_id, judul, ulang_jumlah, jatuh_tempo) VALUES ($1, 'Cek', 0, '2027-01-01')`, []any{fxRana}},
+		{"unknown task currency", "tugas_mata_uang_check",
+			`INSERT INTO tugas (pengguna_id, judul, jatuh_tempo, mata_uang) VALUES ($1, 'Cek', '2027-01-01', 'EUR')`, []any{fxRana}},
+		{"task repeat count without unit", "tugas_ulang_lengkap",
+			`INSERT INTO tugas (pengguna_id, judul, ulang_jumlah, jatuh_tempo) VALUES ($1, 'Cek', 1, '2027-01-01')`, []any{fxRana}},
+		{"task repeat unit without count", "tugas_ulang_lengkap",
+			`INSERT INTO tugas (pengguna_id, judul, ulang_satuan, jatuh_tempo) VALUES ($1, 'Cek', 'bulan', '2027-01-01')`, []any{fxRana}},
+		{"closed recurring task", "tugas_selesai_sekali",
+			`INSERT INTO tugas (pengguna_id, judul, ulang_jumlah, ulang_satuan, jatuh_tempo, selesai_pada) VALUES ($1, 'Cek', 1, 'bulan', '2027-01-01', now())`, []any{fxRana}},
 		{"unknown activity kind", "aktivitas_jenis_check",
 			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal) VALUES ($1, 'telepon', 'Telepon klien', '2026-11-19')`, []any{fxRana}},
 		{"empty activity text", "aktivitas_teks_check",
 			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal) VALUES ($1, 'catatan', '', '2026-11-19')`, []any{fxRana}},
 		{"zero-minute work entry", "aktivitas_durasi_menit_check",
 			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, durasi_menit) VALUES ($1, 'pekerjaan', 'Kerja', '2026-11-19', 0)`, []any{fxRana}},
+		{"negative activity amount", "aktivitas_jumlah_check",
+			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, jumlah, mata_uang) VALUES ($1, 'tagihan_dibayar', 'Bayar', '2026-11-19', -1, 'IDR')`, []any{fxRana}},
+		{"activity amount without currency", "aktivitas_uang_lengkap",
+			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, jumlah) VALUES ($1, 'tagihan_dibayar', 'Bayar', '2026-11-19', 1000)`, []any{fxRana}},
+		{"activity currency without amount", "aktivitas_uang_lengkap",
+			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, mata_uang) VALUES ($1, 'tagihan_dibayar', 'Bayar', '2026-11-19', 'IDR')`, []any{fxRana}},
+		{"activity unknown currency", "aktivitas_uang_lengkap",
+			`INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, jumlah, mata_uang) VALUES ($1, 'tagihan_dibayar', 'Bayar', '2026-11-19', 1000, 'EUR')`, []any{fxRana}},
+		{"empty token name", "token_akses_nama_check",
+			`INSERT INTO token_akses (pengguna_id, nama, hash_token, awalan, cakupan) VALUES ($1, '', 'h1', 'tgt_1111', 'baca')`, []any{fxRana}},
+		{"unknown token scope", "token_akses_cakupan_check",
+			`INSERT INTO token_akses (pengguna_id, nama, hash_token, awalan, cakupan) VALUES ($1, 'Token', 'h2', 'tgt_2222', 'admin')`, []any{fxRana}},
 		{"report month not on the first", "catatan_laporan_bulan_check",
 			`INSERT INTO catatan_laporan (klien_id, bulan) VALUES ($1, '2026-11-15')`, []any{fxMawar}},
 		{"upper-case email", "pengguna_email_check",
