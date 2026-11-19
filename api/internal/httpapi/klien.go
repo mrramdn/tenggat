@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mrramdn/tenggat/api/internal/store"
+	"github.com/mrramdn/tenggat/api/internal/uang"
 )
 
 // KlienStore is the part of store.Store that keeps clients.
@@ -28,15 +30,27 @@ type klienJSON struct {
 	Catatan string `json:"catatan"`
 	Status  string `json:"status"` // aktif, jeda or selesai
 	// LaporanAktif is true while the client's report has a read-only link.
-	LaporanAktif bool    `json:"laporan_aktif"`
-	JumlahAset   int     `json:"jumlah_aset"`
-	Terdekat     *string `json:"terdekat"`      // TTTT-BB-HH, null without assets
-	Biaya30Hari  int64   `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
+	LaporanAktif   bool                   `json:"laporan_aktif"`
+	JumlahAset     int                    `json:"jumlah_aset"`
+	Terdekat       *string                `json:"terdekat"`      // TTTT-BB-HH, null without assets
+	Biaya30Hari    int64                  `json:"biaya_30_hari"` // rupiah due from today to 30 days ahead
+	Biaya30HariPer map[string]json.Number `json:"biaya_30_hari_per_mata_uang"`
+}
+
+func biayaPerMataUangJSON(per map[string]int64) map[string]json.Number {
+	out := make(map[string]json.Number, len(per))
+	for mu, minor := range per {
+		out[mu] = uang.JSON(minor, mu)
+	}
+	return out
 }
 
 func toKlienJSON(k store.KlienRingkas) klienJSON {
-	out := klienJSON{ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, LaporanAktif: k.LaporanAktif,
-		JumlahAset: k.JumlahAset, Biaya30Hari: k.Biaya30Hari}
+	out := klienJSON{
+		ID: k.ID, Nama: k.Nama, Catatan: k.Catatan, Status: k.Status, LaporanAktif: k.LaporanAktif,
+		JumlahAset: k.JumlahAset, Biaya30Hari: k.Biaya30Hari,
+		Biaya30HariPer: biayaPerMataUangJSON(k.Biaya30HariPer),
+	}
 	if k.Terdekat != nil {
 		d := k.Terdekat.Format(time.DateOnly)
 		out.Terdekat = &d
@@ -224,7 +238,29 @@ func (s *Server) findKlien(ctx context.Context, userID string, klienID *string, 
 // prepareItem validates an item request and resolves its client. It writes the
 // error response and returns false when the item cannot be stored.
 func (s *Server) prepareItem(w http.ResponseWriter, r *http.Request, userID string, req itemRequest) (store.Input, bool) {
-	in, fields := s.prepare(r.Context(), req)
+	var old *store.Item
+	if r.Method == http.MethodPut {
+		id, ok := itemID(r)
+		if !ok {
+			writeNotFound(w)
+			return store.Input{}, false
+		}
+		it, err := s.Store.Get(r.Context(), userID, id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeNotFound(w)
+			return store.Input{}, false
+		}
+		if err != nil {
+			s.internal(w, r, err)
+			return store.Input{}, false
+		}
+		if it.SelesaiPada != nil {
+			writeError(w, http.StatusConflict, "Aset ini sudah ditutup.", nil)
+			return store.Input{}, false
+		}
+		old = &it
+	}
+	in, fields := s.prepare(r.Context(), req, old)
 	if fields == nil {
 		var err error
 		if fields, err = s.resolveKlien(r.Context(), userID, req, &in); err != nil {

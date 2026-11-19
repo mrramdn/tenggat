@@ -33,7 +33,6 @@ func TestStubRoutes(t *testing.T) {
 	for _, r := range []struct {
 		method, path string
 	}{
-		{"POST", "/api/item/00000000-0000-4000-8000-000000000001/perpanjang"},
 		{"GET", "/api/tugas/00000000-0000-4000-8000-000000000001"},
 		{"GET", "/api/agenda"},
 		{"GET", "/api/token"},

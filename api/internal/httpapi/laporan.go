@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -39,11 +40,12 @@ type namaJSON struct {
 }
 
 type laporanRingkasan struct {
-	JumlahAset  int            `json:"jumlah_aset"`
-	PerStatus   map[string]int `json:"per_status"`
-	Pekerjaan   int            `json:"pekerjaan"`
-	Menit       int            `json:"menit"`
-	Biaya30Hari int64          `json:"biaya_30_hari"`
+	JumlahAset     int                    `json:"jumlah_aset"`
+	PerStatus      map[string]int         `json:"per_status"`
+	Pekerjaan      int                    `json:"pekerjaan"`
+	Menit          int                    `json:"menit"`
+	Biaya30Hari    int64                  `json:"biaya_30_hari"`
+	Biaya30HariPer map[string]json.Number `json:"biaya_30_hari_per_mata_uang"`
 }
 
 type laporanPekerjaan struct {
@@ -66,7 +68,8 @@ type laporanAset struct {
 	SisaHari    int           `json:"sisa_hari"`
 	Status      expiry.Status `json:"status"`
 	Sumber      string        `json:"sumber"`
-	Biaya       *int64        `json:"biaya"`
+	Biaya       *json.Number  `json:"biaya"`
+	MataUang    string        `json:"mata_uang"`
 }
 
 type laporanJatuhTempo struct {
@@ -75,7 +78,8 @@ type laporanJatuhTempo struct {
 	Tanggal  string        `json:"tanggal"`
 	SisaHari int           `json:"sisa_hari"`
 	Status   expiry.Status `json:"status"`
-	Biaya    *int64        `json:"biaya"`
+	Biaya    *json.Number  `json:"biaya"`
+	MataUang string        `json:"mata_uang"`
 }
 
 // laporanJSON is one client's monthly report. The owner and the read-only link
@@ -172,8 +176,12 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 		Klien: namaJSON{k.Nama}, Penyusun: namaJSON{owner.Nama},
 		Bulan: bulan.Format("2006-01"), LabelBulan: bulanLabel(bulan),
 		Dibuat: now, PerTanggal: expiry.DateOf(now).Format(time.DateOnly),
-		Ringkasan: laporanRingkasan{PerStatus: map[string]int{
-			string(expiry.Lewat): 0, string(expiry.Kritis): 0, string(expiry.Segera): 0, string(expiry.Aman): 0}},
+		Ringkasan: laporanRingkasan{
+			PerStatus: map[string]int{
+				string(expiry.Lewat): 0, string(expiry.Kritis): 0, string(expiry.Segera): 0, string(expiry.Aman): 0,
+			},
+			Biaya30HariPer: map[string]json.Number{},
+		},
 		Pekerjaan: []laporanPekerjaan{}, Perpanjangan: []laporanPerpanjangan{},
 		Aset: []laporanAset{}, JatuhTempo: []laporanJatuhTempo{},
 	}
@@ -214,28 +222,38 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 	if err != nil {
 		return rep, err
 	}
+	biayaPer := map[string]int64{}
 	for _, it := range items {
 		days := expiry.DaysLeft(it.Kedaluwarsa, now)
 		st := expiry.For(days)
 		day := it.Kedaluwarsa.Format(time.DateOnly)
+		mu := it.MataUang
+		if mu == "" {
+			mu = "IDR"
+		}
+		biaya := uangJSON(it.Biaya, mu)
 		rep.Aset = append(rep.Aset, laporanAset{Nama: it.Nama, Jenis: it.Jenis, Host: it.Host, Kedaluwarsa: day,
-			SisaHari: days, Status: st, Sumber: it.Sumber, Biaya: it.Biaya})
+			SisaHari: days, Status: st, Sumber: it.Sumber, Biaya: biaya, MataUang: mu})
 		rep.Ringkasan.JumlahAset++
 		rep.Ringkasan.PerStatus[string(st)]++
 		if rep.Lampau {
 			continue
 		}
 		if days <= 30 && it.Biaya != nil {
-			rep.Ringkasan.Biaya30Hari += *it.Biaya
+			biayaPer[mu] += *it.Biaya
+			if mu == "IDR" {
+				rep.Ringkasan.Biaya30Hari += *it.Biaya
+			}
 		}
 		if days <= jatuhTempoHari {
 			rep.JatuhTempo = append(rep.JatuhTempo, laporanJatuhTempo{Nama: it.Nama, Jenis: it.Jenis, Tanggal: day,
-				SisaHari: days, Status: st, Biaya: it.Biaya})
+				SisaHari: days, Status: st, Biaya: biaya, MataUang: mu})
 		}
 	}
 	if rep.Lampau {
 		return rep, nil
 	}
+	rep.Ringkasan.Biaya30HariPer = biayaPerMataUangJSON(biayaPer)
 	limit := expiry.DateOf(now).AddDate(0, 0, jatuhTempoHari)
 	tasks, err := s.Store.ListTugas(ctx, owner.ID, store.TugasFilter{KlienID: k.ID, Sampai: &limit})
 	if err != nil {
@@ -243,8 +261,13 @@ func (s *Server) buildLaporan(ctx context.Context, owner store.Pengguna, k store
 	}
 	for _, t := range tasks {
 		days := expiry.DaysLeft(t.JatuhTempo, now)
+		mu := t.MataUang
+		if mu == "" {
+			mu = "IDR"
+		}
 		rep.JatuhTempo = append(rep.JatuhTempo, laporanJatuhTempo{Nama: t.Judul, Jenis: "tugas",
-			Tanggal: t.JatuhTempo.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days), Biaya: t.Biaya})
+			Tanggal: t.JatuhTempo.Format(time.DateOnly), SisaHari: days, Status: expiry.For(days),
+			Biaya: uangJSON(t.Biaya, mu), MataUang: mu})
 	}
 	slices.SortStableFunc(rep.JatuhTempo, func(a, b laporanJatuhTempo) int { return strings.Compare(a.Tanggal, b.Tanggal) })
 	return rep, nil

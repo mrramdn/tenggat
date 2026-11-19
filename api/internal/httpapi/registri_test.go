@@ -377,9 +377,9 @@ func TestExportCSV(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := [][]string{
-		{"nama", "jenis", "klien", "host", "kedaluwarsa", "sisa_hari", "status", "sumber", "biaya", "catatan"},
-		{`'=HYPERLINK("http://jahat")`, "token", `'+Klien, "A"`, "", "2026-11-01", "-8", "lewat", "manual", "150000", "'@baris\ndua"},
-		{"Domain toko", "domain", "", "toko.id", "2027-01-01", "53", "aman", "manual", "", ""},
+		{"nama", "jenis", "klien", "host", "kedaluwarsa", "sisa_hari", "status", "sumber", "biaya", "catatan", "mata_uang", "ulang"},
+		{`'=HYPERLINK("http://jahat")`, "token", `'+Klien, "A"`, "", "2026-11-01", "-8", "lewat", "manual", "150000", "'@baris\ndua", "IDR", ""},
+		{"Domain toko", "domain", "", "toko.id", "2027-01-01", "53", "aman", "manual", "", "", "IDR", ""},
 	}
 	if len(rows) != len(want) {
 		t.Fatalf("rows = %q", rows)
