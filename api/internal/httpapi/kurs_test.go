@@ -330,3 +330,50 @@ func TestKlienBiaya30HariKiraIDR(t *testing.T) {
 		t.Errorf("feature off clients = %+v", offList)
 	}
 }
+
+// lambatKurs answers only when lepas is closed, like a rate source that hangs.
+type lambatKurs struct {
+	lepas chan struct{}
+	val   kurs.Kurs
+}
+
+func (l *lambatKurs) Ambil(ctx context.Context) (kurs.Kurs, error) {
+	select {
+	case <-l.lepas:
+		return l.val, nil
+	case <-ctx.Done():
+		return kurs.Kurs{}, ctx.Err()
+	}
+}
+
+// A slow rate source must not hold a request: it answers without estimates
+// within the short wait, and the rates are there once the fetch ends.
+func TestSlowKursDoesNotHoldRequests(t *testing.T) {
+	s, _ := newTestServer()
+	src := &lambatKurs{lepas: make(chan struct{}), val: kurs.Kurs{Tanggal: "2026-11-18", PerIDR: map[string]float64{"USD": 18254, "SGD": 14155}}}
+	s.Kurs = src
+	h := s.Routes()
+	c := signUp(t, h, "lambat@contoh.id")
+
+	start := time.Now()
+	rec := do(t, h, "GET", "/api/kurs", "", c)
+	if took := time.Since(start); took > 2*time.Second {
+		t.Fatalf("request waited %v for the rate source", took)
+	}
+	if got := decode[kursJSON](t, rec); rec.Code != http.StatusOK || got.Tanggal != nil {
+		t.Fatalf("while the source hangs: %d, tanggal %v; want 200 without rates", rec.Code, got.Tanggal)
+	}
+
+	close(src.lepas)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got := decode[kursJSON](t, do(t, h, "GET", "/api/kurs", "", c))
+		if got.Tanggal != nil && got.PerIDR["USD"] == 18254 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("rates never arrived after the source answered")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

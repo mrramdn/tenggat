@@ -24,7 +24,7 @@ const (
 	// NamaSumber identifies the reference rate source in API responses.
 	NamaSumber = "Frankfurter (kurs referensi ECB)"
 
-	defaultTimeout = 5 * time.Second
+	defaultTimeout = 10 * time.Second
 	maxBodyBytes   = 16 << 10 // 16 KiB; a real response is ~100 bytes
 )
 
@@ -72,7 +72,7 @@ type Frankfurter struct {
 }
 
 // New returns a Frankfurter source pointed at the fixed HTTPS endpoint with a
-// 5 second timeout and no redirects followed.
+// 10 second timeout and no redirects followed.
 func New() *Frankfurter {
 	return &Frankfurter{
 		url:     frankfurterURL,

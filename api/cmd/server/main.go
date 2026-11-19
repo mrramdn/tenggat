@@ -75,6 +75,7 @@ func run(log *slog.Logger) error {
 	if getenv("KURS_AKTIF", "true") != "false" {
 		api.Kurs = kurs.New()
 	}
+	api.PanaskanKurs()
 	go api.RunRechecks(ctx, interval)
 	go api.RunDigests(ctx, 5*time.Minute)
 

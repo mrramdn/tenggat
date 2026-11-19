@@ -14,6 +14,8 @@ const (
 	kursCacheKey   = "kurs:terkini"
 	kursCacheTTL   = 12 * time.Hour
 	kursRetryAfter = 10 * time.Minute
+	kursTunggu     = 300 * time.Millisecond // how long a request gives a fetch in flight
+	kursAmbilMaks  = 20 * time.Second       // the fetch itself, apart from any request
 )
 
 type kursJSON struct {
@@ -32,48 +34,91 @@ func (s *Server) getKurs(w http.ResponseWriter, r *http.Request, _ store.Penggun
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// kursKini returns the current daily exchange rates through Cache under one
-// global key for 12 hours, fetching on a miss. Failures are never fatal to a
-// request and back off in memory for 10 minutes so a dead upstream is not hit
-// on every request.
+// kursKini returns the current daily exchange rates, or false when there are
+// none yet. A request never waits for the rate source: the fetch runs on its own
+// in the background, the request gives it a moment (enough for a fast answer)
+// and otherwise goes on without estimates; the next request finds the result.
+// Rates are kept in memory and in Cache under one global key for 12 hours, and a
+// failed fetch is not repeated for 10 minutes.
 func (s *Server) kursKini(ctx context.Context) (kurs.Kurs, bool) {
 	if s.Kurs == nil {
 		return kurs.Kurs{}, false
 	}
+	if k, ok := s.kursMemori(); ok {
+		return k, true
+	}
 	if k, ok := s.kursFromCache(ctx); ok {
+		s.kursMu.Lock()
+		s.kursMem, s.kursMemSampai = k, s.Now().Add(time.Hour)
+		s.kursMu.Unlock()
 		return k, true
 	}
 
 	s.kursMu.Lock()
-	defer s.kursMu.Unlock()
-
-	if k, ok := s.kursFromCache(ctx); ok {
-		return k, true
-	}
-	now := s.Now()
-	if !s.kursRetryUntil.IsZero() && now.Before(s.kursRetryUntil) {
+	if now := s.Now(); !s.kursRetryUntil.IsZero() && now.Before(s.kursRetryUntil) {
+		s.kursMu.Unlock()
 		return kurs.Kurs{}, false
 	}
+	if s.kursJalan == nil {
+		s.kursJalan = make(chan struct{})
+		go s.ambilKurs(s.kursJalan)
+	}
+	selesai := s.kursJalan
+	s.kursMu.Unlock()
 
+	tunggu := time.NewTimer(kursTunggu)
+	defer tunggu.Stop()
+	select {
+	case <-selesai:
+	case <-tunggu.C:
+	case <-ctx.Done():
+	}
+	return s.kursMemori()
+}
+
+// kursMemori returns the rates held in memory while they are still fresh.
+func (s *Server) kursMemori() (kurs.Kurs, bool) {
+	s.kursMu.Lock()
+	defer s.kursMu.Unlock()
+	if s.kursMem.Tanggal == "" || !s.Now().Before(s.kursMemSampai) {
+		return kurs.Kurs{}, false
+	}
+	return s.kursMem, true
+}
+
+// ambilKurs fetches the rates once, apart from any request, and closes selesai.
+func (s *Server) ambilKurs(selesai chan struct{}) {
+	ctx, cancel := context.WithTimeout(context.Background(), kursAmbilMaks)
+	defer cancel()
 	k, err := s.Kurs.Ambil(ctx)
+
+	s.kursMu.Lock()
+	defer s.kursMu.Unlock()
 	if err != nil {
 		if s.Log != nil {
 			s.Log.Warn("gagal mengambil kurs", "galat", err)
 		}
-		// Only back off on an upstream failure, not when the caller cancelled its own request.
-		if ctx.Err() == nil {
-			s.kursRetryUntil = s.Now().Add(kursRetryAfter)
+		s.kursRetryUntil = s.Now().Add(kursRetryAfter)
+	} else {
+		s.kursRetryUntil = time.Time{}
+		s.kursMem, s.kursMemSampai = k, s.Now().Add(kursCacheTTL)
+		if s.Cache != nil {
+			if body, err := json.Marshal(k); err == nil {
+				s.Cache.Set(ctx, kursCacheKey, body, kursCacheTTL)
+			}
 		}
-		return kurs.Kurs{}, false
 	}
+	s.kursJalan = nil
+	close(selesai)
+}
 
-	s.kursRetryUntil = time.Time{}
-	if s.Cache != nil {
-		if body, err := json.Marshal(k); err == nil {
-			s.Cache.Set(ctx, kursCacheKey, body, kursCacheTTL)
-		}
+// PanaskanKurs starts fetching the rates at start-up, so the first visitor
+// already gets estimates.
+func (s *Server) PanaskanKurs() {
+	if s.Kurs == nil {
+		return
 	}
-	return k, true
+	go s.kursKini(context.Background())
 }
 
 func (s *Server) kursFromCache(ctx context.Context) (kurs.Kurs, bool) {

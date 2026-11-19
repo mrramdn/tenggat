@@ -126,8 +126,8 @@ func TestNewUsesFixedHTTPSURL(t *testing.T) {
 	if f.url != frankfurterURL || !strings.HasPrefix(f.url, "https://") {
 		t.Errorf("url = %q, want fixed HTTPS URL %q", f.url, frankfurterURL)
 	}
-	if f.client == nil || f.client.Timeout != 5*time.Second {
-		t.Errorf("client timeout = %v, want 5s", f.client)
+	if f.client == nil || f.client.Timeout != 10*time.Second {
+		t.Errorf("client timeout = %v, want 10s", f.client)
 	}
 }
 

@@ -85,6 +85,9 @@ type Server struct {
 
 	kursMu         sync.Mutex
 	kursRetryUntil time.Time
+	kursMem        kurs.Kurs // the rates in memory, fresh until kursMemSampai
+	kursMemSampai  time.Time
+	kursJalan      chan struct{} // closed when the fetch in flight ends; nil when none
 
 	// Webhook posts notifications; nil means a client with an 8 second timeout
 	// that never follows redirects. Tests replace it.
