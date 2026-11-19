@@ -32,6 +32,8 @@ type aktivitasJSON struct {
 	Teks        string          `json:"teks"`
 	Tanggal     string          `json:"tanggal"`
 	DurasiMenit *int            `json:"durasi_menit"`
+	Jumlah      *json.Number    `json:"jumlah"`
+	MataUang    *string         `json:"mata_uang"`
 	Data        json.RawMessage `json:"data"`
 	Dibuat      time.Time       `json:"dibuat"`
 }
@@ -43,7 +45,8 @@ func toAktivitasJSON(a store.Aktivitas) aktivitasJSON {
 	}
 	return aktivitasJSON{
 		ID: a.ID, KlienID: a.KlienID, Klien: a.Klien, ItemID: a.ItemID, TugasID: a.TugasID, Jenis: a.Jenis,
-		Teks: a.Teks, Tanggal: a.Tanggal.Format(time.DateOnly), DurasiMenit: a.DurasiMenit, Data: data, Dibuat: a.Dibuat,
+		Teks: a.Teks, Tanggal: a.Tanggal.Format(time.DateOnly), DurasiMenit: a.DurasiMenit,
+		Jumlah: uangJSON(a.Jumlah, deref(a.MataUang)), MataUang: a.MataUang, Data: data, Dibuat: a.Dibuat,
 	}
 }
 
@@ -245,12 +248,12 @@ func (s *Server) catatAsetBaru(ctx context.Context, it store.Item) {
 
 // catatAsetDiubah records a renewal when an edit moved the date later.
 func (s *Server) catatAsetDiubah(ctx context.Context, old, it store.Item) {
-	if !it.Kedaluwarsa.After(old.Kedaluwarsa) {
+	if !it.Kedaluwarsa.After(old.Kedaluwarsa) || it.SelesaiPada != nil || it.Jenis == "tagihan" {
 		return
 	}
 	id := it.ID
 	s.catat(ctx, it.PenggunaID, store.AktivitasInput{
-		KlienID: it.KlienID, ItemID: &id, Jenis: "aset_diperpanjang",
+		KlienID: it.KlienID, ItemID: &id, Jenis: "aset_diperpanjang", SekaliSehari: true,
 		Teks: it.Nama + " diperpanjang sampai " + tanggalID(it.Kedaluwarsa),
 		Data: data(map[string]any{"dari": old.Kedaluwarsa.Format(time.DateOnly), "sampai": it.Kedaluwarsa.Format(time.DateOnly)}),
 	})

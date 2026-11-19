@@ -15,6 +15,7 @@ var jenisLabel = map[string]string{
 	"domain":     "Domain",
 	"token":      "Token API",
 	"langganan":  "Langganan",
+	"tagihan":    "Tagihan",
 	"lainnya":    "Lainnya",
 }
 

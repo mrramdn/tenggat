@@ -9,9 +9,10 @@ import (
 
 	"github.com/mrramdn/tenggat/api/internal/expiry"
 	"github.com/mrramdn/tenggat/api/internal/store"
+	"github.com/mrramdn/tenggat/api/internal/uang"
 )
 
-var csvHeader = []string{"nama", "jenis", "klien", "host", "kedaluwarsa", "sisa_hari", "status", "sumber", "biaya", "catatan"}
+var csvHeader = []string{"nama", "jenis", "klien", "host", "kedaluwarsa", "sisa_hari", "status", "sumber", "biaya", "catatan", "mata_uang", "ulang"}
 
 // exportCSV writes all of a user's items as a spreadsheet file. It starts with
 // a UTF-8 byte order mark so Excel reads the file as UTF-8.
@@ -32,14 +33,22 @@ func (s *Server) exportCSV(w http.ResponseWriter, r *http.Request, u store.Pengg
 	_ = cw.Write(csvHeader)
 	for _, it := range items {
 		days := expiry.DaysLeft(it.Kedaluwarsa, now)
+		mu := it.MataUang
+		if mu == "" {
+			mu = "IDR"
+		}
 		biaya := ""
 		if it.Biaya != nil {
-			biaya = strconv.FormatInt(*it.Biaya, 10)
+			biaya = string(uang.JSON(*it.Biaya, mu))
+		}
+		ulang := ""
+		if it.UlangJumlah > 0 && it.UlangSatuan != "" {
+			ulang = strconv.Itoa(it.UlangJumlah) + " " + it.UlangSatuan
 		}
 		_ = cw.Write([]string{
 			csvText(it.Nama), it.Jenis, csvText(it.Klien), csvText(deref(it.Host)),
 			it.Kedaluwarsa.Format(time.DateOnly), strconv.Itoa(days), string(expiry.For(days)), it.Sumber,
-			biaya, csvText(it.Catatan),
+			biaya, csvText(it.Catatan), mu, ulang,
 		})
 	}
 	cw.Flush()
