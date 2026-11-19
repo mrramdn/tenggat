@@ -84,6 +84,11 @@ type Server struct {
 	// AppURL is the site's address without a trailing slash, for links in
 	// notifications; empty leaves the links out.
 	AppURL string
+
+	// MCP mounts the Model Context Protocol endpoint at /mcp.
+	MCP bool
+	// MCPResourceMetadataURL is the OAuth resource metadata URL advertised on 401 responses; empty leaves it out.
+	MCPResourceMetadataURL string
 }
 
 // Routes returns the API handler with request logging, panic recovery and the
@@ -140,6 +145,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/notifikasi", s.limit(s.user(s.putNotifikasi)))
 	mux.HandleFunc("DELETE /api/notifikasi", s.limit(s.user(s.deleteNotifikasi)))
 	mux.HandleFunc("POST /api/notifikasi/uji", s.limitTo("webhook", webhookTestLimit, s.user(s.testNotifikasi)))
+	if s.MCP {
+		mcp := s.mcpHandler(mux)
+		mux.HandleFunc("POST /mcp", mcp)
+		mux.HandleFunc("GET /mcp", mcp)
+		mux.HandleFunc("DELETE /mcp", mcp)
+	}
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "Alamat tidak ditemukan.", nil)
 	})
