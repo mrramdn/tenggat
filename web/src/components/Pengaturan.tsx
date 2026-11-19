@@ -5,6 +5,7 @@ import { inisial } from './Akun'
 import { Icon } from './Icon'
 import { KalenderPengaturan } from './KalenderPengaturan'
 import { PengaturanNotifikasi } from './PengaturanNotifikasi'
+import { TokenPengaturan } from './TokenPengaturan'
 
 function Bagian({ id, judul, teks, children }: { id: string; judul: string; teks: string; children: ReactNode }) {
   return (
@@ -38,6 +39,13 @@ export function Pengaturan({ akun, phone = false }: { akun: Akun; phone?: boolea
         teks="Ringkasan harian pukul 08.00 WIB ke Slack, Discord, atau Telegram, hanya bila ada aset atau tugas yang lewat atau jatuh tempo dalam 7 hari. URL webhook hanya dipakai untuk pesan ini."
       >
         <PengaturanNotifikasi />
+      </Bagian>
+      <Bagian
+        id="set-token"
+        judul="Token akses"
+        teks="Token memungkinkan alat seperti Claude Code, agy, atau Kiro membaca dan mengubah data Tenggat Anda. Kekuatannya setara kata sandi untuk akses tersebut, jadi buat satu token per alat dan cabut yang tidak dipakai."
+      >
+        <TokenPengaturan />
       </Bagian>
       <Bagian id="set-akun" judul="Akun" teks="Akun yang sedang masuk di perangkat ini.">
         <div className="set-akun">

@@ -2,9 +2,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { KUNCI_KLIEN, request, type Status } from './api'
-import { hariIniIso, keTanggal } from './format'
+import { angka, hariIniIso, keTanggal } from './format'
 
 export type SatuanUlang = 'hari' | 'minggu' | 'bulan' | 'tahun'
+export type MataUang = 'IDR' | 'USD'
 
 export interface Tugas {
   id: string
@@ -13,13 +14,16 @@ export interface Tugas {
   klien: string
   judul: string
   catatan: string
-  ulang_jumlah: number
-  ulang_satuan: SatuanUlang
+  sekali: boolean
+  ulang_jumlah: number | null
+  ulang_satuan: SatuanUlang | null
   jatuh_tempo: string // YYYY-MM-DD
   sisa_hari: number
   status: Status
   biaya: number | null
+  mata_uang: MataUang
   terakhir_selesai: string | null // RFC 3339
+  selesai_pada: string | null // RFC 3339
   dibuat: string
   diubah: string
 }
@@ -30,10 +34,12 @@ export interface TugasInput {
   klien?: string
   judul: string
   catatan?: string
-  ulang_jumlah: number
-  ulang_satuan: SatuanUlang
+  sekali?: boolean
+  ulang_jumlah?: number
+  ulang_satuan?: SatuanUlang
   jatuh_tempo: string
   biaya?: number | null
+  mata_uang?: MataUang
 }
 
 export interface SelesaiInput {
@@ -41,6 +47,8 @@ export interface SelesaiInput {
   durasi_menit?: number
   /** YYYY-MM-DD; the API takes today (Jakarta) without it. */
   tanggal?: string
+  /** YYYY-MM-DD due date shown on screen; 409 if the task changed meanwhile. */
+  dari?: string
 }
 
 export type JenisAktivitas =
@@ -55,6 +63,7 @@ export type JenisAktivitas =
   | 'tugas_selesai'
   | 'tugas_dihapus'
   | 'laporan_dibagikan'
+  | 'tagihan_dibayar'
 
 export interface Aktivitas {
   id: string
@@ -66,6 +75,8 @@ export interface Aktivitas {
   teks: string
   tanggal: string // YYYY-MM-DD, Jakarta
   durasi_menit: number | null
+  jumlah?: number | null
+  mata_uang?: MataUang | null
   data: Record<string, unknown> | null
   dibuat: string // RFC 3339
 }
@@ -143,9 +154,18 @@ export function useSegarkan() {
 
 const namaSatuan: Record<SatuanUlang, string> = { hari: 'hari', minggu: 'minggu', bulan: 'bulan', tahun: 'tahun' }
 
-/** "Tiap bulan", "Tiap 3 bulan", "Tiap minggu" */
-export function labelUlang(jumlah: number, satuan: SatuanUlang): string {
+/** "Sekali", "Tiap bulan", "Tiap 3 bulan", "Tiap minggu" */
+export function labelUlang(jumlah: number | null, satuan: SatuanUlang | null): string {
+  if (!jumlah || !satuan) return 'Sekali'
   return jumlah === 1 ? `Tiap ${namaSatuan[satuan]}` : `Tiap ${jumlah} ${namaSatuan[satuan]}`
+}
+
+const fmtUsd = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** Formats major-unit money: "Rp 186.000" for IDR, "US$20.50" for USD. */
+export function formatUang(jumlah: number, mataUang?: string | null): string {
+  if (mataUang === 'USD') return `US$${fmtUsd.format(jumlah)}`
+  return `Rp ${angka(Math.round(jumlah))}`
 }
 
 /** "45 menit", "1 jam", "1 jam 30 menit" */
@@ -172,6 +192,7 @@ export function tambahInterval(dari: string, jumlah: number, satuan: SatuanUlang
 /** The due date after marking the task done: one interval past the old due date, repeated until after today.
  *  The API does the same; this is only for the sentence in the dialog. */
 export function jatuhTempoBerikutnya(t: Pick<Tugas, 'jatuh_tempo' | 'ulang_jumlah' | 'ulang_satuan'>, hariIni = hariIniIso()): string {
+  if (!t.ulang_jumlah || !t.ulang_satuan) return t.jatuh_tempo
   let k = 1
   let d = tambahInterval(t.jatuh_tempo, t.ulang_jumlah, t.ulang_satuan)
   while (d <= hariIni && k < 5000) d = tambahInterval(t.jatuh_tempo, ++k * t.ulang_jumlah, t.ulang_satuan)
