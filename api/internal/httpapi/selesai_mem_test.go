@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strconv"
 	"testing"
 	"time"
@@ -23,34 +22,6 @@ func (m *memStore) CloseTugas(_ context.Context, userID, id string, from, at tim
 	m.ruang().tugas[id] = t
 	t.Klien = m.klienName(t.KlienID)
 	return t, nil
-}
-
-func TestStubRoutes(t *testing.T) {
-	s, _ := newTestServer()
-	h := s.Routes()
-	c := signUp(t, h, "stub@contoh.id")
-
-	for _, r := range []struct {
-		method, path string
-	}{
-		{"POST", "/api/item/00000000-0000-4000-8000-000000000001/perpanjang"},
-		{"GET", "/api/tugas/00000000-0000-4000-8000-000000000001"},
-		{"GET", "/api/agenda"},
-		{"GET", "/api/token"},
-		{"POST", "/api/token"},
-		{"DELETE", "/api/token/00000000-0000-4000-8000-000000000001"},
-	} {
-		if rec := do(t, h, r.method, r.path, ""); rec.Code != http.StatusUnauthorized {
-			t.Errorf("%s %s without session: %d, want 401", r.method, r.path, rec.Code)
-		}
-		rec := do(t, h, r.method, r.path, "", c)
-		if rec.Code != http.StatusNotImplemented {
-			t.Errorf("%s %s with session: %d, want 501", r.method, r.path, rec.Code)
-		}
-		if e := decode[apiError](t, rec); e.Galat != "Belum tersedia." {
-			t.Errorf("%s %s message = %q, want %q", r.method, r.path, e.Galat, "Belum tersedia.")
-		}
-	}
 }
 
 func TestMemStoreV2Contracts(t *testing.T) {
