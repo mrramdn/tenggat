@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { kunciTugas, labelUlang, tugasApi, useSegarkan, type Tugas } from '../../lib/api-tugas'
 import { frasaHari, tanggal, uang } from '../../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../../lib/kurs'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Icon } from '../Icon'
 import { Menu } from '../RowMenu'
@@ -36,9 +37,11 @@ function ringkasan(list: Tugas[]): string[] {
   return bagian
 }
 
-export function TugasKlien({ klienId }: { klienId: string }) {
+export function TugasKlien({ klienId, catatanSudahTampil = false }: { klienId: string; catatanSudahTampil?: boolean }) {
   const toast = useToast()
   const segarkan = useSegarkan()
+  const kurs = useKurs()
+  const catatan = catatanKurs(kurs)
   const q = useQuery({ queryKey: kunciTugas.klien(klienId), queryFn: () => tugasApi.daftar({ klienId }) })
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<{ tugas: Tugas; el: HTMLElement } | null>(null)
@@ -121,15 +124,25 @@ export function TugasKlien({ klienId }: { klienId: string }) {
             <span />
           </div>
           <div role="list" aria-label="Tugas klien">
-            {list.map((t) => (
-              <Baris
-                key={t.id}
-                t={t}
-                menuTerbuka={menu?.tugas.id === t.id}
-                onSelesai={() => setDialog({ jenis: 'selesai', tugas: t })}
-                bukaMenu={(el) => setMenu((m) => (m?.tugas.id === t.id ? null : { tugas: t, el }))}
-              />
-            ))}
+            {(() => {
+              let catatanDipakai = catatanSudahTampil
+              return list.map((t) => {
+                const kira = teksKiraRupiah(t.biaya, t.mata_uang, kurs)
+                const bawaCatatan = !catatanDipakai && kira != null
+                if (bawaCatatan) catatanDipakai = true
+                return (
+                  <Baris
+                    key={t.id}
+                    t={t}
+                    menuTerbuka={menu?.tugas.id === t.id}
+                    onSelesai={() => setDialog({ jenis: 'selesai', tugas: t })}
+                    bukaMenu={(el) => setMenu((m) => (m?.tugas.id === t.id ? null : { tugas: t, el }))}
+                    kira={kira}
+                    catatan={bawaCatatan ? catatan : undefined}
+                  />
+                )
+              })
+            })()}
           </div>
         </div>
         <Saran saran={saran} onPilih={tambah} />
@@ -220,7 +233,21 @@ export function TugasKlien({ klienId }: { klienId: string }) {
   )
 }
 
-function Baris({ t, menuTerbuka, onSelesai, bukaMenu }: { t: Tugas; menuTerbuka: boolean; onSelesai: () => void; bukaMenu: (el: HTMLElement) => void }) {
+function Baris({
+  t,
+  menuTerbuka,
+  onSelesai,
+  bukaMenu,
+  kira,
+  catatan,
+}: {
+  t: Tugas
+  menuTerbuka: boolean
+  onSelesai: () => void
+  bukaMenu: (el: HTMLElement) => void
+  kira: string | null
+  catatan?: string
+}) {
   const terakhir = t.terakhir_selesai ? tanggalWaktu(t.terakhir_selesai) : null
   return (
     <div className="tg-row" role="listitem" aria-label={`${t.judul}, ${frasaHari(t.sisa_hari).replace('Berakhir', 'Jatuh tempo')}`}>
@@ -234,7 +261,17 @@ function Baris({ t, menuTerbuka, onSelesai, bukaMenu }: { t: Tugas; menuTerbuka:
           <Icon name={t.sekali ? 'calendar' : 'repeat'} />
           <span>{t.sekali ? 'Sekali' : labelUlang(t.ulang_jumlah, t.ulang_satuan)}</span>
           <span className="tg-sub-tgl tg-dot num">{tanggal(t.jatuh_tempo)}</span>
-          {t.biaya != null ? <span className="tg-dot num">{uang(t.biaya, t.mata_uang)}</span> : null}
+          {t.biaya != null ? (
+            <span className="tg-dot num">
+              {uang(t.biaya, t.mata_uang)}
+              {kira ? (
+                <span className="kira num" title={catatan}>
+                  {' '}
+                  {kira}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </div>
         {t.catatan ? <div className="tg-note">{t.catatan}</div> : null}
         {t.sekali ? null : (

@@ -36,7 +36,7 @@ const fmtTanggal = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'sh
 const fmtTanggalPanjang = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const fmtHari = new Intl.DateTimeFormat('id-ID', { weekday: 'long' })
 const fmtRupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
-const fmtUsd = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtDesimal = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtRelatif = new Intl.RelativeTimeFormat('id-ID', { numeric: 'auto' })
 
 /** "13 Nov 2026" */
@@ -48,27 +48,48 @@ export const hari = (iso: string) => fmtHari.format(keTanggal(iso))
 /** "Rp 285.000" */
 export const rupiah = (n: number) => fmtRupiah.format(n)
 
-export const urutanMataUang: MataUang[] = ['IDR', 'USD']
+export const urutanMataUang: MataUang[] = ['IDR', 'USD', 'SGD']
 
-/** "Rp 189.000" or "US$20.50" */
+export const simbolMataUang: Record<MataUang, string> = {
+  IDR: 'Rp',
+  USD: 'US$',
+  SGD: 'S$',
+}
+
+export const labelMataUang: Record<MataUang, string> = {
+  IDR: 'Rupiah (IDR)',
+  USD: 'Dolar AS (USD)',
+  SGD: 'Dolar Singapura (SGD)',
+}
+
+/** Currencies that take up to 2 decimal places (cents). */
+export const mataUangDesimal = (mu?: MataUang | null): boolean => mu === 'USD' || mu === 'SGD'
+
+export function normalisasiMataUang(mu?: string | null): MataUang {
+  return mu === 'USD' || mu === 'SGD' ? mu : 'IDR'
+}
+
+/** "Rp 189.000", "US$20.50", or "S$20.50" */
 export function uang(n: number, mataUang: MataUang | null | undefined = 'IDR'): string {
-  if (mataUang === 'USD') return `US$${fmtUsd.format(n)}`
+  if (mataUang === 'USD') return `US$${fmtDesimal.format(n)}`
+  if (mataUang === 'SGD') return `S$${fmtDesimal.format(n)}`
   return `Rp ${fmtAngka.format(n)}`
 }
 
-/** Groups positive amounts by currency without mixing IDR and USD. Sums in minor units to avoid float drift. */
+/** Groups positive amounts by currency without mixing IDR, USD and SGD. Sums in minor units to avoid float drift. */
 export function kelompokBiaya(
   baris: readonly { biaya: number | null; mata_uang?: MataUang | null }[],
 ): BiayaPerMataUang {
-  const minor: Record<MataUang, number> = { IDR: 0, USD: 0 }
+  const minor: Record<MataUang, number> = { IDR: 0, USD: 0, SGD: 0 }
   for (const b of baris) {
     if (b.biaya == null || b.biaya <= 0) continue
-    const mu: MataUang = b.mata_uang === 'USD' ? 'USD' : 'IDR'
-    minor[mu] += mu === 'USD' ? Math.round(b.biaya * 100) : Math.round(b.biaya)
+    const mu = normalisasiMataUang(b.mata_uang)
+    minor[mu] += mataUangDesimal(mu) ? Math.round(b.biaya * 100) : Math.round(b.biaya)
   }
   const hasil: BiayaPerMataUang = {}
   if (minor.IDR > 0) hasil.IDR = minor.IDR
   if (minor.USD > 0) hasil.USD = minor.USD / 100
+  if (minor.SGD > 0) hasil.SGD = minor.SGD / 100
   return hasil
 }
 

@@ -508,3 +508,49 @@ func TestCheckConstraints(t *testing.T) {
 	}
 	cekJumlahTabel(t, s)
 }
+
+// TestMigrate008SGDAcceptsSGD verifies that migrating from 007_token_akses to
+// 008_sgd preserves existing IDR/USD rows and allows SGD in item, tugas, and aktivitas.
+func TestMigrate008SGDAcceptsSGD(t *testing.T) {
+	t.Parallel()
+	s := storeUji(t)
+	ctx := t.Context()
+	if err := s.migrateUpTo(ctx, "007_token_akses"); err != nil {
+		t.Fatalf("migrateUpTo(007_token_akses): %v", err)
+	}
+	isiDataRilis005(t, s)
+	exec(t, s, `INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, biaya, mata_uang)
+		VALUES ($1, 'Claude Pro', 'tagihan', '2027-01-01', 'manual', 2000, 'USD')`, fxRana)
+	exec(t, s, `INSERT INTO tugas (pengguna_id, judul, jatuh_tempo, biaya, mata_uang)
+		VALUES ($1, 'Audit USD', '2027-01-01', 5000, 'USD')`, fxRana)
+	exec(t, s, `INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, jumlah, mata_uang)
+		VALUES ($1, 'tagihan_dibayar', 'Bayar USD', '2026-11-19', 2000, 'USD')`, fxRana)
+
+	// Before 008_sgd, SGD is still rejected.
+	if _, err := s.pool.Exec(ctx, `INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, biaya, mata_uang)
+		VALUES ($1, 'SG VPS', 'tagihan', '2027-01-01', 'manual', 1500, 'SGD')`, fxRana); err == nil {
+		t.Fatal("SGD accepted before 008_sgd")
+	}
+
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate to 008_sgd: %v", err)
+	}
+
+	// After 008_sgd, SGD is accepted in all three tables while EUR remains rejected.
+	exec(t, s, `INSERT INTO item (pengguna_id, nama, jenis, kedaluwarsa, sumber, biaya, mata_uang)
+		VALUES ($1, 'SG VPS', 'tagihan', '2027-01-01', 'manual', 1500, 'SGD')`, fxRana)
+	exec(t, s, `INSERT INTO tugas (pengguna_id, judul, jatuh_tempo, biaya, mata_uang)
+		VALUES ($1, 'Audit SGD', '2027-01-01', 2500, 'SGD')`, fxRana)
+	exec(t, s, `INSERT INTO aktivitas (pengguna_id, jenis, teks, tanggal, jumlah, mata_uang)
+		VALUES ($1, 'tagihan_dibayar', 'Bayar SGD', '2026-11-19', 1500, 'SGD')`, fxRana)
+
+	if n := hitung(t, s, `SELECT count(*) FROM item WHERE mata_uang IN ('IDR','USD','SGD')`); n != fxJumlah["item"]+2 {
+		t.Errorf("item count after 008_sgd = %d, want %d", n, fxJumlah["item"]+2)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM tugas WHERE mata_uang = 'SGD'`); n != 1 {
+		t.Errorf("SGD tugas count = %d, want 1", n)
+	}
+	if n := hitung(t, s, `SELECT count(*) FROM aktivitas WHERE mata_uang = 'SGD'`); n != 1 {
+		t.Errorf("SGD aktivitas count = %d, want 1", n)
+	}
+}

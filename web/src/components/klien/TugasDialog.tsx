@@ -12,7 +12,17 @@ import {
   type Tugas,
   type TugasInput,
 } from '../../lib/api-tugas'
-import { angka, hariIniIso, tanggal } from '../../lib/format'
+import {
+  angka,
+  hariIniIso,
+  labelMataUang,
+  mataUangDesimal,
+  normalisasiMataUang,
+  simbolMataUang,
+  tanggal,
+  urutanMataUang,
+} from '../../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../../lib/kurs'
 import { useModal } from '../../hooks/useModal'
 import { Icon } from '../Icon'
 import { pesanGalat, useToast } from '../Toasts'
@@ -32,10 +42,11 @@ const pilihanJadwal: { v: boolean; label: string }[] = [
   { v: false, label: 'Berulang' },
 ]
 
-const pilihanUang: { v: MataUang; label: string; aria: string }[] = [
-  { v: 'IDR', label: 'Rp', aria: 'Rupiah (IDR)' },
-  { v: 'USD', label: 'US$', aria: 'Dolar AS (USD)' },
-]
+const pilihanUang: { v: MataUang; label: string; aria: string }[] = urutanMataUang.map((v) => ({
+  v,
+  label: simbolMataUang[v],
+  aria: labelMataUang[v],
+}))
 
 const MAKS_BIAYA = 1_000_000_000_000
 
@@ -104,7 +115,7 @@ const fokusGalat = () =>
 
 const hanyaAngka = (s: string, maks: number) => s.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, maks)
 
-/** Keeps plain digits with an optional decimal point and at most 2 fractional digits (for USD). */
+/** Keeps plain digits with an optional decimal point and at most 2 fractional digits (for USD/SGD). */
 function hanyaDesimal(s: string): string {
   const bersih = s.replace(',', '.').replace(/[^0-9.]/g, '')
   const titik = bersih.indexOf('.')
@@ -132,9 +143,10 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
   const id = (s: string) => `${uid}-${s}`
   const segarkan = useSegarkan()
   const efektifKlienId = tugas ? (tugas.klien_id ?? undefined) : klienId
+  const kurs = useKurs()
   const awalSatuan = tugas?.ulang_satuan ?? contoh?.ulang_satuan ?? 'bulan'
   const awalJumlah = tugas?.ulang_jumlah ?? contoh?.ulang_jumlah ?? 1
-  const awalUang: MataUang = tugas?.mata_uang === 'USD' ? 'USD' : 'IDR'
+  const awalUang: MataUang = normalisasiMataUang(tugas?.mata_uang)
 
   const [judul, setJudul] = useState(tugas?.judul ?? contoh?.judul ?? '')
   const [sekali, setSekali] = useState(tugas ? tugas.sekali : awalSekali)
@@ -145,7 +157,7 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
   )
   const [mataUang, setMataUang] = useState<MataUang>(awalUang)
   const [biaya, setBiaya] = useState(
-    tugas?.biaya != null ? (awalUang === 'USD' ? String(tugas.biaya) : String(Math.round(tugas.biaya))) : '',
+    tugas?.biaya != null ? (mataUangDesimal(awalUang) ? String(tugas.biaya) : String(Math.round(tugas.biaya))) : '',
   )
   const [catatan, setCatatan] = useState(tugas?.catatan ?? '')
   const [galat, setGalat] = useState<Record<string, string>>({})
@@ -189,13 +201,13 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
     if (!jatuhTempo) g.jatuh_tempo = 'Pilih tanggal jatuh tempo.'
     let nilaiBiaya: number | null = null
     if (biaya !== '') {
-      const valid = mataUang === 'USD' ? /^\d+(\.\d{1,2})?$/.test(biaya) : /^\d+$/.test(biaya)
+      const desimal = mataUangDesimal(mataUang)
+      const valid = desimal ? /^\d+(\.\d{1,2})?$/.test(biaya) : /^\d+$/.test(biaya)
       const angkaBiaya = Number(biaya)
       if (!valid || !Number.isFinite(angkaBiaya) || angkaBiaya < 0 || angkaBiaya > MAKS_BIAYA) {
-        g.biaya =
-          mataUang === 'USD'
-            ? 'Isi angka 0 atau lebih, paling banyak 2 desimal.'
-            : 'Isi angka 0 atau lebih tanpa desimal.'
+        g.biaya = desimal
+          ? 'Isi angka 0 atau lebih, paling banyak 2 desimal.'
+          : 'Isi angka 0 atau lebih tanpa desimal.'
       } else {
         nilaiBiaya = angkaBiaya
       }
@@ -237,6 +249,9 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
       : 'Tambah tenggat'
 
   const ulangValid = !sekali && n >= 1 && n <= 365
+  const desimal = mataUangDesimal(mataUang)
+  const biayaAngka = desimal && /^\d+(\.\d{1,2})?$/.test(biaya) ? Number(biaya) : null
+  const kiraBiaya = teksKiraRupiah(biayaAngka, mataUang, kurs)
 
   const kolomTanggal = (
     <div className="field">
@@ -386,7 +401,7 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
         </label>
         <div className="tg-biaya">
           <div className="seg" role="radiogroup" aria-label="Mata uang">
-            {pilihanUang.map((u) => (
+            {pilihanUang.map((u, idx) => (
               <button
                 key={u.v}
                 type="button"
@@ -400,9 +415,10 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
                 onKeyDown={(e) => {
                   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
                   e.preventDefault()
-                  const lain: MataUang = u.v === 'IDR' ? 'USD' : 'IDR'
-                  gantiMataUang(lain)
-                  const sib = e.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-uang="${lain}"]`)
+                  const langkah = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
+                  const berikut = pilihanUang[(idx + langkah + pilihanUang.length) % pilihanUang.length].v
+                  gantiMataUang(berikut)
+                  const sib = e.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-uang="${berikut}"]`)
                   sib?.focus()
                 }}
               >
@@ -413,14 +429,14 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
           <input
             id={id('biaya')}
             className="control num"
-            inputMode={mataUang === 'USD' ? 'decimal' : 'numeric'}
-            placeholder={mataUang === 'USD' ? '0.00' : '0'}
+            inputMode={desimal ? 'decimal' : 'numeric'}
+            placeholder={desimal ? '0.00' : '0'}
             autoComplete="off"
             value={mataUang === 'IDR' ? (biaya ? angka(Number(biaya)) : '') : biaya}
             aria-invalid={!!galat.biaya}
             aria-describedby={galat.biaya ? id('biaya-e') : id('biaya-h')}
             onChange={(e) => {
-              setBiaya(mataUang === 'USD' ? hanyaDesimal(e.target.value) : hanyaAngka(e.target.value, 13))
+              setBiaya(desimal ? hanyaDesimal(e.target.value) : hanyaAngka(e.target.value, 13))
               hapusGalat('biaya')
             }}
           />
@@ -429,9 +445,15 @@ export function TugasDialog({ klienId, tugas, contoh, awalSekali = false, onClos
           <FieldError id={id('biaya-e')} pesan={galat.biaya} />
         ) : (
           <div className="field__hint" id={id('biaya-h')}>
-            {sekali
-              ? 'Biaya untuk tenggat ini, jika ada.'
-              : 'Biaya tiap kali tugas ini dikerjakan, misalnya tagihan perpanjangan.'}
+            {kiraBiaya ? (
+              <span className="num" title={catatanKurs(kurs)}>
+                {kiraBiaya}
+              </span>
+            ) : sekali ? (
+              'Biaya untuk tenggat ini, jika ada.'
+            ) : (
+              'Biaya tiap kali tugas ini dikerjakan, misalnya tagihan perpanjangan.'
+            )}
           </div>
         )}
       </div>

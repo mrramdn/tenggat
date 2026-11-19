@@ -13,6 +13,7 @@ import {
   type JenisAktivitas,
 } from '../../lib/api-tugas'
 import { hariIniIso, keTanggal, tanggalPanjang, uang } from '../../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../../lib/kurs'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Icon } from '../Icon'
 import { pesanGalat, useToast } from '../Toasts'
@@ -64,9 +65,11 @@ function waktu(a: Aktivitas): string {
   return `dicatat ${fmtTglPendek.format(d)}`
 }
 
-export function AktivitasKlien({ klienId }: { klienId: string }) {
+export function AktivitasKlien({ klienId, catatanSudahTampil = false }: { klienId: string; catatanSudahTampil?: boolean }) {
   const toast = useToast()
   const segarkan = useSegarkan()
+  const kurs = useKurs()
+  const catatan = catatanKurs(kurs)
   const [hapus, setHapus] = useState<Aktivitas | null>(null)
 
   const q = useInfiniteQuery({
@@ -137,6 +140,7 @@ export function AktivitasKlien({ klienId }: { klienId: string }) {
       </div>
     )
   } else {
+    let catatanDipakai = catatanSudahTampil
     isi = (
       <div className="ak-feed">
         {kelompok.map((g) => (
@@ -146,9 +150,20 @@ export function AktivitasKlien({ klienId }: { klienId: string }) {
               {g.menit > 0 ? <span className="ak-day__sum num">{durasi(g.menit)} kerja</span> : null}
             </h3>
             <ol className="ak-list">
-              {g.isi.map((a) => (
-                <Entri key={a.id} a={a} onHapus={() => setHapus(a)} />
-              ))}
+              {g.isi.map((a) => {
+                const kira = teksKiraRupiah(a.jumlah, a.mata_uang, kurs)
+                const bawaCatatan = !catatanDipakai && kira != null
+                if (bawaCatatan) catatanDipakai = true
+                return (
+                  <Entri
+                    key={a.id}
+                    a={a}
+                    onHapus={() => setHapus(a)}
+                    kira={kira}
+                    catatanKurs={bawaCatatan ? catatan : undefined}
+                  />
+                )
+              })}
             </ol>
           </section>
         ))}
@@ -203,7 +218,17 @@ export function AktivitasKlien({ klienId }: { klienId: string }) {
   )
 }
 
-function Entri({ a, onHapus }: { a: Aktivitas; onHapus: () => void }) {
+function Entri({
+  a,
+  onHapus,
+  kira,
+  catatanKurs: noteKurs,
+}: {
+  a: Aktivitas
+  onHapus: () => void
+  kira: string | null
+  catatanKurs?: string
+}) {
   const bisaHapus = a.jenis === 'catatan' || a.jenis === 'pekerjaan'
   // A finished task keeps the note written in "Tandai selesai" in data.catatan.
   const catatan = typeof a.data?.catatan === 'string' && a.data.catatan !== '' ? a.data.catatan : null
@@ -218,7 +243,17 @@ function Entri({ a, onHapus }: { a: Aktivitas; onHapus: () => void }) {
         <p className="ak-item__meta num">
           <span className={a.jenis === 'catatan' ? 'ak-tag is-internal' : 'ak-tag'}>{labelJenis[a.jenis]}</span>
           <span>{waktu(a)}</span>
-          {a.jumlah != null ? <span className="ak-item__jumlah">{uang(a.jumlah, a.mata_uang)}</span> : null}
+          {a.jumlah != null ? (
+            <span className="ak-item__jumlah">
+              {uang(a.jumlah, a.mata_uang)}
+              {kira ? (
+                <span className="kira num" title={noteKurs}>
+                  {' '}
+                  {kira}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
           {a.durasi_menit ? (
             <span className="ak-item__dur">
               <Ikon name="clock" />

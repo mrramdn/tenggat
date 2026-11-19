@@ -1,11 +1,24 @@
 // Phone asset list: rows grouped by urgency. Tapping a row opens it for editing; the primary action sits on the row.
 import type { Item, Status } from '../lib/api'
 import { labelJenisPendek, labelUlangItem, lalu, tanggalPendek, uang } from '../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../lib/kurs'
 import { Icon, ikonJenis } from './Icon'
 import type { Aksi } from './types'
 import { Days, Pill } from './ui'
 
-function PhoneRow({ it, aksi, tampilKlien }: { it: Item; aksi: Aksi; tampilKlien: boolean }) {
+function PhoneRow({
+  it,
+  aksi,
+  tampilKlien,
+  kira,
+  catatan,
+}: {
+  it: Item
+  aksi: Aksi
+  tampilKlien: boolean
+  kira: string | null
+  catatan?: string
+}) {
   const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
   const tagihan = it.jenis === 'tagihan'
   const cek = aksi.sedangCek.has(it.id)
@@ -20,7 +33,18 @@ function PhoneRow({ it, aksi, tampilKlien }: { it: Item; aksi: Aksi; tampilKlien
           <Icon name={ikonJenis[it.jenis]} />
           <span>
             {labelJenisPendek[it.jenis]}
-            {it.biaya ? ` · ${uang(it.biaya, it.mata_uang)}` : ''}
+            {it.biaya ? (
+              <>
+                {' · '}
+                <span className="num">{uang(it.biaya, it.mata_uang)}</span>
+                {kira ? (
+                  <span className="kira num" title={catatan}>
+                    {' '}
+                    {kira}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
             {it.ulang_jumlah && it.ulang_satuan ? ` · ${labelUlangItem(it.ulang_jumlah, it.ulang_satuan)}` : ''}
             {tampilKlien && it.klien ? ` · ${it.klien}` : ''}
           </span>
@@ -71,7 +95,20 @@ const GRUP: { judul: string; status: Status[] }[] = [
   { judul: 'Aman', status: ['aman'] },
 ]
 
-export function DaftarAsetPhone({ rows, aksi, tampilKlien = true }: { rows: Item[]; aksi: Aksi; tampilKlien?: boolean }) {
+export function DaftarAsetPhone({
+  rows,
+  aksi,
+  tampilKlien = true,
+  catatanSudahTampil = false,
+}: {
+  rows: Item[]
+  aksi: Aksi
+  tampilKlien?: boolean
+  catatanSudahTampil?: boolean
+}) {
+  const kurs = useKurs()
+  const catatan = catatanKurs(kurs)
+  let catatanDipakai = catatanSudahTampil
   return (
     <>
       {GRUP.map((g) => {
@@ -83,9 +120,21 @@ export function DaftarAsetPhone({ rows, aksi, tampilKlien = true }: { rows: Item
               <span>{g.judul}</span>
               <span className="num">{isi.length}</span>
             </div>
-            {isi.map((it) => (
-              <PhoneRow key={it.id} it={it} aksi={aksi} tampilKlien={tampilKlien} />
-            ))}
+            {isi.map((it) => {
+              const kira = teksKiraRupiah(it.biaya, it.mata_uang, kurs)
+              const bawaCatatan = !catatanDipakai && kira != null
+              if (bawaCatatan) catatanDipakai = true
+              return (
+                <PhoneRow
+                  key={it.id}
+                  it={it}
+                  aksi={aksi}
+                  tampilKlien={tampilKlien}
+                  kira={kira}
+                  catatan={bawaCatatan ? catatan : undefined}
+                />
+              )
+            })}
           </section>
         )
       })}

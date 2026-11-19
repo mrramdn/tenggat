@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import type { Item, Jenis, Klien, Sumber } from '../lib/api'
 import { adaSaring, saringAwal, saringItem, tanpaSaring, type Saring } from '../lib/derive'
 import { frasaHari, labelJenis, labelUlangItem, lalu, tanggal, uang } from '../lib/format'
+import { catatanKurs, teksKiraRupiah, useKurs } from '../lib/kurs'
 import { tautanPengingat } from '../lib/pengingat'
 import { Icon, ikonJenis } from './Icon'
 import { Pilihan } from './Pilihan'
@@ -59,11 +60,26 @@ export function subJenis(it: Item): string {
   return [labelJenis[it.jenis], it.biaya ? uang(it.biaya, it.mata_uang) : null, asal].filter(Boolean).join(' · ')
 }
 
-function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTerbuka: boolean; bukaMenu: (el: HTMLElement) => void }) {
+function Row({
+  it,
+  aksi,
+  menuTerbuka,
+  bukaMenu,
+  kira,
+  catatan,
+}: {
+  it: Item
+  aksi: Aksi
+  menuTerbuka: boolean
+  bukaMenu: (el: HTMLElement) => void
+  kira: string | null
+  catatan?: string
+}) {
   // Certificates and registry domains are read again on request; bills are marked paid and manual assets are renewed.
   const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
   const tagihan = it.jenis === 'tagihan'
   const cek = aksi.sedangCek.has(it.id)
+  const asal = it.jenis === 'sertifikat' ? it.tls?.penerbit : it.sumber === 'registri' ? it.registri?.registrar : null
   return (
     <div className="row" role="listitem" aria-label={`${it.nama}, ${frasaHari(it.sisa_hari)}`}>
       <div className="sisa">
@@ -77,7 +93,20 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
         <div className="asset__sub">
           <Icon name={ikonJenis[it.jenis]} />
           <span>
-            {subJenis(it)}
+            {labelJenis[it.jenis]}
+            {it.biaya ? (
+              <>
+                {' · '}
+                <span className="num">{uang(it.biaya, it.mata_uang)}</span>
+                {kira ? (
+                  <span className="kira num" title={catatan}>
+                    {' '}
+                    {kira}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
+            {asal ? ` · ${asal}` : null}
             {it.klien ? <span className="sub-klien"> · {it.klien}</span> : null}
             <span className="sub-tgl"> · {tanggal(it.kedaluwarsa)}</span>
           </span>
@@ -139,12 +168,17 @@ interface Props {
   aksi: Aksi
   /** Inside a client's space: no client dropdown and no client column. */
   satuKlien?: boolean
+  /** True when an estimate earlier on this screen already carries the reference-rate note. */
+  catatanSudahTampil?: boolean
 }
 
-export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = false }: Props) {
+export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = false, catatanSudahTampil = false }: Props) {
+  const kurs = useKurs()
+  const catatan = catatanKurs(kurs)
   // In a client's space the client filter of the overview does not apply.
   const s: Saring = satuKlien ? { ...saring, klien: null } : saring
   const rows = saringItem(items, s)
+  let catatanDipakai = catatanSudahTampil
   const perJenis = tanpaSaring(items, s, 'jenis')
   const perKlien = tanpaSaring(items, s, 'klien')
   const perSumber = tanpaSaring(items, s, 'sumber')
@@ -236,15 +270,22 @@ export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = 
           <span />
         </div>
         <div role="list">
-          {rows.map((it) => (
-            <Row
-              key={it.id}
-              it={it}
-              aksi={aksi}
-              menuTerbuka={menu?.it.id === it.id}
-              bukaMenu={(el) => setMenu((m) => (m?.it.id === it.id ? null : { it, el }))}
-            />
-          ))}
+          {rows.map((it) => {
+            const kira = teksKiraRupiah(it.biaya, it.mata_uang, kurs)
+            const bawaCatatan = !catatanDipakai && kira != null
+            if (bawaCatatan) catatanDipakai = true
+            return (
+              <Row
+                key={it.id}
+                it={it}
+                aksi={aksi}
+                menuTerbuka={menu?.it.id === it.id}
+                bukaMenu={(el) => setMenu((m) => (m?.it.id === it.id ? null : { it, el }))}
+                kira={kira}
+                catatan={bawaCatatan ? catatan : undefined}
+              />
+            )
+          })}
         </div>
         {rows.length === 0 ? (
           <div className="rows__empty">

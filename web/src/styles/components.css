@@ -18,6 +18,9 @@ button { background: none; border: 0; }
 a { color: inherit; }
 svg.i { width: var(--icon); height: var(--icon); flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.kira { color: var(--muted); font-weight: var(--fw-regular); }
+.asset__sub .kira, .lede .kira, .rk__fakta .kira, .dialog__text .kira { color: var(--quiet); }
+.kurs-note { margin-top: var(--s-1); font-size: var(--fs-12); color: var(--quiet); line-height: var(--lh-16); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 

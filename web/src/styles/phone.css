@@ -68,6 +68,7 @@
   .menu__item { height: var(--control-lg); font-size: var(--fs-16); }
   textarea.control.as-textarea { font-size: var(--fs-16); }
   .as-ulang { grid-template-columns: auto 72px minmax(0, 1fr); }
+  .biaya-row__mu .seg__item { min-width: var(--control-lg); justify-content: center; padding: 0 var(--s-3); }
   .input-affix.is-usd > .control { padding-left: calc(var(--s-7) + var(--s-3)); }
   .perpanjang-opsi { min-height: var(--control-lg); padding: var(--s-3); font-size: var(--fs-16); line-height: var(--lh-24); }
   .perpanjang-opsi input[type="radio"] { margin-top: var(--s-1); }
@@ -80,6 +81,12 @@
   .sheet .field-row > .btn { width: 100%; }
   /* six kinds fit in two balanced rows on narrow screens, keeping every button 44px high */
   .seg.seg--jenis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  /* three currency buttons and the amount input stack on narrow phones so neither cramps */
+  .biaya-row { flex-direction: column; }
+  .biaya-row__mu { display: flex; width: 100%; }
+  .biaya-row__mu .seg__item { flex: 1 1 auto; min-width: 0; }
 }
 @media (max-width: 400px) {
   .field-grid { grid-template-columns: minmax(0, 1fr); }

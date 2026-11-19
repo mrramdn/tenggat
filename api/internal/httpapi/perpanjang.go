@@ -112,7 +112,7 @@ func (s *Server) perpanjangItem(w http.ResponseWriter, r *http.Request, u store.
 			mu = "IDR"
 		}
 	} else if !uang.Valid(mu) {
-		fields["mata_uang"] = "Pilih IDR atau USD."
+		fields["mata_uang"] = "Pilih IDR, USD, atau SGD."
 	}
 	jumlah := old.Biaya
 	if req.Jumlah != nil {
@@ -122,7 +122,7 @@ func (s *Server) perpanjangItem(w http.ResponseWriter, r *http.Request, u store.
 		}
 		minor, err := uang.Parse(*req.Jumlah, parseMu)
 		if err != nil {
-			fields["jumlah"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
+			fields["jumlah"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal."
 		} else {
 			jumlah = &minor
 		}

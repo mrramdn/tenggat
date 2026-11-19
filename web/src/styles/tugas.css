@@ -198,6 +198,7 @@ a.pd__row:hover .pd__go { color: var(--ink); }
   .tg-contoh__item { height: var(--control-lg); padding: 0 var(--s-3); font-size: var(--fs-14); }
   textarea.control.tg-textarea { font-size: var(--fs-16); }
   .tg-ulang { grid-template-columns: auto 72px minmax(0, 1fr); }
+  .tg-biaya .seg__item { min-width: var(--control-lg); justify-content: center; padding: 0 var(--s-3); }
   .tg-dialog { padding: var(--s-4); }
 
   .ak { max-width: none; }
@@ -228,5 +229,10 @@ a.pd__row:hover .pd__go { color: var(--ink); }
   .pd__head { flex-direction: row; align-items: center; }
   .pd__add { width: auto; }
   .pd__row.is-pribadi > .pd__acts > .btn:first-child { flex: none; min-width: 140px; }
+}
+@media (max-width: 480px) {
+  .tg-biaya { grid-template-columns: minmax(0, 1fr); }
+  .tg-biaya .seg { display: flex; width: 100%; }
+  .tg-biaya .seg__item { flex: 1 1 auto; min-width: 0; }
 }
 .tg-belum { color: var(--muted); }

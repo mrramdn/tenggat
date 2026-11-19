@@ -150,8 +150,8 @@ func TestTugasSekaliValidation(t *testing.T) {
 
 	const (
 		errSekali   = "Tugas sekali jalan tidak berulang."
-		errBiaya    = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
-		errMataUang = "Pilih IDR atau USD."
+		errBiaya    = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal."
+		errMataUang = "Pilih IDR, USD, atau SGD."
 	)
 	for _, tc := range []struct {
 		body, field, msg string

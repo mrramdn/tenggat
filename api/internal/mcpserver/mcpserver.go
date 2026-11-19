@@ -25,7 +25,7 @@ const (
 	maxBodyBytes = 64 << 10
 
 	instructions = "Dates are YYYY-MM-DD in Asia/Jakarta. \"pribadi\" means personal (no client). " +
-		"Money is in major units with mata_uang \"IDR\" or \"USD\". " +
+		"Money is in major units with mata_uang \"IDR\", \"USD\", or \"SGD\". " +
 		"Call agenda first to get an id and the current date to pass as dari."
 )
 
@@ -307,8 +307,8 @@ type tambahItemInput struct {
 	KlienID     string   `json:"klien_id,omitempty" jsonschema:"Existing client UUID (overrides klien when set)."`
 	Host        string   `json:"host,omitempty" jsonschema:"Domain or host name (required for \"sertifikat\", forbidden for \"tagihan\")."`
 	Kedaluwarsa string   `json:"kedaluwarsa,omitempty" jsonschema:"Expiry or due date as YYYY-MM-DD (omit to read automatically for \"sertifikat\" or RDAP \"domain\")."`
-	Biaya       *float64 `json:"biaya,omitempty" jsonschema:"Cost in major currency units (integer for \"IDR\", up to 2 decimals for \"USD\")."`
-	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" (default) or \"USD\"."`
+	Biaya       *float64 `json:"biaya,omitempty" jsonschema:"Cost in major currency units (integer for \"IDR\", up to 2 decimals for \"USD\" and \"SGD\")."`
+	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" (default), \"USD\", or \"SGD\"."`
 	UlangJumlah *int     `json:"ulang_jumlah,omitempty" jsonschema:"Recurrence interval count (1..365) for manual items and bills."`
 	UlangSatuan string   `json:"ulang_satuan,omitempty" jsonschema:"Recurrence unit: \"hari\", \"minggu\", \"bulan\", or \"tahun\"."`
 	Catatan     string   `json:"catatan,omitempty" jsonschema:"Optional notes (up to 500 characters)."`
@@ -323,7 +323,7 @@ type tambahTugasInput struct {
 	UlangJumlah *int     `json:"ulang_jumlah,omitempty" jsonschema:"Recurrence interval count (1..365, default 1 when recurring)."`
 	UlangSatuan string   `json:"ulang_satuan,omitempty" jsonschema:"Recurrence unit: \"hari\", \"minggu\", \"bulan\" (default), or \"tahun\"."`
 	Biaya       *float64 `json:"biaya,omitempty" jsonschema:"Optional fee in major currency units."`
-	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" (default) or \"USD\"."`
+	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" (default), \"USD\", or \"SGD\"."`
 	Catatan     string   `json:"catatan,omitempty" jsonschema:"Optional notes (up to 500 characters)."`
 }
 
@@ -336,7 +336,7 @@ type ubahItemInput struct {
 	Host        *string  `json:"host,omitempty" jsonschema:"Domain or host name."`
 	Kedaluwarsa *string  `json:"kedaluwarsa,omitempty" jsonschema:"New expiry or due date as YYYY-MM-DD (for manual items and bills)."`
 	Biaya       *float64 `json:"biaya,omitempty" jsonschema:"New cost in major currency units."`
-	MataUang    *string  `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" or \"USD\"."`
+	MataUang    *string  `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\", \"USD\", or \"SGD\"."`
 	UlangJumlah *int     `json:"ulang_jumlah,omitempty" jsonschema:"Recurrence interval count (1..365)."`
 	UlangSatuan *string  `json:"ulang_satuan,omitempty" jsonschema:"Recurrence unit: \"hari\", \"minggu\", \"bulan\", \"tahun\", or \"\" to stop recurrence."`
 	Catatan     *string  `json:"catatan,omitempty" jsonschema:"Notes (set to \"\" to clear)."`
@@ -352,7 +352,7 @@ type ubahTugasInput struct {
 	UlangJumlah *int     `json:"ulang_jumlah,omitempty" jsonschema:"Recurrence interval count (1..365)."`
 	UlangSatuan *string  `json:"ulang_satuan,omitempty" jsonschema:"Recurrence unit: \"hari\", \"minggu\", \"bulan\", or \"tahun\"."`
 	Biaya       *float64 `json:"biaya,omitempty" jsonschema:"Fee in major currency units."`
-	MataUang    *string  `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\" or \"USD\"."`
+	MataUang    *string  `json:"mata_uang,omitempty" jsonschema:"Currency code: \"IDR\", \"USD\", or \"SGD\"."`
 	Catatan     *string  `json:"catatan,omitempty" jsonschema:"Notes (set to \"\" to clear)."`
 }
 
@@ -363,7 +363,7 @@ type selesaikanInput struct {
 	Sampai      string   `json:"sampai,omitempty" jsonschema:"New expiry date as YYYY-MM-DD (required for non-recurring manual non-bill items)."`
 	SampaiKini  bool     `json:"sampai_kini,omitempty" jsonschema:"For a recurring \"item\" that is more than one period overdue: true means the user is paid up, so the date moves to the first period after today instead of one period on. Ask or infer from what the user said; default false."`
 	Jumlah      *float64 `json:"jumlah,omitempty" jsonschema:"Amount paid in major currency units (for \"item\")."`
-	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code for jumlah: \"IDR\" or \"USD\"."`
+	MataUang    string   `json:"mata_uang,omitempty" jsonschema:"Currency code for jumlah: \"IDR\", \"USD\", or \"SGD\"."`
 	DurasiMenit *int     `json:"durasi_menit,omitempty" jsonschema:"Work duration in minutes (1..1440, for \"tugas\")."`
 	Tanggal     string   `json:"tanggal,omitempty" jsonschema:"Date the payment or work happened as YYYY-MM-DD (defaults to today)."`
 	Catatan     string   `json:"catatan,omitempty" jsonschema:"Optional note about the payment, renewal, or completed task."`
@@ -392,7 +392,7 @@ func (e *env) registerReadTools(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "daftar_klien",
-		Description: "List clients with asset counts, nearest due date, and 30-day costs per currency (\"IDR\", \"USD\").",
+		Description: "List clients with asset counts, nearest due date, and 30-day costs per currency (\"IDR\", \"USD\", \"SGD\").",
 		Annotations: toolAnnotations(true, false, false, false),
 	}, e.daftarKlien)
 
@@ -407,7 +407,7 @@ func (e *env) registerWriteTools(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "tambah_item",
 		Description: "Add an asset or bill of jenis \"sertifikat\", \"domain\", \"token\", \"langganan\", \"tagihan\", or \"lainnya\". " +
-			"Money is in major units with mata_uang \"IDR\" or \"USD\"; recurrence uses ulang_satuan \"hari\", \"minggu\", \"bulan\", or \"tahun\".",
+			"Money is in major units with mata_uang \"IDR\", \"USD\", or \"SGD\"; recurrence uses ulang_satuan \"hari\", \"minggu\", \"bulan\", or \"tahun\".",
 		Annotations: toolAnnotations(false, false, false, true),
 	}, e.tambahItem)
 

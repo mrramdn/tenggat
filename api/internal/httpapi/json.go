@@ -129,13 +129,13 @@ func (s *Server) prepare(ctx context.Context, req itemRequest, old *store.Item) 
 	}
 	parseMu := in.MataUang
 	if !uang.Valid(in.MataUang) {
-		fields["mata_uang"] = "Pilih IDR atau USD."
+		fields["mata_uang"] = "Pilih IDR, USD, atau SGD."
 		parseMu = "IDR"
 	}
 	if req.Biaya != nil {
 		minor, err := uang.Parse(*req.Biaya, parseMu)
 		if err != nil {
-			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD paling banyak 2 desimal."
+			fields["biaya"] = "Biaya harus angka 0 atau lebih; rupiah tanpa desimal, USD dan SGD paling banyak 2 desimal."
 		} else {
 			in.Biaya = &minor
 		}

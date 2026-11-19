@@ -17,6 +17,7 @@ import (
 
 	"github.com/mrramdn/tenggat/api/internal/cache"
 	"github.com/mrramdn/tenggat/api/internal/httpapi"
+	"github.com/mrramdn/tenggat/api/internal/kurs"
 	"github.com/mrramdn/tenggat/api/internal/rdap"
 	"github.com/mrramdn/tenggat/api/internal/store"
 	"github.com/mrramdn/tenggat/api/internal/tlscheck"
@@ -71,6 +72,10 @@ func run(log *slog.Logger) error {
 	api.AppURL = strings.TrimRight(os.Getenv("APP_URL"), "/")
 	api.MCP = getenv("MCP_AKTIF", "true") == "true"
 	api.MCPResourceMetadataURL = strings.TrimSpace(os.Getenv("MCP_RESOURCE_METADATA_URL"))
+	if getenv("KURS_AKTIF", "true") != "false" {
+		api.Kurs = kurs.New()
+	}
+	api.PanaskanKurs()
 	go api.RunRechecks(ctx, interval)
 	go api.RunDigests(ctx, 5*time.Minute)
 
