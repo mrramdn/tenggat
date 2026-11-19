@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       // its same-origin check would refuse sign-in otherwise.
       proxy: {
         '/api': { target, changeOrigin: false },
+        '/mcp': { target, changeOrigin: false },
         '/health': { target, changeOrigin: false },
       },
     },
