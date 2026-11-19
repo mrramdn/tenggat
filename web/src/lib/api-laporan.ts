@@ -1,6 +1,6 @@
 // Monthly client reports (owner side and the public read-only link) and the owner's notification webhook.
 import { request } from './api'
-import type { Jenis, Status, Sumber } from './api'
+import type { BiayaPerMataUang, Jenis, MataUang, Status, Sumber } from './api'
 
 export interface BarisPekerjaan {
   tanggal: string // YYYY-MM-DD
@@ -24,6 +24,7 @@ export interface AsetLaporan {
   status: Status
   sumber: Sumber
   biaya: number | null
+  mata_uang?: MataUang
 }
 
 export interface JatuhTempo {
@@ -34,6 +35,7 @@ export interface JatuhTempo {
   sisa_hari: number
   status: Status
   biaya: number | null
+  mata_uang?: MataUang
 }
 
 export interface Laporan {
@@ -58,6 +60,7 @@ export interface Laporan {
     pekerjaan: number
     menit: number
     biaya_30_hari: number
+    biaya_30_hari_per_mata_uang?: BiayaPerMataUang
   }
   pekerjaan: BarisPekerjaan[]
   perpanjangan: BarisPerpanjangan[]

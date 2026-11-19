@@ -66,6 +66,9 @@
   .toasts { left: var(--s-4); right: var(--s-4); bottom: calc(var(--tabbar-h) + var(--s-3) + env(safe-area-inset-bottom)); align-items: stretch; }
   .toast { max-width: none; }
   .menu__item { height: var(--control-lg); font-size: var(--fs-16); }
+  textarea.control.as-textarea { font-size: var(--fs-16); }
+  .as-ulang { grid-template-columns: auto 72px minmax(0, 1fr); }
+  .input-affix.is-usd > .control { padding-left: calc(var(--s-7) + var(--s-3)); }
 }
 @media (max-width: 640px) {
   .sheet { inset: 0; width: auto; max-width: none; border-radius: 0; }
@@ -73,6 +76,8 @@
   /* the host field and its fetch button stack, so the field keeps the full width */
   .sheet .field-row { flex-direction: column; }
   .sheet .field-row > .btn { width: 100%; }
+  /* six kinds fit in two balanced rows on narrow screens, keeping every button 44px high */
+  .seg.seg--jenis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 400px) {
   .field-grid { grid-template-columns: minmax(0, 1fr); }

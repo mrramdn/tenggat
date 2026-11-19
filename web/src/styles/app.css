@@ -76,7 +76,7 @@
 .tl__svg .today-label { fill: var(--accent); font-weight: var(--fw-medium); }
 
 /* ---------- list ---------- */
-.list { display: flex; flex-direction: column; }
+.list { display: flex; flex-direction: column; --row-action-w: 136px; --col-actions: 176px; }
 .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-3); padding-bottom: var(--s-4); }
 /* Selects and the count move as one group; on wide screens they give up width
    (down to 136px) instead of wrapping. */
@@ -149,6 +149,20 @@
 .field-row { display: flex; gap: var(--s-2); }
 .field-row > .control, .field-row > .input-icon { flex: 1; min-width: 0; }
 .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-4); }
+.biaya-row { display: flex; gap: var(--s-2); align-items: stretch; }
+.biaya-row > .input-affix { flex: 1; min-width: 0; }
+.biaya-row__mu { flex: none; }
+.biaya-row__mu .seg__item { padding: 0 var(--s-3); }
+.input-affix.is-usd > .control { padding-left: calc(var(--s-7) + var(--s-2)); }
+.as-ulang { display: grid; grid-template-columns: auto 64px minmax(0, 1fr); align-items: center; gap: var(--s-2); }
+.as-ulang__tiap { font-size: var(--fs-14); color: var(--ink-2); }
+.as-ulang .control { min-width: 0; }
+textarea.control.as-textarea {
+  height: auto; min-height: calc(var(--lh-20) * 2 + var(--s-2) * 2 + var(--bw) * 2);
+  padding: var(--s-2) var(--s-3); resize: vertical; font: inherit; font-size: var(--fs-14); line-height: var(--lh-20);
+}
+.perpanjang-dialog form { display: flex; flex-direction: column; gap: var(--s-3); }
+.perpanjang-dialog .dialog__foot { margin-top: var(--s-2); }
 
 .result { border: var(--bw) solid var(--line); border-radius: var(--r-card); background: var(--surface-2); overflow: hidden; }
 .result__head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-4); font-size: var(--fs-13); color: var(--ink-2); border-bottom: var(--bw) solid var(--line); }

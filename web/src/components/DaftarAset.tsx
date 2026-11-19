@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react'
 import type { Item, Jenis, Klien, Sumber } from '../lib/api'
 import { adaSaring, saringAwal, saringItem, tanpaSaring, type Saring } from '../lib/derive'
-import { frasaHari, labelJenis, lalu, rupiahBiasa, tanggal } from '../lib/format'
+import { frasaHari, labelJenis, labelUlangItem, lalu, tanggal, uang } from '../lib/format'
 import { tautanPengingat } from '../lib/pengingat'
 import { Icon, ikonJenis } from './Icon'
 import { Pilihan } from './Pilihan'
@@ -36,13 +36,19 @@ function Check({ it }: { it: Item }) {
       </div>
     )
   }
+  const metaManual =
+    it.ulang_jumlah && it.ulang_satuan
+      ? labelUlangItem(it.ulang_jumlah, it.ulang_satuan)
+      : it.jenis === 'tagihan'
+        ? 'Sekali bayar'
+        : 'Tanggal diisi sendiri'
   return (
     <div className="check">
       <span className="check__src">
-        <Icon name="pencil" />
+        <Icon name={it.ulang_jumlah && it.ulang_satuan ? 'repeat' : 'pencil'} />
         Manual
       </span>
-      <span className="check__meta">Tanggal diisi sendiri</span>
+      <span className="check__meta">{metaManual}</span>
     </div>
   )
 }
@@ -50,12 +56,13 @@ function Check({ it }: { it: Item }) {
 /** "Domain · Rp 250.000 · MarkMonitor Inc.": the type, the cost when there is one, then the issuer or registrar. */
 export function subJenis(it: Item): string {
   const asal = it.jenis === 'sertifikat' ? it.tls?.penerbit : it.sumber === 'registri' ? it.registri?.registrar : null
-  return [labelJenis[it.jenis], it.biaya ? rupiahBiasa(it.biaya) : null, asal].filter(Boolean).join(' · ')
+  return [labelJenis[it.jenis], it.biaya ? uang(it.biaya, it.mata_uang) : null, asal].filter(Boolean).join(' · ')
 }
 
 function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTerbuka: boolean; bukaMenu: (el: HTMLElement) => void }) {
-  // Certificates and registry domains are read again on request; the rest is extended by hand.
+  // Certificates and registry domains are read again on request; bills are marked paid and manual assets are renewed.
   const bisaCek = !!it.host && (it.jenis === 'sertifikat' || it.sumber === 'registri')
+  const tagihan = it.jenis === 'tagihan'
   const cek = aksi.sedangCek.has(it.id)
   return (
     <div className="row" role="listitem" aria-label={`${it.nama}, ${frasaHari(it.sisa_hari)}`}>
@@ -96,8 +103,13 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
             <Icon name={cek ? 'loader' : 'refresh'} className={cek ? 'spin' : undefined} />
             {cek ? 'Memeriksa' : 'Cek ulang'}
           </button>
+        ) : tagihan ? (
+          <button type="button" className="btn btn--secondary is-sm btn--fixed" onClick={() => aksi.perpanjang(it)}>
+            <Icon name="check" />
+            Tandai dibayar
+          </button>
         ) : (
-          <button type="button" className="btn btn--secondary is-sm btn--fixed" onClick={() => aksi.ubah(it, 'kedaluwarsa')}>
+          <button type="button" className="btn btn--secondary is-sm btn--fixed" onClick={() => aksi.perpanjang(it)}>
             <Icon name="calendar" />
             Perpanjang
           </button>
@@ -117,7 +129,7 @@ function Row({ it, aksi, menuTerbuka, bukaMenu }: { it: Item; aksi: Aksi; menuTe
   )
 }
 
-const JENIS_UTAMA: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan']
+const JENIS_UTAMA: Jenis[] = ['domain', 'sertifikat', 'token', 'langganan', 'tagihan']
 
 interface Props {
   items: Item[]
@@ -239,7 +251,7 @@ export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = 
             {items.length === 0 ? (
               <>
                 <b>Klien ini belum punya aset.</b>
-                <span>Tambahkan domain, sertifikat, token, atau langganan milik klien ini.</span>
+                <span>Tambahkan domain, sertifikat, token, langganan, atau tagihan milik klien ini.</span>
               </>
             ) : (
               <>
@@ -262,6 +274,7 @@ export function DaftarAset({ items, klien, saring, setSaring, aksi, satuKlien = 
       {menu ? (
         <RowMenu
           anchor={menu.el}
+          tagihan={menu.it.jenis === 'tagihan'}
           onClose={tutupMenu}
           onUbah={() => {
             setMenu(null)

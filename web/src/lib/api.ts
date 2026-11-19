@@ -1,9 +1,12 @@
 // Typed client for the Tenggat API. Every request goes to the same origin; nginx
 // (and the Vite dev server) forwards /api to the Go service.
 
-export type Jenis = 'sertifikat' | 'domain' | 'token' | 'langganan' | 'lainnya'
+export type Jenis = 'sertifikat' | 'domain' | 'token' | 'langganan' | 'tagihan' | 'lainnya'
 export type Status = 'lewat' | 'kritis' | 'segera' | 'aman'
 export type Sumber = 'manual' | 'server' | 'registri'
+export type MataUang = 'IDR' | 'USD'
+export type SatuanUlang = 'hari' | 'minggu' | 'bulan' | 'tahun'
+export type BiayaPerMataUang = Partial<Record<MataUang, number>>
 
 export interface TLSInfo {
   penerbit: string
@@ -27,6 +30,10 @@ export interface Item {
   status: Status
   sumber: Sumber
   biaya: number | null
+  mata_uang: MataUang
+  ulang_jumlah: number | null
+  ulang_satuan: SatuanUlang | null
+  selesai_pada: string | null
   catatan: string
   tls: TLSInfo | null
   registri: RegistriInfo | null
@@ -54,7 +61,22 @@ export interface ItemInput {
   host?: string
   kedaluwarsa?: string
   biaya?: number | null
+  mata_uang?: MataUang
+  ulang_jumlah?: number | null
+  /** Send '' on PUT to remove an existing recurrence. */
+  ulang_satuan?: SatuanUlang | '' | null
   catatan?: string
+}
+
+export interface PerpanjangInput {
+  /** The kedaluwarsa the user is looking at; 409 means the item changed meanwhile. */
+  dari: string
+  /** New expiry date (YYYY-MM-DD); required for a non-recurring manual asset that is not a bill. */
+  sampai?: string
+  jumlah?: number | null
+  mata_uang?: MataUang
+  catatan?: string
+  tanggal?: string
 }
 
 export interface PratinjauSertifikat {
@@ -188,6 +210,8 @@ export const api = {
     request<Item>(`/api/item/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   hapus: (id: string) => request<void>(`/api/item/${id}`, { method: 'DELETE' }),
   cekUlang: (id: string) => request<Item>(`/api/item/${id}/cek`, { method: 'POST' }),
+  perpanjang: (id: string, input: PerpanjangInput) =>
+    request<Item>(`/api/item/${id}/perpanjang`, { method: 'POST', body: JSON.stringify(input) }),
   pratinjau: (host: string) =>
     request<PratinjauSertifikat>(`/api/sertifikat?host=${encodeURIComponent(host)}`),
   kalenderUrl: '/api/kalender.ics',
@@ -245,6 +269,7 @@ export interface Klien {
   jumlah_aset: number
   terdekat: string | null // YYYY-MM-DD, null without assets
   biaya_30_hari: number
+  biaya_30_hari_per_mata_uang?: BiayaPerMataUang
 }
 
 export interface KlienInput {

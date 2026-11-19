@@ -38,6 +38,7 @@ const paths = {
   'message-circle': <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
   'chevron-right': <path d="m9 18 6-6-6-6" />,
   'arrow-left': <><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>,
+  receipt: <><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M14 8H8" /><path d="M16 12H8" /><path d="M13 16H8" /></>,
 }
 
 export type IconName = keyof typeof paths
@@ -55,5 +56,6 @@ export const ikonJenis: Record<Jenis, IconName> = {
   sertifikat: 'lock',
   token: 'key',
   langganan: 'repeat',
+  tagihan: 'receipt',
   lainnya: 'tag',
 }

@@ -2,7 +2,7 @@
 // paper. CetakLaporan puts a copy straight under <body> so the browser prints only the document (laporan.css).
 import { createPortal } from 'react-dom'
 import { bagianDurasi, durasi, type Laporan } from '../lib/api-laporan'
-import { kelasStatus, labelJenis, labelStatus, rupiahBiasa, sisaHari, tanggal, urutanStatus } from '../lib/format'
+import { daftarUang, kelasStatus, kelompokBiaya, labelJenis, labelStatus, sisaHari, tanggal, teksUang, uang, urutanStatus } from '../lib/format'
 import { Pill } from './ui'
 
 export { durasi }
@@ -88,7 +88,8 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
   const teks = (catatan ?? l.catatan ?? '').trim()
   const perluTindakan = r.per_status.lewat + r.per_status.kritis + r.per_status.segera
   const totalStatus = urutanStatus.reduce((n, s) => n + r.per_status[s], 0)
-  const biaya60 = l.jatuh_tempo.reduce((n, j) => n + (j.biaya ?? 0), 0)
+  const biaya30 = daftarUang(r.biaya_30_hari_per_mata_uang, r.biaya_30_hari)
+  const biaya60 = teksUang(kelompokBiaya(l.jatuh_tempo))
   const menitDicatat = l.pekerjaan.reduce((n, p) => n + (p.durasi_menit ?? 0), 0)
   const entriBerdurasi = l.pekerjaan.filter((p) => p.durasi_menit).length
   // A month that has ended shows its own work and renewals; assets can only be shown as they are today.
@@ -169,7 +170,13 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
               </div>
               <div className="lap__fig">
                 <span className="lap__fig-label">Biaya 30 hari</span>
-                <span className="lap__fig-n num">{r.biaya_30_hari > 0 ? rupiahBiasa(r.biaya_30_hari) : 'Tidak ada'}</span>
+                <span className={biaya30.length > 1 ? 'lap__fig-n num is-ganda' : 'lap__fig-n num'}>
+                  {biaya30.length === 0
+                    ? 'Tidak ada'
+                    : biaya30.length === 1
+                      ? biaya30[0]
+                      : biaya30.map((t) => <span key={t}>{t}</span>)}
+                </span>
                 <span className="lap__fig-sub">perpanjangan jatuh tempo</span>
               </div>
             </>
@@ -269,7 +276,7 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
         <section className="lap__bagian">
           <div className="lap__judul-bagian">
             <S className="lap__sub">Jatuh tempo 60 hari ke depan</S>
-            {biaya60 > 0 ? <span className="lap__total">Perkiraan biaya {rupiahBiasa(biaya60)}</span> : null}
+            {biaya60 ? <span className="lap__total">Perkiraan biaya {biaya60}</span> : null}
           </div>
           {l.jatuh_tempo.length === 0 ? (
             <p className="lap__kosong">Tidak ada aset atau tugas yang jatuh tempo dalam 60 hari ke depan.</p>
@@ -297,7 +304,7 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
                       <Pill status={j.status} />
                     </td>
                     <td className="k-angka num" data-label="Biaya">
-                      {j.biaya != null ? rupiahBiasa(j.biaya) : <span className="k-kosong">-</span>}
+                      {j.biaya != null ? uang(j.biaya, j.mata_uang ?? 'IDR') : <span className="k-kosong">-</span>}
                     </td>
                   </tr>
                 ))}
@@ -346,7 +353,7 @@ export function LaporanDokumen({ laporan: l, catatan, varian = 'publik', tingkat
                     <Pill status={a.status} />
                   </td>
                   <td className="k-angka num" data-label="Biaya">
-                    {a.biaya != null ? rupiahBiasa(a.biaya) : <span className="k-kosong">-</span>}
+                    {a.biaya != null ? uang(a.biaya, a.mata_uang ?? 'IDR') : <span className="k-kosong">-</span>}
                   </td>
                 </tr>
               ))}
